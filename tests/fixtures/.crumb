@@ -3,21 +3,21 @@
     "generated": {
       "children": [
         {
-          "digest": "a083033f9037bbfb3c87cd616ae3c26cd8fe10b411c7f4caaafbadd00b163a7b",
-          "last_commit": "",
+          "digest": "6b567c54ee577f3ec525578697a78868f0b14a7115fac081975e19dfb79bc2cd",
+          "last_commit": "d58dd0c",
           "name": "dual",
           "purpose": "Golden DUAL record encodings and C decoder statuses produced by omega dual/0a-records (commit f0"
         }
       ],
-      "children_root": "sha256:3d82a9f6f051152464adde213b9da311025c9219ec4edaee2bcbbf444457eb95",
-      "compiled_at": "2026-10-04T18:16:00Z",
+      "children_root": "sha256:2b9f41620de56bd08cad85f51be8a9583263776129f19bb8f8412b2bd085f850",
+      "compiled_at": "2026-10-04T18:16:58Z",
       "compiler": "crumb-compile/1",
-      "digest": "sha256:c35078bcb71dc97952c3223a12c2bd1dd384eda35105942ce9dce9ab38a9aaab",
+      "digest": "sha256:d1b0499983ee2182cd3f5232819266bb74afcf35908c4a6fb64a9dd073d228fa",
       "evidence_files": 0,
       "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "files": 1,
-      "generated_at_commit": "f5f1ca2247057c40c7f93b71b60508c1f400271b",
-      "source_tree": "sha256:b7cc61aa546232e2ff53e5ba26f87ed1d6db2d2e0fa2971366e99dd5d17ed107"
+      "files": 2,
+      "generated_at_commit": "d58dd0c1c4c2d26bd9a49736ced0c6f07087bf2b",
+      "source_tree": "sha256:2876c463fae6899df1021fe0b5d0873cb8f7b4d67e8e56a4b6e36917c030c6cc"
     }
   },
   "layer": "tests/fixtures",

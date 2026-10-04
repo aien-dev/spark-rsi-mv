@@ -7,21 +7,21 @@
     "generated": {
       "children": [
         {
-          "digest": "c35078bcb71dc97952c3223a12c2bd1dd384eda35105942ce9dce9ab38a9aaab",
-          "last_commit": "a13b0dd",
+          "digest": "d1b0499983ee2182cd3f5232819266bb74afcf35908c4a6fb64a9dd073d228fa",
+          "last_commit": "d58dd0c",
           "name": "fixtures",
           "purpose": "Test fixtures: recorded evidence files and golden vectors used by integration tests."
         }
       ],
-      "children_root": "sha256:9441afe5a6f79ffa66b8a6d3a3140b35156b6eceb2a62e3c818ee59e9ede5981",
-      "compiled_at": "2026-10-04T18:16:00Z",
+      "children_root": "sha256:a1e62174b0d03ef0af66ee47476fe3a62ac7075f4c92ad9341ef87beefa3a8f8",
+      "compiled_at": "2026-10-04T18:16:58Z",
       "compiler": "crumb-compile/1",
-      "digest": "sha256:72f152eb545f1d2f9ef18e3ff11452a0ee1761cc0cea4cc044e0c0aedcadb703",
+      "digest": "sha256:4200c52520ba10a0127c848dfb1d0e2811bb67410ee220a634e87fd8a7e36eba",
       "evidence_files": 0,
       "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "files": 14,
-      "generated_at_commit": "f5f1ca2247057c40c7f93b71b60508c1f400271b",
-      "source_tree": "sha256:f2d4f285e9492382447719d2bb91271d4134ca65723666eae498e3b30423b3e3"
+      "files": 16,
+      "generated_at_commit": "d58dd0c1c4c2d26bd9a49736ced0c6f07087bf2b",
+      "source_tree": "sha256:68ee5eef36ae042fe5dc43ba6a2eb16240eeb8e91edad7d6069f29a22a92c34b"
     },
     "owner_lane": "",
     "seed": {
