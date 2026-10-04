@@ -1,0 +1,27 @@
+{
+  "extensions": {
+    "generated": {
+      "children": [
+        {
+          "digest": "8758fcb81379b2ec5d76251851640cc357838183eb63ebda62d53438985fefb9",
+          "last_commit": "",
+          "name": "dual",
+          "purpose": "Evidence receipt and throwaway C golden-vector generator for the RSI DUAL diagnostic reader PR."
+        }
+      ],
+      "children_root": "sha256:b9fd790e96699a6f8e64e41d29e4dbb3199a279c81087fa00ee91ed9a2f7633d",
+      "compiled_at": "2026-10-04T18:16:26Z",
+      "compiler": "crumb-compile/1",
+      "digest": "sha256:d64e6866782427d15a8468c26964449591ddf864af4e36efe6cfdb4267e01778",
+      "evidence_files": 0,
+      "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "files": 0,
+      "generated_at_commit": "f5f1ca2247057c40c7f93b71b60508c1f400271b",
+      "source_tree": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "layer": "evidence",
+  "name": "evidence",
+  "purpose": "Evidence receipts for verified changes (commands, results, SHAs, verdicts).",
+  "schema_version": "1.0.0"
+}
