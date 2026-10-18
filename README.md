@@ -47,7 +47,7 @@ git clone https://github.com/aien-dev/aien-protocols ../aien-protocols
 cargo test --locked -- --test-threads=1
 ```
 
-The build jail runs `bwrap` (bubblewrap), which must be installed on the machine that runs the tests. The balance kernel is native Rust (`src/balance.rs`); it needs no extra toolchain.
+The build jail runs `bwrap` (bubblewrap), which must be installed on the machine that runs the tests. Every jail that runs cargo finds the Rust toolchain the way cargo and rustup do: `CARGO_HOME` and `RUSTUP_HOME` when set (else `$HOME/.cargo` and `$HOME/.rustup`), plus the `PATH` directory holding `cargo`. It binds those directories read-only inside the jail and sets the same variables there, so a host whose toolchain lives outside the home directory (the Spark judge keeps it in `/var/lib/aien-run/cargo` and `/var/lib/aien-run/rustup`) still builds candidates. A directory that is or holds the judge's home is never exposed. The balance kernel is native Rust (`src/balance.rs`); it needs no extra toolchain.
 
 Since 2026-10-16 every pull request is tested on the DGX Spark by AIEN's own pipeline, and the only required check on `main` is `AIEN Verification` ([docs/PIPELINE.md](docs/PIPELINE.md)). The hosted "Sovereign CI" workflow ([.github/workflows/ci.yml](.github/workflows/ci.yml)) now runs only when started by hand.
 

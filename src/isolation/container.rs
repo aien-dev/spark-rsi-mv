@@ -1,6 +1,27 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use super::cargo_sandbox::Toolchain;
+
+/// The jail PATH after the toolchain bin directories.
+const JAIL_PATH_TAIL: &[&str] = &["/usr/local/cuda/bin", "/usr/local/bin", "/usr/bin", "/bin"];
+
+/// Binds the host toolchain read-only at its own path and points `RUSTUP_HOME` / `CARGO_HOME`
+/// at it, wherever it lives (see [`Toolchain`]).
+fn push_toolchain(args: &mut Vec<String>, toolchain: &Toolchain) {
+    for d in toolchain.bind_dirs() {
+        let d = d.display().to_string();
+        args.push("--ro-bind".to_string());
+        args.push(d.clone());
+        args.push(d);
+    }
+    for (k, d) in toolchain.env() {
+        args.push("--setenv".to_string());
+        args.push(k.to_string());
+        args.push(d.display().to_string());
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SandboxLimits {
     pub max_memory_mb: u64,
@@ -193,19 +214,9 @@ impl BuildJail {
             args.push("/etc".to_string());
             args.push("/etc".to_string());
         }
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/home/drakestapleton".to_string());
-        let cargo_home = Path::new(&home).join(".cargo");
-        if cargo_home.exists() {
-            args.push("--ro-bind".to_string());
-            args.push(cargo_home.display().to_string());
-            args.push(cargo_home.display().to_string());
-        }
-        let rustup_home = Path::new(&home).join(".rustup");
-        if rustup_home.exists() {
-            args.push("--ro-bind".to_string());
-            args.push(rustup_home.display().to_string());
-            args.push(rustup_home.display().to_string());
-        }
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        let toolchain = Toolchain::from_env();
+        push_toolchain(&mut args, &toolchain);
 
         let target_dir = Path::new("/tmp/spark-rsi-target");
         if !target_dir.exists() {
@@ -220,10 +231,7 @@ impl BuildJail {
 
         args.push("--setenv".to_string());
         args.push("PATH".to_string());
-        args.push(format!(
-            "{}/.cargo/bin:/usr/local/cuda/bin:/usr/local/bin:/usr/bin:/bin",
-            home
-        ));
+        args.push(toolchain.jail_path(JAIL_PATH_TAIL));
         args.push("--setenv".to_string());
         args.push("HOME".to_string());
         args.push(home.clone());
@@ -383,19 +391,9 @@ impl CandidateJailRunner {
             args.push("/etc".to_string());
             args.push("/etc".to_string());
         }
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/home/drakestapleton".to_string());
-        let cargo_home = Path::new(&home).join(".cargo");
-        if cargo_home.exists() {
-            args.push("--ro-bind".to_string());
-            args.push(cargo_home.display().to_string());
-            args.push(cargo_home.display().to_string());
-        }
-        let rustup_home = Path::new(&home).join(".rustup");
-        if rustup_home.exists() {
-            args.push("--ro-bind".to_string());
-            args.push(rustup_home.display().to_string());
-            args.push(rustup_home.display().to_string());
-        }
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        let toolchain = Toolchain::from_env();
+        push_toolchain(&mut args, &toolchain);
 
         let bin_dir = self
             .candidate_bin
@@ -425,10 +423,7 @@ impl CandidateJailRunner {
 
         args.push("--setenv".to_string());
         args.push("PATH".to_string());
-        args.push(format!(
-            "{}/.cargo/bin:/usr/local/cuda/bin:/usr/local/bin:/usr/bin:/bin",
-            home
-        ));
+        args.push(toolchain.jail_path(JAIL_PATH_TAIL));
         args.push("--setenv".to_string());
         args.push("HOME".to_string());
         args.push(home.clone());
@@ -488,6 +483,24 @@ mod tests {
         assert!(args.contains(&"--die-with-parent".to_string()));
         assert!(args.contains(&"/output".to_string()));
         assert!(args.contains(&"cargo".to_string()));
+        // The toolchain the host resolves is bound read-only at its own path and named by its
+        // variables, wherever it lives.
+        let toolchain = Toolchain::from_env();
+        for d in toolchain.bind_dirs() {
+            let d = d.display().to_string();
+            assert!(
+                args.windows(3)
+                    .any(|w| w[0] == "--ro-bind" && w[1] == d && w[2] == d),
+                "toolchain dir {} not bound",
+                d
+            );
+        }
+        for (k, d) in toolchain.env() {
+            let d = d.display().to_string();
+            assert!(args
+                .windows(3)
+                .any(|w| w[0] == "--setenv" && w[1] == k && w[2] == d));
+        }
     }
 
     #[test]
