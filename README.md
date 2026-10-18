@@ -1,16 +1,16 @@
 # Spark RSI: Recursive Self-Improvement Engine
 
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](LICENSE)
+
+Spark RSI is a native Rust engine that tries to improve a code repository on its own: it observes the target, asks a model for small improvement proposals, tests each one in a sandbox copy, and hands a human a review branch. It never commits to the target's default branch. The model is any OpenAI-style chat completions endpoint (the local model seat) given with `--model-url` and `--model-id`. Some defaults are specific to the Spark: the model endpoint `http://127.0.0.1:18006/v1`, the model name `atlas-lightning-omni` and the Cortex memory service `http://127.0.0.1:18080`.
+
+An attachment of [Aienix](https://github.com/aien-dev/aienix), the core tree of AIEN. It lives in its own repository and plugs into the core at a boundary.
+
+**Status (2026-10-18): pre-alpha, not part of the WHOLE-SYSTEM-E2E v1 release** (Drake, 2026-10-10). Evaluated independently; no unattended self-modification or automatic promotion. The daemon's promotion gate requires a version 2 receipt from a separate judge ([docs/RECEIPT-V2.md](docs/RECEIPT-V2.md)) and refuses every candidate its own in-process judge evaluated. The last feature work merged on 2026-10-13 (supervisor-verified canary evidence and measured stage timings, plan in [docs/plans](docs/plans)); the changes since then (2026-10-15 and 2026-10-16) removed Modular MAX, Mojo and Python and moved testing to AIEN's Spark pipeline.
+
 ## Copyright
 
 Copyright (c) 2026 Drake Stapleton <aien@aienos.com> and AIEN Contributors. Authored by Drake Stapleton in collaboration with AIEN.
-
-[![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](LICENSE)
-[![Target](https://img.shields.io/badge/Target-Grace%20Blackwell%20GB10-76B900.svg)](https://www.nvidia.com)
-[![Rust](https://img.shields.io/badge/Rust-1.85+-orange.svg)](https://www.rust-lang.org)
-
-Native Rust Recursive Self-Improvement (RSI) engine for autonomous AI agents. The operator identity is configurable, and the model is any OpenAI-style chat completions endpoint (the local model seat) given with `--model-url` and `--model-id`. Some defaults are specific to the Spark: the model endpoint `http://127.0.0.1:18006/v1`, the model name `atlas-lightning-omni` and the Cortex memory service `http://127.0.0.1:18080`.
-
-**Status:** Not part of the WHOLE-SYSTEM-E2E v1 release (Drake, 2026-10-10). Evaluated independently; no unattended self-modification or automatic promotion. The daemon's promotion gate requires a version 2 receipt from a separate judge ([docs/RECEIPT-V2.md](docs/RECEIPT-V2.md)) and refuses every candidate its own in-process judge evaluated.
 
 ---
 
@@ -40,16 +40,16 @@ The saved engine settings (`mode`, `api_base_url`, `model_id`) are shown by `spa
 
 ## Build and Verification
 
-spark-rsi is not a standalone checkout. It depends on the protocol crates by path, so [aien-protocols](https://github.com/aien-spark/aien-protocols) must be cloned next to it:
+spark-rsi is not a standalone checkout. It depends on the protocol crates by path, so [aien-protocols](https://github.com/aien-dev/aien-protocols) must be cloned next to it:
 
 ```bash
-git clone https://github.com/aien-spark/aien-protocols ../aien-protocols
+git clone https://github.com/aien-dev/aien-protocols ../aien-protocols
 cargo test --locked -- --test-threads=1
 ```
 
-The build jail runs `bwrap` (bubblewrap), which CI installs. The balance kernel is native Rust (`src/balance.rs`); it needs no extra toolchain.
+The build jail runs `bwrap` (bubblewrap), which must be installed on the machine that runs the tests. The balance kernel is native Rust (`src/balance.rs`); it needs no extra toolchain.
 
-CI is the "Sovereign CI" workflow ([.github/workflows/ci.yml](.github/workflows/ci.yml)); its job "Test & Invariant Verification" is the required check on `main`.
+Since 2026-10-16 every pull request is tested on the DGX Spark by AIEN's own pipeline, and the only required check on `main` is `AIEN Verification` ([docs/PIPELINE.md](docs/PIPELINE.md)). The hosted "Sovereign CI" workflow ([.github/workflows/ci.yml](.github/workflows/ci.yml)) now runs only when started by hand.
 
 ### Version 2 judge receipts from the CLI
 
@@ -74,6 +74,5 @@ Downstream builders are governed exclusively by the terms of [LICENSE](LICENSE).
 ## License and Governance
 
 Licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). See [LICENSE](LICENSE). Project values live in the nonbinding [COVENANT.md](COVENANT.md), which grants and restricts no legal rights.
-Architected by AIEN (Autonomous Cognitive Architecture operating on the Atlas Framework) and sovereign ecosystem contributors. See [LICENSE](LICENSE) for full legal terms and copyright notices.
 
 All downstream distributions, derivative works, and commercial deployments are governed exclusively by the terms of [LICENSE](LICENSE). [CONSTITUTION.md](CONSTITUTION.md) defines the internal architectural charter and development doctrine for upstream engineering.
