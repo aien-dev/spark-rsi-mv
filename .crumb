@@ -55,8 +55,8 @@
           "purpose": "Repository scripts. check-no-python.sh is the CI guard that fails the build if any Python file i"
         },
         {
-          "digest": "445aabc26f5f5d60e9d44c3c7d103f44abb9ab74fec129024863ba7d2ddab315",
-          "last_commit": "2550835",
+          "digest": "add2dc5b497a20c62cdbf5d033b03980eb5edbb3c6ba5e33701f32d34cac37e6",
+          "last_commit": "228cae8",
           "name": "src",
           "purpose": "Directory src. Purpose not yet described by a human."
         },
@@ -67,15 +67,15 @@
           "purpose": "Directory tests. Purpose not yet described by a human."
         }
       ],
-      "children_root": "sha256:cdfd0a04a2c07c12fd9dfa207198278e0458bd6845a6618e42d8af9daf1cec99",
-      "compiled_at": "2026-10-18T04:46:09Z",
+      "children_root": "sha256:b435713bf59491df3813345ecba875850fceeaee3e02cc2cb7ce182a5bd88f6b",
+      "compiled_at": "2026-10-18T19:27:24Z",
       "compiler": "crumb-compile/1",
-      "digest": "sha256:c01866f719c8e9c7ec460aa387317dd136be5b09001193012aa328fd6b6fc334",
+      "digest": "sha256:587a946bcd76885fa6c74d8018258c21262747d8f7f640cee16f66bb0e0d6839",
       "evidence_files": 27,
       "evidence_root": "sha256:5552ba32dc3c69f7c3700b23a1a62a89d259ce203bc957986946d37e7a8b6ffd",
       "files": 167,
-      "generated_at_commit": "b7900a5846965cabfe88d3de4d29ad7ab187f9b8",
-      "source_tree": "sha256:7392fe8ea6760019f66c8f48965a4f6b50d710a2207d8fab0a01b7a7415f7843"
+      "generated_at_commit": "f20a283067cb8fac4f28441225c0e7233dedc135",
+      "source_tree": "sha256:0c98dc8648390e6430ed9adc3da00115d94035227129b4dbffbb72c8e9f39f4c"
     },
     "owner_lane": "",
     "seed": {
