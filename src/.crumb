@@ -50,7 +50,7 @@
       "children": [
         {
           "digest": "55e07a60a3b23bec1eb421a3cb8e85ddc988951815c08925eaaf5efcb68e744b",
-          "last_commit": "3887fe4",
+          "last_commit": "2550835",
           "name": "actor",
           "purpose": "Directory src/actor. Purpose not yet described by a human."
         },
@@ -74,19 +74,19 @@
         },
         {
           "digest": "7a9223e7c980630e2411fad98e21a277a18839755af171b524c06c33447d1d38",
-          "last_commit": "3887fe4",
+          "last_commit": "2550835",
           "name": "evaluator",
           "purpose": "Directory src/evaluator. Purpose not yet described by a human."
         },
         {
           "digest": "ffec74e6a355e3a2712544be7a604225ff768bb9e5407c0ad92ef29b98bdd59d",
-          "last_commit": "3887fe4",
+          "last_commit": "2550835",
           "name": "graph",
           "purpose": "Directory src/graph. Purpose not yet described by a human."
         },
         {
-          "digest": "35a987bf8e546fb4a15a8c0567a7749e512486420583ac6522810d6b0b3747d6",
-          "last_commit": "4becebb",
+          "digest": "446f76a366ad4edd21121815eac76ccc7178bffcf5b3fd07b051f350ec6f30bf",
+          "last_commit": "0ca415e",
           "name": "isolation",
           "purpose": "Directory src/isolation. Purpose not yet described by a human."
         },
@@ -98,7 +98,7 @@
         },
         {
           "digest": "3987281b8d1386c32444fda48896d3f5cc52a798be51d2f9ca95c808646bc826",
-          "last_commit": "3887fe4",
+          "last_commit": "2550835",
           "name": "measure",
           "purpose": "M1 Measurement: stage samples, sample log, compatibility filtering, percentile statistics, claim"
         },
@@ -110,13 +110,13 @@
         },
         {
           "digest": "9c8d3e6d776c9b3e906c92247ba63bf4b577518899198bd0376f341b7d382868",
-          "last_commit": "3887fe4",
+          "last_commit": "2550835",
           "name": "propose",
           "purpose": "Directory src/propose. Purpose not yet described by a human."
         },
         {
           "digest": "233ca920c4a0952157d5fe254657bbb5c8efde53639e6c5d4e3181d90fd1a99d",
-          "last_commit": "3887fe4",
+          "last_commit": "2550835",
           "name": "soak",
           "purpose": "Directory src/soak. Purpose not yet described by a human."
         },
@@ -127,15 +127,15 @@
           "purpose": "Directory src/supervisor. Purpose not yet described by a human."
         }
       ],
-      "children_root": "sha256:6ba24276c321d1bf2d767f98fadfbbfdfb42a521738ec9099ff7cb1eaab32ac1",
-      "compiled_at": "2026-10-15T11:19:53Z",
+      "children_root": "sha256:27768056ad09f30b43f069dd06fd8816f0ccf58de5abbb2b6434215bd8426fbe",
+      "compiled_at": "2026-10-18T11:30:34Z",
       "compiler": "crumb-compile/1",
-      "digest": "sha256:445aabc26f5f5d60e9d44c3c7d103f44abb9ab74fec129024863ba7d2ddab315",
+      "digest": "sha256:add2dc5b497a20c62cdbf5d033b03980eb5edbb3c6ba5e33701f32d34cac37e6",
       "evidence_files": 0,
       "evidence_root": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "files": 74,
-      "generated_at_commit": "3887fe48faf5231278e409070312d7093bd9db8e",
-      "source_tree": "sha256:f6602098989ab6e42694dc3c8662e388851961ba3238873a77cec31af09bda21"
+      "generated_at_commit": "0ca415e98044329247f2ddfa141f7c90a319bd58",
+      "source_tree": "sha256:05a143f3594e78449d8d83568fe5e9c63362b72deaf1076e6053c1e1332d8484"
     },
     "owner_lane": "",
     "seed": {
