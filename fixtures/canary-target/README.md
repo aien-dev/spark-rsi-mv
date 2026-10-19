@@ -1,7 +1,7 @@
 # canary-target
 
 The first canary target: a small standalone worker that speaks the canary wire protocol
-(version 1, docs/CANARY-CONTRACT.md) so the supervisor's execution pipeline can be exercised
+(version 1, [docs/CANARY-CONTRACT.md](../../docs/CANARY-CONTRACT.md)) so the supervisor's execution pipeline can be exercised
 and qualified. It does not depend on spark_rsi.
 
 Build (offline, from the repository root):
