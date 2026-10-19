@@ -4,13 +4,7 @@
     "path": ".."
   },
   "extensions": {
-    "owner_lane": "",
-    "seed": {
-      "files": [
-        "check-no-python.sh"
-      ],
-      "purpose_auto": "Directory scripts. Purpose not yet described by a human."
-    }
+    "owner_lane": ""
   },
   "layer": "scripts",
   "name": "scripts",

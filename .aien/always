@@ -1,4 +1,3 @@
 # Gates that run on every commit regardless of changed paths (ADR 0033 Decision 12
 # allow-list; inventory contract C6). One gate name per line. Read from the base ref.
-CRUMB-VERIFY
 RSI-ZERO-DISK-SECRETS

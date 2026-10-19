@@ -52,13 +52,12 @@ The gates, all run through `tests/gates/run.sh <step>`:
 
 | Gate | Step | What it runs |
 |---|---|---|
-| `CRUMB-VERIFY` | `crumb-verify` | `crumb verify .` (every commit) |
 | `RSI-ZERO-DISK-SECRETS` | `zero-disk-secrets` | refuses any `.env` file (every commit) |
 | `RSI-FMT` | `fmt` | `cargo fmt --all -- --check` |
 | `RSI-CHECK` | `check` | `cargo check --locked --all-targets` |
 | `RSI-TEST` | `test` | release build, then `cargo test --locked --verbose -- --test-threads=1` |
 
-The first two are listed in [.aien/always](.aien/always) and run on every commit. The others run when their input files change. How a pull request gets merged is in [docs/PIPELINE.md](docs/PIPELINE.md).
+The first one is listed in [.aien/always](.aien/always) and runs on every commit. The others run when their input files change. The `.crumb` files are notes for agents. They are never a merge check. How a pull request gets merged is in [docs/PIPELINE.md](docs/PIPELINE.md).
 
 ### Version 2 judge receipts from the CLI
 

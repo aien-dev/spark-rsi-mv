@@ -22,33 +22,10 @@
     }
   ],
   "extensions": {
-    "generated_policy": "on-demand",
-    "owner_lane": "",
-    "seed": {
-      "files": [
-        "AGENTS.md",
-        "AGENT_CODE_OF_CONDUCT.md",
-        "CONSTITUTION.md",
-        "CONTRIBUTING.md",
-        "COVENANT.md",
-        "Cargo.lock",
-        "Cargo.toml",
-        "LICENSE",
-        "README.md",
-        "SECURITY.md",
-        "agent.json",
-        "llms.txt"
-      ],
-      "git": {
-        "branch": "hardening/LF-ratifier-branch-only",
-        "head": "d665db6",
-        "remote": "git@github.com:aien-spark/spark-rsi.git"
-      },
-      "purpose_auto": "Repository root spark-rsi. Purpose not yet described by a human."
-    }
+    "owner_lane": ""
   },
   "layer": "root",
   "name": "spark-rsi",
-  "purpose": "Repository root spark-rsi. Purpose not yet described by a human.",
+  "purpose": "Spark RSI is a native Rust engine that tries to improve a code repository on its own.",
   "schema_version": "1.0.0"
 }
