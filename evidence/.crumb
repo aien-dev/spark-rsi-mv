@@ -1,31 +1,4 @@
 {
-  "extensions": {
-    "generated": {
-      "children": [
-        {
-          "digest": "016326ff4c2ca60b53df85fe326c0b0e663d59f837ad5b628a27bd2acf4e4cab",
-          "last_commit": "e5aab9a",
-          "name": "dual",
-          "purpose": "Evidence receipt and throwaway C golden-vector generator for the RSI DUAL diagnostic reader PR."
-        },
-        {
-          "digest": "028b22920f684769fd4b152caaa961dba5fa9c8553281a268a2d77c67365eee1",
-          "last_commit": "721d512",
-          "name": "rsi-cut-2026-10-12",
-          "purpose": "Qualification evidence for the M1+M2 evidence-driven RSI cut: two real cycles against the fixtur"
-        }
-      ],
-      "children_root": "sha256:79e17bac211bf73fe7b9a58368c8f4e9cde7fa8da249ad09503628963fbad158",
-      "compiled_at": "2026-10-12T22:54:52Z",
-      "compiler": "crumb-compile/1",
-      "digest": "sha256:ad534f55b6c064b5a928bf2a7ff0d4fd766bc167a942931ca5222c4dcb93f31c",
-      "evidence_files": 27,
-      "evidence_root": "sha256:5552ba32dc3c69f7c3700b23a1a62a89d259ce203bc957986946d37e7a8b6ffd",
-      "files": 27,
-      "generated_at_commit": "721d512366f91dc9fdf8f719c36930f9e4e548ef",
-      "source_tree": "sha256:6753ecf81754ddc6aa4a7bf164f88bae6b1d0a86e00285fa92530db415ca91e2"
-    }
-  },
   "layer": "evidence",
   "name": "evidence",
   "purpose": "Evidence receipts for verified changes (commands, results, SHAs, verdicts).",

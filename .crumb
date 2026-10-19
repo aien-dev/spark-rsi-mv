@@ -22,61 +22,7 @@
     }
   ],
   "extensions": {
-    "generated": {
-      "children": [
-        {
-          "digest": "beeea966692ccfbce06249fe18df036de44bb2309af5e669637fd17250008b1b",
-          "last_commit": "da4e78f",
-          "name": "docs",
-          "purpose": "Directory docs. Purpose not yet described by a human."
-        },
-        {
-          "digest": "ad534f55b6c064b5a928bf2a7ff0d4fd766bc167a942931ca5222c4dcb93f31c",
-          "last_commit": "721d512",
-          "name": "evidence",
-          "purpose": "Evidence receipts for verified changes (commands, results, SHAs, verdicts)."
-        },
-        {
-          "digest": "6a240842484537542c1e411fa947ef7100cb565c86855b04fff38250a792c553",
-          "last_commit": "2550835",
-          "name": "examples",
-          "purpose": "Directory examples. Purpose not yet described by a human."
-        },
-        {
-          "digest": "006585ce999529dfad9292b8508eb40e26c08f661ab0a49a423e11664e23027d",
-          "last_commit": "e801134",
-          "name": "fixtures",
-          "purpose": "Fixture crates that qualify the canary execution pipeline"
-        },
-        {
-          "digest": "20e7544ba85866277ac7e8751d9d1f0244a59542074d294e23ca80a7a85722d2",
-          "last_commit": "2dbdff3",
-          "name": "scripts",
-          "purpose": "Repository scripts. check-no-python.sh is the CI guard that fails the build if any Python file i"
-        },
-        {
-          "digest": "add2dc5b497a20c62cdbf5d033b03980eb5edbb3c6ba5e33701f32d34cac37e6",
-          "last_commit": "ab6c38b",
-          "name": "src",
-          "purpose": "Directory src. Purpose not yet described by a human."
-        },
-        {
-          "digest": "b42e98c2a4f1683a87fbc8adceee0d327e694c011af8e0df7b35c07dac15191a",
-          "last_commit": "2dbdff3",
-          "name": "tests",
-          "purpose": "Directory tests. Purpose not yet described by a human."
-        }
-      ],
-      "children_root": "sha256:1e595a9689bfc4fbcbc944d64d69d197bb7b4fc3cc145bc55f694638456b166f",
-      "compiled_at": "2026-10-18T23:46:58Z",
-      "compiler": "crumb-compile/1",
-      "digest": "sha256:1639f913fd70120c63d53ad9f328b0de43725ba3098c7e79f5988fb572d03d5e",
-      "evidence_files": 27,
-      "evidence_root": "sha256:5552ba32dc3c69f7c3700b23a1a62a89d259ce203bc957986946d37e7a8b6ffd",
-      "files": 165,
-      "generated_at_commit": "053ebf76b5226d98cab74d55575813b7f74638ae",
-      "source_tree": "sha256:c6685b422ecd9f6339ee356c57aa7105008efbba728a2a0a01115b13d57cc2fa"
-    },
+    "generated_policy": "on-demand",
     "owner_lane": "",
     "seed": {
       "files": [
