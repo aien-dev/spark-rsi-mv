@@ -3,9 +3,6 @@
     "name": "spark-rsi",
     "path": ".."
   },
-  "extensions": {
-    "owner_lane": ""
-  },
   "layer": "scripts",
   "name": "scripts",
   "purpose": "Repository scripts. check-no-python.sh is the CI guard that fails the build if any Python file is tracked.",

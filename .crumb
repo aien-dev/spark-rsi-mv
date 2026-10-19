@@ -21,9 +21,6 @@
       "role": ""
     }
   ],
-  "extensions": {
-    "owner_lane": ""
-  },
   "layer": "root",
   "name": "spark-rsi",
   "purpose": "Spark RSI is a native Rust engine that tries to improve a code repository on its own.",
