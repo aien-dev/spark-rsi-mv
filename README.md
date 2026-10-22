@@ -6,7 +6,7 @@ Spark RSI is a native Rust engine that tries to improve a code repository on its
 
 ## Where it fits in AIEN
 
-Spark RSI is an attachment of [Aienix](https://github.com/aien-dev/aienix), the core tree of AIEN. It lives in its own repository and plugs into the core at a boundary. Related repositories:
+Spark RSI is an attachment of [AienOS](https://github.com/aien-dev/aienix), the core tree of AIEN. It lives in its own repository and plugs into the core at a boundary. Related repositories:
 
 - [aien-dev/aien-protocols-mv](https://github.com/aien-dev/aien-protocols-mv): the protocol crates this repository builds against (`aien-protocol-types`, `aien-evaluation-protocol`, `aien-probe`).
 - [aien-dev/aien-architecture-mv](https://github.com/aien-dev/aien-architecture-mv): the AIEN plans and decisions, including the release ruling quoted below.
