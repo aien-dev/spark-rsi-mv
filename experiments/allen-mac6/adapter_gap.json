@@ -1,0 +1,55 @@
+{
+  "schema": "aien.spark-rsi.allen-rsi-adapter-gap.v1",
+  "status": "blocked_on_existing_runtime_adapter",
+  "existing_interfaces": {
+    "judge": "spark-rsi::actor::judge::BlindJudge::evaluate_cycle",
+    "suite_loader": "spark-rsi::actor::judge::HoldoutSuite::load_strict",
+    "candidate_execution": "spark-rsi::isolation::CandidateJailRunner::execute",
+    "receipt": "EvaluationReceipt with ReceiptBindingV2, signed by existing judge key",
+    "promotion": "existing v2 promotion gate, separate authorization"
+  },
+  "supported_candidate_protocol": {
+    "arguments": ["holdout", "<case.input>"],
+    "observation": "candidate stdout compared to exact expected_output",
+    "isolation": "existing candidate jail"
+  },
+  "existing_fake_worker_protocol": {
+    "fixture": "fixtures/canary-target",
+    "arguments": ["--socket", "<unix-socket-path>"],
+    "observation": "versioned JSON messages over Unix socket",
+    "compatible_with_candidate_execution": false
+  },
+  "missing_adapter_capabilities": [
+    "deterministic fake task worker implementing the current holdout argv/stdout contract",
+    "runner that executes all four arms over matched task identities",
+    "per-case lifecycle cost and not_started/interrupted status records",
+    "signed binding of source/compiler/runtime/policy/fixture/resource/verifier fields beyond current receipt binding",
+    "independent statistical comparison of the four arms"
+  ],
+  "must_not_substitute": [
+    "a second evaluator or judge",
+    "a second signer or promotion service",
+    "host-side claims treated as signed RSI evidence"
+  ],
+  "verification": {
+    "fixture_suite_loader": {
+      "status": "pass",
+      "command": "target/debug/spark-rsi-judge --holdouts-dir <fresh-temp-dir-containing-only-ALLEN-MAC6-DEV-30.json> --print-holdout-digest",
+      "digest": "acdc7735789bf397770e5ec620b9b88381d59344df9b9dc595cbaf59c2658bd2"
+    },
+    "direct_fixture_directory_load": {
+      "status": "rejected_as_designed",
+      "reason": "HoldoutSuite::load_strict rejects .crumb and the unrelated manifest/negative-control JSON in the fixture source directory; stage the single task-suite file separately"
+    },
+    "fake_worker_argv_probe": {
+      "status": "fail_exit_101",
+      "command": "cargo run --offline --locked --manifest-path fixtures/canary-target/Cargo.toml -- holdout test-case",
+      "observed": "canary-target needs --socket <path>",
+      "implication": "the existing canary fake worker is not a holdout stdout worker and cannot serve as the four-arm deterministic task worker"
+    },
+    "four_arm_execution": "not_run",
+    "fake_worker_compatibility": "not_run",
+    "signed_receipts": "not_created",
+    "real_model_or_hardware": "not_run"
+  }
+}
