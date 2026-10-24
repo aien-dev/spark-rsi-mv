@@ -24,6 +24,34 @@
     "development_holdout_set_sha256": "acdc7735789bf397770e5ec620b9b88381d59344df9b9dc595cbaf59c2658bd2",
     "hardware": "not_applicable_fake_worker"
   },
+  "specialists": [
+    {
+      "id": "qwen3.6-35b-a3b-fp8",
+      "role": "specialist_worker_behind_allen",
+      "endpoint": "http://localhost:18091",
+      "api_protocol": "Chat Completions only",
+      "request_time_thinking_support": true,
+      "model_revision": "not_run",
+      "tokenizer_revision": "not_run",
+      "availability": "not_checked",
+      "qualification": "unqualified",
+      "route_enabled": false,
+      "inference_calls_made": false
+    },
+    {
+      "id": "Qwen3.8-27B",
+      "role": "specialist_worker_behind_allen",
+      "endpoint": "unknown",
+      "api_protocol": "unknown",
+      "request_time_thinking_support": "unknown",
+      "model_revision": "not_run",
+      "tokenizer_revision": "not_run",
+      "availability": "unknown",
+      "qualification": "unqualified",
+      "route_enabled": false,
+      "inference_calls_made": false
+    }
+  ],
   "task_suite": {
     "path": "development_tasks.json",
     "judge_staging": "copy this single suite JSON into a fresh protected directory; do not point HoldoutSuite::load_strict at the fixture directory",
