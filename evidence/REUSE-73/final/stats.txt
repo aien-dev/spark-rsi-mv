@@ -1,0 +1,565 @@
+report=reuse1-stats version=1 contract=REUSE-1 v1.0
+input split=4 groups=24 sessions=192 requests=17952 queries=9024 reps=3
+bootstrap resamples=10000 seed=5595649102030266863 rank_lo=249 rank_hi=9749
+total arm=echo rt_ns=439454916 ready_ns=66987815 end_ns=3525183 acq_ns=0 total_ns=451463603
+total arm=full rt_ns=854179317 ready_ns=64946324 end_ns=4264361 acq_ns=0 total_ns=866944174
+total arm=cache rt_ns=2742471767 ready_ns=64242898 end_ns=5367732 acq_ns=0 total_ns=2755721613
+total arm=method rt_ns=823938219 ready_ns=133580930 end_ns=2640775 acq_ns=222383635 total_ns=1057084880
+total arm=delta rt_ns=776959224 ready_ns=135765632 end_ns=1818542 acq_ns=222383635 total_ns=1009501250
+total arm=idelta rt_ns=637845620 ready_ns=62069269 end_ns=4506807 acq_ns=0 total_ns=650828667
+total arm=deltap rt_ns=658515159 ready_ns=121207147 end_ns=2510823 acq_ns=207481668 total_ns=876569227
+total arm=select rt_ns=634499013 ready_ns=131146894 end_ns=1744897 acq_ns=222383635 total_ns=867562224
+rho arm=echo point_ppm=520752 lo_ppm=458989 hi_ppm=597980
+rho arm=full point_ppm=1000000 lo_ppm=1000000 hi_ppm=1000000
+rho arm=cache point_ppm=3178660 lo_ppm=2804736 hi_ppm=3603236
+rho arm=method point_ppm=1219322 lo_ppm=1090819 hi_ppm=1362898
+rho arm=delta point_ppm=1164436 lo_ppm=1039892 hi_ppm=1306773
+rho arm=idelta point_ppm=750715 lo_ppm=650013 hi_ppm=867141
+rho arm=deltap point_ppm=1011102 lo_ppm=895444 hi_ppm=1143011
+rho arm=select point_ppm=1000712 lo_ppm=887200 hi_ppm=1127408
+ratio name=delta/cache point_ppm=366329 lo_ppm=303655 hi_ppm=440085
+ratio name=delta/idelta point_ppm=1551101 lo_ppm=1406231 hi_ppm=1737375
+ratio name=select/delta point_ppm=859396 lo_ppm=758743 hi_ppm=956712
+ratio name=delta/method point_ppm=954985 lo_ppm=854391 hi_ppm=1078713
+ratio name=idelta/full point_ppm=750715 lo_ppm=650013 hi_ppm=867141
+correct arm=echo query_ok=0 query_wrong=0 change_ok=0 change_wrong=0 unscored=53856 log_inconsistent=0 proc_failed=0
+correct arm=full query_ok=27072 query_wrong=0 change_ok=26784 change_wrong=0 unscored=0 log_inconsistent=0 proc_failed=0
+correct arm=cache query_ok=27072 query_wrong=0 change_ok=26784 change_wrong=0 unscored=0 log_inconsistent=0 proc_failed=0
+correct arm=method query_ok=27072 query_wrong=0 change_ok=26784 change_wrong=0 unscored=0 log_inconsistent=0 proc_failed=0
+correct arm=delta query_ok=27072 query_wrong=0 change_ok=26784 change_wrong=0 unscored=0 log_inconsistent=0 proc_failed=0
+correct arm=idelta query_ok=27072 query_wrong=0 change_ok=26784 change_wrong=0 unscored=0 log_inconsistent=0 proc_failed=0
+correct arm=deltap query_ok=27072 query_wrong=0 change_ok=26784 change_wrong=0 unscored=0 log_inconsistent=0 proc_failed=0
+correct arm=select query_ok=27072 query_wrong=0 change_ok=26784 change_wrong=0 unscored=0 log_inconsistent=0 proc_failed=0
+routes arm=echo r0=27072 r1=0 r2=0 r3=0 r4=0 r5=0 other=0 fallback_ppm=0
+routes arm=full r0=0 r1=27072 r2=0 r3=0 r4=0 r5=0 other=0 fallback_ppm=0
+routes arm=cache r0=0 r1=21054 r2=6018 r3=0 r4=0 r5=0 other=0 fallback_ppm=0
+routes arm=method r0=0 r1=6360 r2=0 r3=20712 r4=0 r5=0 other=0 fallback_ppm=0
+routes arm=delta r0=0 r1=0 r2=0 r3=0 r4=27072 r5=0 other=0 fallback_ppm=0
+routes arm=idelta r0=0 r1=0 r2=0 r3=0 r4=27072 r5=0 other=0 fallback_ppm=0
+routes arm=deltap r0=0 r1=0 r2=0 r3=0 r4=27072 r5=0 other=0 fallback_ppm=0
+routes arm=select r0=0 r1=3939 r2=0 r3=78 r4=23055 r5=0 other=0 fallback_ppm=0
+coverage arm=delta class=transfer queries=5616 method_served=5616 coverage_ppm=1000000
+memory arm=echo procs=72 hwm_max_kb=232 hwm_mean_kb=217 rss_max_kb=232 cpu_ticks=0 exit_nonzero=0 end_failed=0
+memory arm=full procs=72 hwm_max_kb=232 hwm_mean_kb=218 rss_max_kb=232 cpu_ticks=5 exit_nonzero=0 end_failed=0
+memory arm=cache procs=72 hwm_max_kb=292 hwm_mean_kb=274 rss_max_kb=292 cpu_ticks=163 exit_nonzero=0 end_failed=0
+memory arm=method procs=72 hwm_max_kb=292 hwm_mean_kb=278 rss_max_kb=292 cpu_ticks=2 exit_nonzero=0 end_failed=0
+memory arm=delta procs=72 hwm_max_kb=832 hwm_mean_kb=397 rss_max_kb=832 cpu_ticks=3 exit_nonzero=0 end_failed=0
+memory arm=idelta procs=72 hwm_max_kb=776 hwm_mean_kb=344 rss_max_kb=776 cpu_ticks=5 exit_nonzero=0 end_failed=0
+memory arm=deltap procs=72 hwm_max_kb=820 hwm_mean_kb=392 rss_max_kb=820 cpu_ticks=0 exit_nonzero=0 end_failed=0
+memory arm=select procs=72 hwm_max_kb=832 hwm_mean_kb=399 rss_max_kb=832 cpu_ticks=0 exit_nonzero=0 end_failed=0
+acq lib=1 builds=3 elapsed_ns=222383635 cpu_ticks=10 libdir_bytes_max=222144 drive_nonzero=0
+acq lib=2 builds=3 elapsed_ns=207481668 cpu_ticks=9 libdir_bytes_max=219991 drive_nonzero=0
+payback arm=cache queries=69
+payback arm=method queries=none
+payback arm=delta queries=none
+payback arm=idelta queries=0
+payback arm=deltap queries=none
+payback arm=select queries=none
+cbar arm=cache r_ppm=299465 q_ppm=777703 e_ppm=1755113 k_units_ppm=0 n=27072 cbar_ppm=1467324 observed_ppm=4028417
+cbar arm=method r_ppm=299465 q_ppm=234929 e_ppm=241065 k_units_ppm=10242429762 n=27072 cbar_ppm=1097165 observed_ppm=1044399
+cbar arm=delta r_ppm=299465 q_ppm=0 e_ppm=58862 k_units_ppm=10242429762 n=27072 cbar_ppm=736667 observed_ppm=736643
+cbar arm=idelta r_ppm=299465 q_ppm=0 e_ppm=31273 k_units_ppm=0 n=27072 cbar_ppm=330738 observed_ppm=330738
+cbar arm=deltap r_ppm=299465 q_ppm=0 e_ppm=47209 k_units_ppm=9556082719 n=27072 cbar_ppm=699661 observed_ppm=699659
+cbar arm=select r_ppm=299465 q_ppm=145500 e_ppm=11929 k_units_ppm=10242429762 n=27072 cbar_ppm=833498 observed_ppm=691138
+echo_sub arm=echo ppm=0
+echo_sub arm=cache ppm=5546006
+echo_sub arm=method ppm=1457640
+echo_sub arm=delta ppm=1343113
+echo_sub arm=idelta ppm=479842
+echo_sub arm=deltap ppm=1023166
+echo_sub arm=select ppm=1001487
+cat_rho arm=echo cat=type:Z ppm=372896
+cat_rho arm=echo cat=type:S ppm=564804
+cat_rho arm=echo cat=type:D ppm=714616
+cat_rho arm=echo cat=type:R ppm=474755
+cat_rho arm=echo cat=type:I ppm=498727
+cat_rho arm=echo cat=type:A ppm=464520
+cat_rho arm=echo cat=type:P ppm=581683
+cat_rho arm=echo cat=type:C ppm=549454
+cat_rho arm=echo cat=nov:recall ppm=409490
+cat_rho arm=echo cat=nov:transfer ppm=499862
+cat_rho arm=echo cat=nov:novel ppm=442627
+cat_rho arm=echo cat=nov:fsm_recall ppm=533939
+cat_rho arm=echo cat=nov:fsm_new ppm=621002
+cat_rho arm=echo cat=fam:AGG ppm=459898
+cat_rho arm=echo cat=fam:FSM ppm=584486
+cat_rho arm=echo cat=n:64 ppm=1046282
+cat_rho arm=echo cat=n:512 ppm=751348
+cat_rho arm=echo cat=n:4096 ppm=284830
+cat_rho arm=full cat=type:Z ppm=1000000
+cat_rho arm=full cat=type:S ppm=1000000
+cat_rho arm=full cat=type:D ppm=1000000
+cat_rho arm=full cat=type:R ppm=1000000
+cat_rho arm=full cat=type:I ppm=1000000
+cat_rho arm=full cat=type:A ppm=1000000
+cat_rho arm=full cat=type:P ppm=1000000
+cat_rho arm=full cat=type:C ppm=1000000
+cat_rho arm=full cat=nov:recall ppm=1000000
+cat_rho arm=full cat=nov:transfer ppm=1000000
+cat_rho arm=full cat=nov:novel ppm=1000000
+cat_rho arm=full cat=nov:fsm_recall ppm=1000000
+cat_rho arm=full cat=nov:fsm_new ppm=1000000
+cat_rho arm=full cat=fam:AGG ppm=1000000
+cat_rho arm=full cat=fam:FSM ppm=1000000
+cat_rho arm=full cat=n:64 ppm=1000000
+cat_rho arm=full cat=n:512 ppm=1000000
+cat_rho arm=full cat=n:4096 ppm=1000000
+cat_rho arm=cache cat=type:Z ppm=553527
+cat_rho arm=cache cat=type:S ppm=4018014
+cat_rho arm=cache cat=type:D ppm=1950885
+cat_rho arm=cache cat=type:R ppm=3635403
+cat_rho arm=cache cat=type:I ppm=3407113
+cat_rho arm=cache cat=type:A ppm=3172864
+cat_rho arm=cache cat=type:P ppm=1800376
+cat_rho arm=cache cat=type:C ppm=4056071
+cat_rho arm=cache cat=nov:recall ppm=2845493
+cat_rho arm=cache cat=nov:transfer ppm=2796733
+cat_rho arm=cache cat=nov:novel ppm=3025449
+cat_rho arm=cache cat=nov:fsm_recall ppm=3373285
+cat_rho arm=cache cat=nov:fsm_new ppm=3801988
+cat_rho arm=cache cat=fam:AGG ppm=2889832
+cat_rho arm=cache cat=fam:FSM ppm=3622181
+cat_rho arm=cache cat=n:64 ppm=1524633
+cat_rho arm=cache cat=n:512 ppm=2297119
+cat_rho arm=cache cat=n:4096 ppm=3992941
+cat_rho arm=method cat=type:Z ppm=772049
+cat_rho arm=method cat=type:S ppm=903568
+cat_rho arm=method cat=type:D ppm=959690
+cat_rho arm=method cat=type:R ppm=930165
+cat_rho arm=method cat=type:I ppm=883327
+cat_rho arm=method cat=type:A ppm=698128
+cat_rho arm=method cat=type:P ppm=3049658
+cat_rho arm=method cat=type:C ppm=1042587
+cat_rho arm=method cat=nov:recall ppm=1092874
+cat_rho arm=method cat=nov:transfer ppm=1076402
+cat_rho arm=method cat=nov:novel ppm=1127343
+cat_rho arm=method cat=nov:fsm_recall ppm=825462
+cat_rho arm=method cat=nov:fsm_new ppm=769623
+cat_rho arm=method cat=fam:AGG ppm=1098334
+cat_rho arm=method cat=fam:FSM ppm=793043
+cat_rho arm=method cat=n:64 ppm=1370558
+cat_rho arm=method cat=n:512 ppm=1227809
+cat_rho arm=method cat=n:4096 ppm=761806
+cat_rho arm=delta cat=type:Z ppm=603613
+cat_rho arm=delta cat=type:S ppm=777606
+cat_rho arm=delta cat=type:D ppm=2336417
+cat_rho arm=delta cat=type:R ppm=717119
+cat_rho arm=delta cat=type:I ppm=715366
+cat_rho arm=delta cat=type:A ppm=726053
+cat_rho arm=delta cat=type:P ppm=2887807
+cat_rho arm=delta cat=type:C ppm=699311
+cat_rho arm=delta cat=nov:recall ppm=862112
+cat_rho arm=delta cat=nov:transfer ppm=984821
+cat_rho arm=delta cat=nov:novel ppm=614895
+cat_rho arm=delta cat=nov:fsm_recall ppm=1123612
+cat_rho arm=delta cat=nov:fsm_new ppm=942131
+cat_rho arm=delta cat=fam:AGG ppm=824895
+cat_rho arm=delta cat=fam:FSM ppm=1018248
+cat_rho arm=delta cat=n:64 ppm=1584991
+cat_rho arm=delta cat=n:512 ppm=1401758
+cat_rho arm=delta cat=n:4096 ppm=554118
+cat_rho arm=idelta cat=type:Z ppm=372763
+cat_rho arm=idelta cat=type:S ppm=713146
+cat_rho arm=idelta cat=type:D ppm=2409242
+cat_rho arm=idelta cat=type:R ppm=553008
+cat_rho arm=idelta cat=type:I ppm=550043
+cat_rho arm=idelta cat=type:A ppm=827013
+cat_rho arm=idelta cat=type:P ppm=783587
+cat_rho arm=idelta cat=type:C ppm=549827
+cat_rho arm=idelta cat=nov:recall ppm=457240
+cat_rho arm=idelta cat=nov:transfer ppm=647918
+cat_rho arm=idelta cat=nov:novel ppm=507400
+cat_rho arm=idelta cat=nov:fsm_recall ppm=1250461
+cat_rho arm=idelta cat=nov:fsm_new ppm=803247
+cat_rho arm=idelta cat=fam:AGG ppm=556453
+cat_rho arm=idelta cat=fam:FSM ppm=990818
+cat_rho arm=idelta cat=n:64 ppm=1094264
+cat_rho arm=idelta cat=n:512 ppm=1179967
+cat_rho arm=idelta cat=n:4096 ppm=503776
+cat_rho arm=deltap cat=type:Z ppm=664522
+cat_rho arm=deltap cat=type:S ppm=514252
+cat_rho arm=deltap cat=type:D ppm=2024544
+cat_rho arm=deltap cat=type:R ppm=644128
+cat_rho arm=deltap cat=type:I ppm=744985
+cat_rho arm=deltap cat=type:A ppm=684882
+cat_rho arm=deltap cat=type:P ppm=1177578
+cat_rho arm=deltap cat=type:C ppm=679231
+cat_rho arm=deltap cat=nov:recall ppm=463483
+cat_rho arm=deltap cat=nov:transfer ppm=576166
+cat_rho arm=deltap cat=nov:novel ppm=597373
+cat_rho arm=deltap cat=nov:fsm_recall ppm=1252796
+cat_rho arm=deltap cat=nov:fsm_new ppm=889289
+cat_rho arm=deltap cat=fam:AGG ppm=559809
+cat_rho arm=deltap cat=fam:FSM ppm=1041751
+cat_rho arm=deltap cat=n:64 ppm=1218659
+cat_rho arm=deltap cat=n:512 ppm=1273289
+cat_rho arm=deltap cat=n:4096 ppm=476536
+cat_rho arm=select cat=type:Z ppm=526838
+cat_rho arm=select cat=type:S ppm=554017
+cat_rho arm=select cat=type:D ppm=1195876
+cat_rho arm=select cat=type:R ppm=764351
+cat_rho arm=select cat=type:I ppm=666468
+cat_rho arm=select cat=type:A ppm=677749
+cat_rho arm=select cat=type:P ppm=1884003
+cat_rho arm=select cat=type:C ppm=687084
+cat_rho arm=select cat=nov:recall ppm=618570
+cat_rho arm=select cat=nov:transfer ppm=742090
+cat_rho arm=select cat=nov:novel ppm=625651
+cat_rho arm=select cat=nov:fsm_recall ppm=932121
+cat_rho arm=select cat=nov:fsm_new ppm=758878
+cat_rho arm=select cat=fam:AGG ppm=673650
+cat_rho arm=select cat=fam:FSM ppm=831540
+cat_rho arm=select cat=n:64 ppm=1243059
+cat_rho arm=select cat=n:512 ppm=1011282
+cat_rho arm=select cat=n:4096 ppm=511571
+regime cat=type:Z delta_over_method_ppm=781832 idelta_over_full_ppm=372763
+regime cat=type:S delta_over_method_ppm=860594 idelta_over_full_ppm=713146
+regime cat=type:D delta_over_method_ppm=2434553 idelta_over_full_ppm=2409242
+regime cat=type:R delta_over_method_ppm=770958 idelta_over_full_ppm=553008
+regime cat=type:I delta_over_method_ppm=809853 idelta_over_full_ppm=550043
+regime cat=type:A delta_over_method_ppm=1039999 idelta_over_full_ppm=827013
+regime cat=type:P delta_over_method_ppm=946927 idelta_over_full_ppm=783587
+regime cat=type:C delta_over_method_ppm=670746 idelta_over_full_ppm=549827
+quant arm=echo temp=cold cat=all count=864 p50_ns=5520 p95_ns=7632 p99_ns=15600
+quant arm=echo temp=cold cat=type:Z count=72 p50_ns=5536 p95_ns=9136 p99_ns=15600
+quant arm=echo temp=cold cat=type:S count=72 p50_ns=5536 p95_ns=7152 p99_ns=991530
+quant arm=echo temp=cold cat=type:D count=72 p50_ns=5520 p95_ns=6993 p99_ns=40401
+quant arm=echo temp=cold cat=type:R count=72 p50_ns=5632 p95_ns=10176 p99_ns=33856
+quant arm=echo temp=cold cat=type:I count=72 p50_ns=5552 p95_ns=7328 p99_ns=7664
+quant arm=echo temp=cold cat=type:A count=72 p50_ns=5472 p95_ns=6224 p99_ns=76209
+quant arm=echo temp=cold cat=type:P count=360 p50_ns=5504 p95_ns=7120 p99_ns=10880
+quant arm=echo temp=cold cat=type:C count=72 p50_ns=5568 p95_ns=7888 p99_ns=14288
+quant arm=echo temp=cold cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=echo temp=cold cat=nov:recall count=99 p50_ns=5552 p95_ns=6480 p99_ns=7969
+quant arm=echo temp=cold cat=nov:transfer count=198 p50_ns=5536 p95_ns=7472 p99_ns=40401
+quant arm=echo temp=cold cat=nov:novel count=135 p50_ns=5488 p95_ns=7568 p99_ns=11712
+quant arm=echo temp=cold cat=nov:fsm_recall count=198 p50_ns=5520 p95_ns=9968 p99_ns=39952
+quant arm=echo temp=cold cat=nov:fsm_new count=234 p50_ns=5504 p95_ns=7808 p99_ns=15600
+quant arm=echo temp=cold cat=fam:AGG count=432 p50_ns=5521 p95_ns=7232 p99_ns=11376
+quant arm=echo temp=cold cat=fam:FSM count=432 p50_ns=5504 p95_ns=8432 p99_ns=16512
+quant arm=echo temp=cold cat=n:64 count=288 p50_ns=5536 p95_ns=7824 p99_ns=33856
+quant arm=echo temp=cold cat=n:512 count=288 p50_ns=5488 p95_ns=7248 p99_ns=12880
+quant arm=echo temp=cold cat=n:4096 count=288 p50_ns=5536 p95_ns=7472 p99_ns=39952
+quant arm=echo temp=warm cat=all count=26208 p50_ns=5504 p95_ns=6512 p99_ns=13456
+quant arm=echo temp=warm cat=type:Z count=2232 p50_ns=5488 p95_ns=6672 p99_ns=17488
+quant arm=echo temp=warm cat=type:S count=4536 p50_ns=5504 p95_ns=6561 p99_ns=16288
+quant arm=echo temp=warm cat=type:D count=504 p50_ns=5536 p95_ns=6928 p99_ns=15616
+quant arm=echo temp=warm cat=type:R count=4536 p50_ns=5504 p95_ns=6624 p99_ns=12512
+quant arm=echo temp=warm cat=type:I count=4536 p50_ns=5488 p95_ns=6096 p99_ns=11425
+quant arm=echo temp=warm cat=type:A count=4536 p50_ns=5488 p95_ns=6016 p99_ns=9728
+quant arm=echo temp=warm cat=type:P count=792 p50_ns=5504 p95_ns=6192 p99_ns=8672
+quant arm=echo temp=warm cat=type:C count=4536 p50_ns=5504 p95_ns=7888 p99_ns=18704
+quant arm=echo temp=warm cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=echo temp=warm cat=nov:recall count=2709 p50_ns=5552 p95_ns=7744 p99_ns=16608
+quant arm=echo temp=warm cat=nov:transfer count=5418 p50_ns=5488 p95_ns=6032 p99_ns=10304
+quant arm=echo temp=warm cat=nov:novel count=4977 p50_ns=5488 p95_ns=6032 p99_ns=11904
+quant arm=echo temp=warm cat=nov:fsm_recall count=5418 p50_ns=5488 p95_ns=5968 p99_ns=10256
+quant arm=echo temp=warm cat=nov:fsm_new count=7686 p50_ns=5520 p95_ns=7264 p99_ns=20256
+quant arm=echo temp=warm cat=fam:AGG count=13104 p50_ns=5488 p95_ns=6512 p99_ns=12097
+quant arm=echo temp=warm cat=fam:FSM count=13104 p50_ns=5504 p95_ns=6512 p99_ns=15217
+quant arm=echo temp=warm cat=n:64 count=8736 p50_ns=5520 p95_ns=7104 p99_ns=20640
+quant arm=echo temp=warm cat=n:512 count=8736 p50_ns=5488 p95_ns=6240 p99_ns=11360
+quant arm=echo temp=warm cat=n:4096 count=8736 p50_ns=5504 p95_ns=6416 p99_ns=11105
+quant arm=full temp=cold cat=all count=864 p50_ns=10368 p95_ns=62144 p99_ns=74368
+quant arm=full temp=cold cat=type:Z count=72 p50_ns=8896 p95_ns=72369 p99_ns=89057
+quant arm=full temp=cold cat=type:S count=72 p50_ns=9824 p95_ns=66160 p99_ns=77121
+quant arm=full temp=cold cat=type:D count=72 p50_ns=9968 p95_ns=63441 p99_ns=68848
+quant arm=full temp=cold cat=type:R count=72 p50_ns=11728 p95_ns=64609 p99_ns=86945
+quant arm=full temp=cold cat=type:I count=72 p50_ns=10208 p95_ns=68337 p99_ns=74784
+quant arm=full temp=cold cat=type:A count=72 p50_ns=11760 p95_ns=54785 p99_ns=63681
+quant arm=full temp=cold cat=type:P count=360 p50_ns=10368 p95_ns=54017 p99_ns=63696
+quant arm=full temp=cold cat=type:C count=72 p50_ns=10544 p95_ns=62145 p99_ns=62881
+quant arm=full temp=cold cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=full temp=cold cat=nov:recall count=99 p50_ns=10608 p95_ns=68337 p99_ns=86945
+quant arm=full temp=cold cat=nov:transfer count=198 p50_ns=11984 p95_ns=65201 p99_ns=87681
+quant arm=full temp=cold cat=nov:novel count=135 p50_ns=9649 p95_ns=55009 p99_ns=72257
+quant arm=full temp=cold cat=nov:fsm_recall count=198 p50_ns=9889 p95_ns=54849 p99_ns=60913
+quant arm=full temp=cold cat=nov:fsm_new count=234 p50_ns=9968 p95_ns=62529 p99_ns=68049
+quant arm=full temp=cold cat=fam:AGG count=432 p50_ns=10608 p95_ns=63441 p99_ns=84753
+quant arm=full temp=cold cat=fam:FSM count=432 p50_ns=9968 p95_ns=57425 p99_ns=64144
+quant arm=full temp=cold cat=n:64 count=288 p50_ns=6305 p95_ns=9232 p99_ns=12624
+quant arm=full temp=cold cat=n:512 count=288 p50_ns=10289 p95_ns=17616 p99_ns=55249
+quant arm=full temp=cold cat=n:4096 count=288 p50_ns=45281 p95_ns=68337 p99_ns=86945
+quant arm=full temp=warm cat=all count=26208 p50_ns=9488 p95_ns=62337 p99_ns=86785
+quant arm=full temp=warm cat=type:Z count=2232 p50_ns=9168 p95_ns=65617 p99_ns=89009
+quant arm=full temp=warm cat=type:S count=4536 p50_ns=9488 p95_ns=63888 p99_ns=70608
+quant arm=full temp=warm cat=type:D count=504 p50_ns=9505 p95_ns=63057 p99_ns=67904
+quant arm=full temp=warm cat=type:R count=4536 p50_ns=9217 p95_ns=54368 p99_ns=88769
+quant arm=full temp=warm cat=type:I count=4536 p50_ns=9296 p95_ns=61136 p99_ns=72017
+quant arm=full temp=warm cat=type:A count=4536 p50_ns=10224 p95_ns=58481 p99_ns=64161
+quant arm=full temp=warm cat=type:P count=792 p50_ns=10080 p95_ns=53312 p99_ns=62353
+quant arm=full temp=warm cat=type:C count=4536 p50_ns=8704 p95_ns=56144 p99_ns=64048
+quant arm=full temp=warm cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=full temp=warm cat=nov:recall count=2709 p50_ns=10544 p95_ns=86209 p99_ns=90049
+quant arm=full temp=warm cat=nov:transfer count=5418 p50_ns=11536 p95_ns=70592 p99_ns=87425
+quant arm=full temp=warm cat=nov:novel count=4977 p50_ns=10176 p95_ns=56384 p99_ns=71041
+quant arm=full temp=warm cat=nov:fsm_recall count=5418 p50_ns=9168 p95_ns=47472 p99_ns=52608
+quant arm=full temp=warm cat=nov:fsm_new count=7686 p50_ns=8209 p95_ns=54289 p99_ns=64065
+quant arm=full temp=warm cat=fam:AGG count=13104 p50_ns=11232 p95_ns=65809 p99_ns=88113
+quant arm=full temp=warm cat=fam:FSM count=13104 p50_ns=8688 p95_ns=50048 p99_ns=63553
+quant arm=full temp=warm cat=n:64 count=8736 p50_ns=6080 p95_ns=6912 p99_ns=17440
+quant arm=full temp=warm cat=n:512 count=8736 p50_ns=9377 p95_ns=15408 p99_ns=21184
+quant arm=full temp=warm cat=n:4096 count=8736 p50_ns=44000 p95_ns=71377 p99_ns=92097
+quant arm=cache temp=cold cat=all count=864 p50_ns=33168 p95_ns=241506 p99_ns=548565
+quant arm=cache temp=cold cat=type:Z count=72 p50_ns=35088 p95_ns=262866 p99_ns=271570
+quant arm=cache temp=cold cat=type:S count=72 p50_ns=35232 p95_ns=255395 p99_ns=335683
+quant arm=cache temp=cold cat=type:D count=72 p50_ns=35472 p95_ns=250322 p99_ns=1005225
+quant arm=cache temp=cold cat=type:R count=72 p50_ns=38192 p95_ns=258034 p99_ns=337523
+quant arm=cache temp=cold cat=type:I count=72 p50_ns=36224 p95_ns=255571 p99_ns=597717
+quant arm=cache temp=cold cat=type:A count=72 p50_ns=37600 p95_ns=286947 p99_ns=1174699
+quant arm=cache temp=cold cat=type:P count=360 p50_ns=13648 p95_ns=204674 p99_ns=955929
+quant arm=cache temp=cold cat=type:C count=72 p50_ns=36080 p95_ns=236770 p99_ns=1011161
+quant arm=cache temp=cold cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=cache temp=cold cat=nov:recall count=99 p50_ns=35744 p95_ns=259219 p99_ns=1174699
+quant arm=cache temp=cold cat=nov:transfer count=198 p50_ns=29632 p95_ns=255395 p99_ns=335683
+quant arm=cache temp=cold cat=nov:novel count=135 p50_ns=29216 p95_ns=235810 p99_ns=247762
+quant arm=cache temp=cold cat=nov:fsm_recall count=198 p50_ns=34672 p95_ns=250322 p99_ns=1029194
+quant arm=cache temp=cold cat=nov:fsm_new count=234 p50_ns=33025 p95_ns=237426 p99_ns=342340
+quant arm=cache temp=cold cat=fam:AGG count=432 p50_ns=30225 p95_ns=241523 p99_ns=335683
+quant arm=cache temp=cold cat=fam:FSM count=432 p50_ns=33168 p95_ns=239250 p99_ns=955929
+quant arm=cache temp=cold cat=n:64 count=288 p50_ns=12960 p95_ns=15408 p99_ns=27472
+quant arm=cache temp=cold cat=n:512 count=288 p50_ns=34832 p95_ns=42641 p99_ns=177281
+quant arm=cache temp=cold cat=n:4096 count=288 p50_ns=211522 p95_ns=324995 p99_ns=1012554
+quant arm=cache temp=warm cat=all count=26208 p50_ns=33808 p95_ns=246211 p99_ns=388932
+quant arm=cache temp=warm cat=type:Z count=2232 p50_ns=7920 p95_ns=8944 p99_ns=16465
+quant arm=cache temp=warm cat=type:S count=4536 p50_ns=34801 p95_ns=306627 p99_ns=457492
+quant arm=cache temp=warm cat=type:D count=504 p50_ns=35105 p95_ns=240290 p99_ns=576822
+quant arm=cache temp=warm cat=type:R count=4536 p50_ns=34480 p95_ns=269778 p99_ns=376340
+quant arm=cache temp=warm cat=type:I count=4536 p50_ns=34993 p95_ns=245346 p99_ns=362003
+quant arm=cache temp=warm cat=type:A count=4536 p50_ns=35297 p95_ns=236866 p99_ns=420068
+quant arm=cache temp=warm cat=type:P count=792 p50_ns=7968 p95_ns=9616 p99_ns=989689
+quant arm=cache temp=warm cat=type:C count=4536 p50_ns=34048 p95_ns=240914 p99_ns=447637
+quant arm=cache temp=warm cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=cache temp=warm cat=nov:recall count=2709 p50_ns=35489 p95_ns=261411 p99_ns=382772
+quant arm=cache temp=warm cat=nov:transfer count=5418 p50_ns=35648 p95_ns=246706 p99_ns=476837
+quant arm=cache temp=warm cat=nov:novel count=4977 p50_ns=34784 p95_ns=247043 p99_ns=355524
+quant arm=cache temp=warm cat=nov:fsm_recall count=5418 p50_ns=33392 p95_ns=223650 p99_ns=339348
+quant arm=cache temp=warm cat=nov:fsm_new count=7686 p50_ns=32544 p95_ns=271171 p99_ns=444020
+quant arm=cache temp=warm cat=fam:AGG count=13104 p50_ns=35392 p95_ns=248483 p99_ns=384836
+quant arm=cache temp=warm cat=fam:FSM count=13104 p50_ns=32656 p95_ns=236979 p99_ns=409220
+quant arm=cache temp=warm cat=n:64 count=8736 p50_ns=12944 p95_ns=14288 p99_ns=22288
+quant arm=cache temp=warm cat=n:512 count=8736 p50_ns=34369 p95_ns=40704 p99_ns=59040
+quant arm=cache temp=warm cat=n:4096 count=8736 p50_ns=218130 p95_ns=337731 p99_ns=644326
+quant arm=method temp=cold cat=all count=864 p50_ns=8400 p95_ns=28449 p99_ns=55680
+quant arm=method temp=cold cat=type:Z count=72 p50_ns=8768 p95_ns=37249 p99_ns=125457
+quant arm=method temp=cold cat=type:S count=72 p50_ns=10833 p95_ns=25872 p99_ns=76464
+quant arm=method temp=cold cat=type:D count=72 p50_ns=8240 p95_ns=28305 p99_ns=51329
+quant arm=method temp=cold cat=type:R count=72 p50_ns=8304 p95_ns=27313 p99_ns=55088
+quant arm=method temp=cold cat=type:I count=72 p50_ns=8144 p95_ns=30736 p99_ns=54241
+quant arm=method temp=cold cat=type:A count=72 p50_ns=8144 p95_ns=31632 p99_ns=54913
+quant arm=method temp=cold cat=type:P count=360 p50_ns=8305 p95_ns=27681 p99_ns=55680
+quant arm=method temp=cold cat=type:C count=72 p50_ns=8928 p95_ns=53696 p99_ns=3506305
+quant arm=method temp=cold cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=method temp=cold cat=nov:recall count=99 p50_ns=8512 p95_ns=27313 p99_ns=125457
+quant arm=method temp=cold cat=nov:transfer count=198 p50_ns=8576 p95_ns=28320 p99_ns=55680
+quant arm=method temp=cold cat=nov:novel count=135 p50_ns=10288 p95_ns=54913 p99_ns=76464
+quant arm=method temp=cold cat=nov:fsm_recall count=198 p50_ns=7216 p95_ns=17520 p99_ns=23728
+quant arm=method temp=cold cat=nov:fsm_new count=234 p50_ns=7104 p95_ns=15744 p99_ns=30736
+quant arm=method temp=cold cat=fam:AGG count=432 p50_ns=9136 p95_ns=53136 p99_ns=75089
+quant arm=method temp=cold cat=fam:FSM count=432 p50_ns=7152 p95_ns=16433 p99_ns=23728
+quant arm=method temp=cold cat=n:64 count=288 p50_ns=6352 p95_ns=10544 p99_ns=19008
+quant arm=method temp=cold cat=n:512 count=288 p50_ns=8209 p95_ns=15232 p99_ns=125457
+quant arm=method temp=cold cat=n:4096 count=288 p50_ns=23920 p95_ns=53696 p99_ns=75089
+quant arm=method temp=warm cat=all count=26208 p50_ns=8176 p95_ns=48401 p99_ns=64801
+quant arm=method temp=warm cat=type:Z count=2232 p50_ns=8192 p95_ns=34544 p99_ns=42784
+quant arm=method temp=warm cat=type:S count=4536 p50_ns=10016 p95_ns=26129 p99_ns=73232
+quant arm=method temp=warm cat=type:D count=504 p50_ns=8256 p95_ns=27088 p99_ns=28337
+quant arm=method temp=warm cat=type:R count=4536 p50_ns=8112 p95_ns=32016 p99_ns=54545
+quant arm=method temp=warm cat=type:I count=4536 p50_ns=7969 p95_ns=28352 p99_ns=53857
+quant arm=method temp=warm cat=type:A count=4536 p50_ns=8081 p95_ns=26865 p99_ns=55840
+quant arm=method temp=warm cat=type:P count=792 p50_ns=8144 p95_ns=27168 p99_ns=42497
+quant arm=method temp=warm cat=type:C count=4536 p50_ns=8544 p95_ns=52929 p99_ns=54512
+quant arm=method temp=warm cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=method temp=warm cat=nov:recall count=2709 p50_ns=8480 p95_ns=25280 p99_ns=32016
+quant arm=method temp=warm cat=nov:transfer count=5418 p50_ns=8401 p95_ns=25344 p99_ns=29760
+quant arm=method temp=warm cat=nov:novel count=4977 p50_ns=10848 p95_ns=57984 p99_ns=74273
+quant arm=method temp=warm cat=nov:fsm_recall count=5418 p50_ns=7024 p95_ns=14832 p99_ns=20800
+quant arm=method temp=warm cat=nov:fsm_new count=7686 p50_ns=6960 p95_ns=14480 p99_ns=18561
+quant arm=method temp=warm cat=fam:AGG count=13104 p50_ns=8832 p95_ns=53393 p99_ns=72497
+quant arm=method temp=warm cat=fam:FSM count=13104 p50_ns=6992 p95_ns=14560 p99_ns=19296
+quant arm=method temp=warm cat=n:64 count=8736 p50_ns=6240 p95_ns=8016 p99_ns=16256
+quant arm=method temp=warm cat=n:512 count=8736 p50_ns=8064 p95_ns=14256 p99_ns=19776
+quant arm=method temp=warm cat=n:4096 count=8736 p50_ns=23536 p95_ns=54129 p99_ns=73185
+quant arm=delta temp=cold cat=all count=864 p50_ns=6048 p95_ns=9840 p99_ns=32337
+quant arm=delta temp=cold cat=type:Z count=72 p50_ns=6256 p95_ns=11952 p99_ns=103569
+quant arm=delta temp=cold cat=type:S count=72 p50_ns=6032 p95_ns=11904 p99_ns=1224988
+quant arm=delta temp=cold cat=type:D count=72 p50_ns=6064 p95_ns=9104 p99_ns=2014659
+quant arm=delta temp=cold cat=type:R count=72 p50_ns=6128 p95_ns=8449 p99_ns=8560
+quant arm=delta temp=cold cat=type:I count=72 p50_ns=6064 p95_ns=7681 p99_ns=32337
+quant arm=delta temp=cold cat=type:A count=72 p50_ns=5952 p95_ns=6784 p99_ns=9840
+quant arm=delta temp=cold cat=type:P count=360 p50_ns=6032 p95_ns=10448 p99_ns=43568
+quant arm=delta temp=cold cat=type:C count=72 p50_ns=6096 p95_ns=11920 p99_ns=128657
+quant arm=delta temp=cold cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=delta temp=cold cat=nov:recall count=99 p50_ns=6113 p95_ns=9104 p99_ns=16352
+quant arm=delta temp=cold cat=nov:transfer count=198 p50_ns=6064 p95_ns=10657 p99_ns=62401
+quant arm=delta temp=cold cat=nov:novel count=135 p50_ns=6080 p95_ns=8016 p99_ns=9488
+quant arm=delta temp=cold cat=nov:fsm_recall count=198 p50_ns=6048 p95_ns=11297 p99_ns=103569
+quant arm=delta temp=cold cat=nov:fsm_new count=234 p50_ns=6000 p95_ns=10176 p99_ns=32337
+quant arm=delta temp=cold cat=fam:AGG count=432 p50_ns=6080 p95_ns=9120 p99_ns=23120
+quant arm=delta temp=cold cat=fam:FSM count=432 p50_ns=6016 p95_ns=10512 p99_ns=97153
+quant arm=delta temp=cold cat=n:64 count=288 p50_ns=6032 p95_ns=9457 p99_ns=18961
+quant arm=delta temp=cold cat=n:512 count=288 p50_ns=6048 p95_ns=9728 p99_ns=30416
+quant arm=delta temp=cold cat=n:4096 count=288 p50_ns=6080 p95_ns=10448 p99_ns=97153
+quant arm=delta temp=warm cat=all count=26208 p50_ns=5936 p95_ns=7968 p99_ns=20960
+quant arm=delta temp=warm cat=type:Z count=2232 p50_ns=5968 p95_ns=8384 p99_ns=19840
+quant arm=delta temp=warm cat=type:S count=4536 p50_ns=5936 p95_ns=9104 p99_ns=26368
+quant arm=delta temp=warm cat=type:D count=504 p50_ns=6064 p95_ns=9568 p99_ns=897705
+quant arm=delta temp=warm cat=type:R count=4536 p50_ns=5920 p95_ns=7808 p99_ns=19937
+quant arm=delta temp=warm cat=type:I count=4536 p50_ns=5936 p95_ns=8817 p99_ns=22352
+quant arm=delta temp=warm cat=type:A count=4536 p50_ns=5920 p95_ns=6833 p99_ns=16704
+quant arm=delta temp=warm cat=type:P count=792 p50_ns=5936 p95_ns=7408 p99_ns=22784
+quant arm=delta temp=warm cat=type:C count=4536 p50_ns=5920 p95_ns=7392 p99_ns=25792
+quant arm=delta temp=warm cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=delta temp=warm cat=nov:recall count=2709 p50_ns=5920 p95_ns=8352 p99_ns=26368
+quant arm=delta temp=warm cat=nov:transfer count=5418 p50_ns=5952 p95_ns=7584 p99_ns=19712
+quant arm=delta temp=warm cat=nov:novel count=4977 p50_ns=5920 p95_ns=7504 p99_ns=19616
+quant arm=delta temp=warm cat=nov:fsm_recall count=5418 p50_ns=5952 p95_ns=8624 p99_ns=26512
+quant arm=delta temp=warm cat=nov:fsm_new count=7686 p50_ns=5936 p95_ns=7632 p99_ns=21313
+quant arm=delta temp=warm cat=fam:AGG count=13104 p50_ns=5936 p95_ns=7776 p99_ns=19984
+quant arm=delta temp=warm cat=fam:FSM count=13104 p50_ns=5936 p95_ns=8096 p99_ns=22784
+quant arm=delta temp=warm cat=n:64 count=8736 p50_ns=5952 p95_ns=8384 p99_ns=22352
+quant arm=delta temp=warm cat=n:512 count=8736 p50_ns=5920 p95_ns=7728 p99_ns=19456
+quant arm=delta temp=warm cat=n:4096 count=8736 p50_ns=5936 p95_ns=7840 p99_ns=23216
+quant arm=idelta temp=cold cat=all count=864 p50_ns=5600 p95_ns=9792 p99_ns=17313
+quant arm=idelta temp=cold cat=type:Z count=72 p50_ns=5600 p95_ns=10544 p99_ns=203938
+quant arm=idelta temp=cold cat=type:S count=72 p50_ns=5601 p95_ns=11665 p99_ns=1005994
+quant arm=idelta temp=cold cat=type:D count=72 p50_ns=5680 p95_ns=17313 p99_ns=989273
+quant arm=idelta temp=cold cat=type:R count=72 p50_ns=5664 p95_ns=12096 p99_ns=13120
+quant arm=idelta temp=cold cat=type:I count=72 p50_ns=5616 p95_ns=8961 p99_ns=15904
+quant arm=idelta temp=cold cat=type:A count=72 p50_ns=5536 p95_ns=7104 p99_ns=12928
+quant arm=idelta temp=cold cat=type:P count=360 p50_ns=5568 p95_ns=8928 p99_ns=12880
+quant arm=idelta temp=cold cat=type:C count=72 p50_ns=5616 p95_ns=9361 p99_ns=17472
+quant arm=idelta temp=cold cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=idelta temp=cold cat=nov:recall count=99 p50_ns=5584 p95_ns=12112 p99_ns=36801
+quant arm=idelta temp=cold cat=nov:transfer count=198 p50_ns=5632 p95_ns=8816 p99_ns=12032
+quant arm=idelta temp=cold cat=nov:novel count=135 p50_ns=5632 p95_ns=9120 p99_ns=11088
+quant arm=idelta temp=cold cat=nov:fsm_recall count=198 p50_ns=5600 p95_ns=10785 p99_ns=218306
+quant arm=idelta temp=cold cat=nov:fsm_new count=234 p50_ns=5568 p95_ns=9952 p99_ns=17472
+quant arm=idelta temp=cold cat=fam:AGG count=432 p50_ns=5616 p95_ns=8961 p99_ns=12304
+quant arm=idelta temp=cold cat=fam:FSM count=432 p50_ns=5584 p95_ns=10288 p99_ns=21008
+quant arm=idelta temp=cold cat=n:64 count=288 p50_ns=5552 p95_ns=8928 p99_ns=14145
+quant arm=idelta temp=cold cat=n:512 count=288 p50_ns=5600 p95_ns=10032 p99_ns=36801
+quant arm=idelta temp=cold cat=n:4096 count=288 p50_ns=5632 p95_ns=10016 p99_ns=21008
+quant arm=idelta temp=warm cat=all count=26208 p50_ns=5520 p95_ns=6864 p99_ns=15456
+quant arm=idelta temp=warm cat=type:Z count=2232 p50_ns=5536 p95_ns=6928 p99_ns=14304
+quant arm=idelta temp=warm cat=type:S count=4536 p50_ns=5520 p95_ns=6816 p99_ns=17329
+quant arm=idelta temp=warm cat=type:D count=504 p50_ns=5648 p95_ns=7056 p99_ns=999897
+quant arm=idelta temp=warm cat=type:R count=4536 p50_ns=5520 p95_ns=7408 p99_ns=15104
+quant arm=idelta temp=warm cat=type:I count=4536 p50_ns=5536 p95_ns=6992 p99_ns=16960
+quant arm=idelta temp=warm cat=type:A count=4536 p50_ns=5504 p95_ns=6849 p99_ns=13984
+quant arm=idelta temp=warm cat=type:P count=792 p50_ns=5520 p95_ns=6656 p99_ns=12001
+quant arm=idelta temp=warm cat=type:C count=4536 p50_ns=5536 p95_ns=6144 p99_ns=13264
+quant arm=idelta temp=warm cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=idelta temp=warm cat=nov:recall count=2709 p50_ns=5552 p95_ns=6976 p99_ns=11520
+quant arm=idelta temp=warm cat=nov:transfer count=5418 p50_ns=5520 p95_ns=7072 p99_ns=18849
+quant arm=idelta temp=warm cat=nov:novel count=4977 p50_ns=5520 p95_ns=6544 p99_ns=16528
+quant arm=idelta temp=warm cat=nov:fsm_recall count=5418 p50_ns=5504 p95_ns=6464 p99_ns=12880
+quant arm=idelta temp=warm cat=nov:fsm_new count=7686 p50_ns=5536 p95_ns=7008 p99_ns=16832
+quant arm=idelta temp=warm cat=fam:AGG count=13104 p50_ns=5520 p95_ns=6912 p99_ns=16352
+quant arm=idelta temp=warm cat=fam:FSM count=13104 p50_ns=5520 p95_ns=6769 p99_ns=14448
+quant arm=idelta temp=warm cat=n:64 count=8736 p50_ns=5520 p95_ns=6336 p99_ns=13473
+quant arm=idelta temp=warm cat=n:512 count=8736 p50_ns=5536 p95_ns=7184 p99_ns=16625
+quant arm=idelta temp=warm cat=n:4096 count=8736 p50_ns=5520 p95_ns=6896 p99_ns=15456
+quant arm=deltap temp=cold cat=all count=864 p50_ns=6016 p95_ns=9184 p99_ns=23984
+quant arm=deltap temp=cold cat=type:Z count=72 p50_ns=6064 p95_ns=11600 p99_ns=919817
+quant arm=deltap temp=cold cat=type:S count=72 p50_ns=5969 p95_ns=8336 p99_ns=24144
+quant arm=deltap temp=cold cat=type:D count=72 p50_ns=6048 p95_ns=7216 p99_ns=165362
+quant arm=deltap temp=cold cat=type:R count=72 p50_ns=6080 p95_ns=8784 p99_ns=62336
+quant arm=deltap temp=cold cat=type:I count=72 p50_ns=6096 p95_ns=8464 p99_ns=25872
+quant arm=deltap temp=cold cat=type:A count=72 p50_ns=5952 p95_ns=7280 p99_ns=102992
+quant arm=deltap temp=cold cat=type:P count=360 p50_ns=5968 p95_ns=7312 p99_ns=12752
+quant arm=deltap temp=cold cat=type:C count=72 p50_ns=6128 p95_ns=10752 p99_ns=24256
+quant arm=deltap temp=cold cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=deltap temp=cold cat=nov:recall count=99 p50_ns=5968 p95_ns=7760 p99_ns=10336
+quant arm=deltap temp=cold cat=nov:transfer count=198 p50_ns=5985 p95_ns=8000 p99_ns=11904
+quant arm=deltap temp=cold cat=nov:novel count=135 p50_ns=6064 p95_ns=8752 p99_ns=165362
+quant arm=deltap temp=cold cat=nov:fsm_recall count=198 p50_ns=6032 p95_ns=10736 p99_ns=62336
+quant arm=deltap temp=cold cat=nov:fsm_new count=234 p50_ns=5984 p95_ns=10416 p99_ns=24256
+quant arm=deltap temp=cold cat=fam:AGG count=432 p50_ns=6000 p95_ns=8304 p99_ns=18352
+quant arm=deltap temp=cold cat=fam:FSM count=432 p50_ns=6016 p95_ns=10416 p99_ns=24256
+quant arm=deltap temp=cold cat=n:64 count=288 p50_ns=5984 p95_ns=9441 p99_ns=23984
+quant arm=deltap temp=cold cat=n:512 count=288 p50_ns=6016 p95_ns=8784 p99_ns=25872
+quant arm=deltap temp=cold cat=n:4096 count=288 p50_ns=6032 p95_ns=9728 p99_ns=18352
+quant arm=deltap temp=warm cat=all count=26208 p50_ns=5936 p95_ns=6560 p99_ns=14128
+quant arm=deltap temp=warm cat=type:Z count=2232 p50_ns=5952 p95_ns=9872 p99_ns=103729
+quant arm=deltap temp=warm cat=type:S count=4536 p50_ns=5920 p95_ns=6416 p99_ns=9568
+quant arm=deltap temp=warm cat=type:D count=504 p50_ns=6080 p95_ns=7184 p99_ns=23968
+quant arm=deltap temp=warm cat=type:R count=4536 p50_ns=5937 p95_ns=6464 p99_ns=13665
+quant arm=deltap temp=warm cat=type:I count=4536 p50_ns=5920 p95_ns=6432 p99_ns=22192
+quant arm=deltap temp=warm cat=type:A count=4536 p50_ns=5920 p95_ns=6464 p99_ns=12032
+quant arm=deltap temp=warm cat=type:P count=792 p50_ns=5920 p95_ns=6497 p99_ns=13216
+quant arm=deltap temp=warm cat=type:C count=4536 p50_ns=5920 p95_ns=6560 p99_ns=10560
+quant arm=deltap temp=warm cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=deltap temp=warm cat=nov:recall count=2709 p50_ns=5936 p95_ns=6496 p99_ns=12112
+quant arm=deltap temp=warm cat=nov:transfer count=5418 p50_ns=5904 p95_ns=6384 p99_ns=9009
+quant arm=deltap temp=warm cat=nov:novel count=4977 p50_ns=5936 p95_ns=6464 p99_ns=10688
+quant arm=deltap temp=warm cat=nov:fsm_recall count=5418 p50_ns=5952 p95_ns=6800 p99_ns=77424
+quant arm=deltap temp=warm cat=nov:fsm_new count=7686 p50_ns=5920 p95_ns=6704 p99_ns=17376
+quant arm=deltap temp=warm cat=fam:AGG count=13104 p50_ns=5920 p95_ns=6432 p99_ns=10656
+quant arm=deltap temp=warm cat=fam:FSM count=13104 p50_ns=5936 p95_ns=6736 p99_ns=23424
+quant arm=deltap temp=warm cat=n:64 count=8736 p50_ns=5920 p95_ns=6464 p99_ns=14112
+quant arm=deltap temp=warm cat=n:512 count=8736 p50_ns=5936 p95_ns=6608 p99_ns=13056
+quant arm=deltap temp=warm cat=n:4096 count=8736 p50_ns=5936 p95_ns=6608 p99_ns=15248
+quant arm=select temp=cold cat=all count=864 p50_ns=6144 p95_ns=9248 p99_ns=19616
+quant arm=select temp=cold cat=type:Z count=72 p50_ns=6080 p95_ns=11648 p99_ns=11744
+quant arm=select temp=cold cat=type:S count=72 p50_ns=6128 p95_ns=8384 p99_ns=16112
+quant arm=select temp=cold cat=type:D count=72 p50_ns=6128 p95_ns=8064 p99_ns=9920
+quant arm=select temp=cold cat=type:R count=72 p50_ns=6224 p95_ns=15185 p99_ns=1003242
+quant arm=select temp=cold cat=type:I count=72 p50_ns=6224 p95_ns=8064 p99_ns=16928
+quant arm=select temp=cold cat=type:A count=72 p50_ns=6144 p95_ns=7457 p99_ns=18256
+quant arm=select temp=cold cat=type:P count=360 p50_ns=6096 p95_ns=9248 p99_ns=30721
+quant arm=select temp=cold cat=type:C count=72 p50_ns=6272 p95_ns=11377 p99_ns=16864
+quant arm=select temp=cold cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=select temp=cold cat=nov:recall count=99 p50_ns=6064 p95_ns=8160 p99_ns=16928
+quant arm=select temp=cold cat=nov:transfer count=198 p50_ns=6096 p95_ns=9024 p99_ns=358787
+quant arm=select temp=cold cat=nov:novel count=135 p50_ns=6177 p95_ns=8048 p99_ns=13408
+quant arm=select temp=cold cat=nov:fsm_recall count=198 p50_ns=6209 p95_ns=12976 p99_ns=36736
+quant arm=select temp=cold cat=nov:fsm_new count=234 p50_ns=6128 p95_ns=8337 p99_ns=11744
+quant arm=select temp=cold cat=fam:AGG count=432 p50_ns=6112 p95_ns=8384 p99_ns=16928
+quant arm=select temp=cold cat=fam:FSM count=432 p50_ns=6176 p95_ns=11088 p99_ns=19616
+quant arm=select temp=cold cat=n:64 count=288 p50_ns=6256 p95_ns=8688 p99_ns=16864
+quant arm=select temp=cold cat=n:512 count=288 p50_ns=6048 p95_ns=8288 p99_ns=18256
+quant arm=select temp=cold cat=n:4096 count=288 p50_ns=6160 p95_ns=11168 p99_ns=30721
+quant arm=select temp=warm cat=all count=26208 p50_ns=6016 p95_ns=7392 p99_ns=14096
+quant arm=select temp=warm cat=type:Z count=2232 p50_ns=5952 p95_ns=6464 p99_ns=9552
+quant arm=select temp=warm cat=type:S count=4536 p50_ns=6032 p95_ns=7168 p99_ns=11408
+quant arm=select temp=warm cat=type:D count=504 p50_ns=6160 p95_ns=7712 p99_ns=19808
+quant arm=select temp=warm cat=type:R count=4536 p50_ns=6032 p95_ns=7904 p99_ns=20529
+quant arm=select temp=warm cat=type:I count=4536 p50_ns=6000 p95_ns=6992 p99_ns=11632
+quant arm=select temp=warm cat=type:A count=4536 p50_ns=6048 p95_ns=8000 p99_ns=14464
+quant arm=select temp=warm cat=type:P count=792 p50_ns=5952 p95_ns=7568 p99_ns=14704
+quant arm=select temp=warm cat=type:C count=4536 p50_ns=6016 p95_ns=7712 p99_ns=15296
+quant arm=select temp=warm cat=nov:none count=0 p50_ns=na p95_ns=na p99_ns=na
+quant arm=select temp=warm cat=nov:recall count=2709 p50_ns=5952 p95_ns=8160 p99_ns=13120
+quant arm=select temp=warm cat=nov:transfer count=5418 p50_ns=5968 p95_ns=6704 p99_ns=10704
+quant arm=select temp=warm cat=nov:novel count=4977 p50_ns=5968 p95_ns=6800 p99_ns=12736
+quant arm=select temp=warm cat=nov:fsm_recall count=5418 p50_ns=6096 p95_ns=7680 p99_ns=17776
+quant arm=select temp=warm cat=nov:fsm_new count=7686 p50_ns=6064 p95_ns=7665 p99_ns=14208
+quant arm=select temp=warm cat=fam:AGG count=13104 p50_ns=5968 p95_ns=7168 p99_ns=12176
+quant arm=select temp=warm cat=fam:FSM count=13104 p50_ns=6080 p95_ns=7680 p99_ns=15568
+quant arm=select temp=warm cat=n:64 count=8736 p50_ns=6160 p95_ns=7424 p99_ns=14432
+quant arm=select temp=warm cat=n:512 count=8736 p50_ns=5968 p95_ns=7232 p99_ns=12928
+quant arm=select temp=warm cat=n:4096 count=8736 p50_ns=5969 p95_ns=7664 p99_ns=14688
+full_ns_per_step=NOT_RECORDED reason=raw_logs_carry_no_reference_timing
+control id=C1 records=2 detected=2 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C1b records=2 detected=2 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C1c records=1 detected=1 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C2 records=2 detected=2 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C3 records=2 detected=2 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C4 records=1 detected=1 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C5 records=6 detected=6 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C6 records=3 detected=3 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C7 records=2 detected=2 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C8 records=9 detected=9 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C9 records=2 detected=2 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C10 records=2 detected=2 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C11 records=1 detected=1 undetected=0 reported=0 not_run=0 served_tampered=0 missing_pairs=0
+control id=C12 records=1 detected=0 undetected=0 reported=1 not_run=0 served_tampered=0 missing_pairs=0
+issue742 transfer_coverage_ppm=1000000 bind_failures=NOT_RECORDED route5_method=0 route5_delta=0 restart_identity=detected C1=detected C1b=detected C1c=detected C2=detected C3=detected C6=detected C7=detected C8=detected C9=detected C10=detected C11=detected
+issue743 delta_over_method point_ppm=954985 lo_ppm=854391 hi_ppm=1078713 idelta_over_full point_ppm=750715 lo_ppm=650013 hi_ppm=867141 C4=detected C8=detected
+issue744 select_over_delta point_ppm=859396 lo_ppm=758743 hi_ppm=956712 matched_correctness=yes verdict=helps
+reason=rho_delta_lower_ge_1
+reason=rho_delta_upper_ge_1
+reason=delta_over_idelta_upper_ge_1
+decision=STOP
+verdicts source=REVIEW_REQUIRED host=STOP simulator=NOT_RUN physical=NOT_RUN
