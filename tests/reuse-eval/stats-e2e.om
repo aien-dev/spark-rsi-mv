@@ -10,9 +10,11 @@ note     rho_delta_lower_ge_1, upper bounds >= 1 (bits 4..7 = 240).
 note  s2 delta costs exactly half: rho(delta) = delta/cache = delta/idelta = delta/method = 500000,
 note     select/delta = 2000000, zero width; GO; payback(delta) = 0 QUERYs (acq 0).
 note  s3 = s2 with acq 1000 ns per rep for lib 1: T(delta) = T(full) / 2 + 3000.
-note  s4 delta multipliers (2, 6, 1, 4) / 4 over 4 groups, acq 1000 per rep, seed bytes
-note     0123456789abcdef...: point, lo, hi of rho(delta) and the ratios as computed by an
-note     independent reimplementation (Python, development only) of the documented bootstrap.
+note  s4 24 groups (the FINAL group count), delta multiplier 1 + (5 g mod 7) quarters, acq 1000 per
+note     rep, seed bytes 0123456789abcdef...: point, lo, hi of rho(delta) and the ratios as
+note     computed by an independent reimplementation (Python, development only) of the
+note     documented bootstrap; a changed splitmix64 constant or draw rule changes them.
+note     s13: 4 groups, multipliers (2, 5, 3, 5): the same INVESTIGATE branch (224).
 note  s5..s14: one decision branch each (see tsrun calls in main).
 note  r1..r3: refusals (identity word, expectation word, missing proc record).
 note Exit 0 = pass; otherwise the failing check's code.
