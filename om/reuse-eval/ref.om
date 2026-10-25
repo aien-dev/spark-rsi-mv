@@ -1,0 +1,643 @@
+note SPDX-License-Identifier: Apache-2.0
+note ref.om: the evaluator's own reference of REUSE-1 profile R1 (docs/reuse/REUSE-1.md v1.0,
+note omega-mv d6edaad1, section 1), written from the contract text alone (no candidate code read).
+note Units before it: sha256 (omega-mv main om/sha256/sha256.om, unchanged). Prefix rf / RF.
+note
+note Use: put one request frame (op, p, p payload words) into RFRQ, call rfreq; the response is in
+note RFRS (0 status, 1 q, 2 r0, 3 r1, 4 route 0, rest 0) and rfreq returns the status.
+note Status rules (contract 1.3, 2, integrator clarification K2):
+note   p > 7234 or unknown op: 4. p not matching its op: 4. BEGIN: p < 65 or p != 65 + n: 4,
+note   n > 4096: 5, invalid PROG: 2, a value outside the domain: 3; a refused BEGIN keeps the
+note   previous session. Ops 2..8 without a session: 6. STATS and END: 0, q 0 (END drops the
+note   session). SET/INS/DEL/SWAP: 3 when an index is out of range, a value is outside the domain
+note   or INS would make n > 4096. BATCH: m outside 1..1024: 3; item op outside 3..6 or a DEL item
+note   with b != 0: 3; items judged in order on the state the earlier items leave; all or nothing.
+note   PROGRAM: invalid PROG 2 first, then any state value outside the new domain 3.
+note Validity of one change depends only on n and the domain, so BATCH is validated by simulating n
+note over the items and applied only when every item is valid (nothing is written before that).
+note
+note Hashing: rfpdig hashes RFP (512 LE bytes) into RFPD; streams use a context slot 0..7:
+note rfhini slot, rfhabs slot n (RFHB[0..n), n <= 65536), rfhfin slot (-> RFHD). Digest word j =
+note bytes 8j..8j+7 read big endian (contract 1.1).
+
+global RFP ulong 64
+global RFQ ulong 64
+global RFN ulong 1
+global RFX ulong 4096
+global RFS ulong 1
+global RFR ulong 2
+global RFRQ ulong 7240
+global RFRS ulong 8
+global RFPD ulong 4
+global RFHB uchar 65536
+global RFHC uchar 832
+global RFHD ulong 4
+
+note ---- lane map, folds, transitions (contract 1.2) ----
+
+note one lane step: v < 2^wl, c < 2^wl, shifts c < wl
+fn rfop wl ulong op ulong c ulong v ulong to ulong
+m = sub shl ulong 1 wl 1
+if eq op 1
+ret and add v c m
+end
+if eq op 2
+ret and sub v c m
+end
+if eq op 3
+ret and mul v c m
+end
+if eq op 4
+ret and v c
+end
+if eq op 5
+ret or v c
+end
+if eq op 6
+ret xor v c
+end
+if eq op 7
+ret and shl v c m
+end
+ret shr v c
+end
+
+fn rflane x ulong to ulong
+wl = get RFP 2
+k = get RFP 4
+v = x
+for j ulong k
+o = get RFP add 5 mul j 2
+c = get RFP add 6 mul j 2
+v = rfop wl o c v
+end
+ret v
+end
+
+fn rfident f ulong to ulong
+if or eq f 3 eq f 6
+ret 18446744073709551615
+end
+ret 0
+end
+
+fn rffold f ulong a ulong b ulong to ulong
+if eq f 1
+ret add a b
+end
+if eq f 2
+ret xor a b
+end
+if eq f 3
+if lt b a
+ret b
+end
+ret a
+end
+if eq f 4
+if gt b a
+ret b
+end
+ret a
+end
+if eq f 5
+ret or a b
+end
+ret and a b
+end
+
+note delta(s, a): t of the lowest-numbered rule with rule.s = s and lo <= a <= hi, else s
+fn rfdelta s ulong a ulong to ulong
+r = get RFP 5
+for i ulong r
+w = get RFP add 22 i
+if eq and w 255 s
+lo = and shr w 8 255
+hi = and shr w 16 255
+if and le lo a le a hi
+ret shr w 24
+end
+end
+end
+ret s
+end
+
+fn rfagg to void
+n = get RFN 0
+f = get RFP 3
+acc = rfident f
+for i ulong n
+e = rflane get RFX i
+acc = rffold f acc e
+end
+put RFR 0 acc
+put RFR 1 n
+end
+
+fn rffsm to void
+n = get RFN 0
+q = get RFP 4
+sum = ulong 0
+for t ulong n
+q = rfdelta q get RFX t
+sum = add sum get RFP add 6 q
+end
+put RFR 0 q
+put RFR 1 sum
+end
+
+note the result of RFP over (RFN, RFX) into RFR
+fn rffull to void
+if eq get RFP 1 1
+rfagg
+ret
+end
+rffsm
+end
+
+fn rfshape to ulong
+if eq get RFP 1 2
+ret 1
+end
+s = ulong 0
+m = ulong 65536
+k = get RFP 4
+for j ulong k
+s = add s mul m get RFP add 5 mul j 2
+m = mul m 16
+end
+b = add get RFP 2 mul 256 get RFP 3
+ret add add b mul 4096 k s
+end
+
+note ---- program validation (contract 1.1), on the staging buffer RFQ ----
+
+fn rfvagg to int
+wl = get RFQ 2
+if and ne wl 8 ne wl 16
+ret 2
+end
+f = get RFQ 3
+if or lt f 1 gt f 6
+ret 2
+end
+k = get RFQ 4
+if or lt k 1 gt k 6
+ret 2
+end
+lim = shl ulong 1 wl
+for j ulong 6
+o = get RFQ add 5 mul j 2
+c = get RFQ add 6 mul j 2
+if lt j k
+if or lt o 1 gt o 8
+ret 2
+end
+if ge c lim
+ret 2
+end
+if and ge o 7 ge c wl
+ret 2
+end
+else
+if or ne o 0 ne c 0
+ret 2
+end
+end
+end
+for i ulong 47
+if ne get RFQ add i 17 0
+ret 2
+end
+end
+ret 0
+end
+
+note one FSM rule word, r < R: s < S, t < S, lo <= hi < A
+fn rfvrule w ulong s ulong a ulong to bool
+rs = and w 255
+lo = and shr w 8 255
+hi = and shr w 16 255
+t = shr w 24
+if or ge rs s ge t s
+ret false
+end
+if or gt lo hi ge hi a
+ret false
+end
+ret true
+end
+
+fn rfvfsm to int
+s = get RFQ 2
+a = get RFQ 3
+if or lt s 2 gt s 16
+ret 2
+end
+if or lt a 2 gt a 16
+ret 2
+end
+if ge get RFQ 4 s
+ret 2
+end
+r = get RFQ 5
+if or lt r 1 gt r 24
+ret 2
+end
+for i ulong 16
+l = get RFQ add 6 i
+if lt i s
+if gt l 255
+ret 2
+end
+else
+if ne l 0
+ret 2
+end
+end
+end
+for j ulong 24
+w = get RFQ add 22 j
+if lt j r
+if not rfvrule w s a
+ret 2
+end
+else
+if ne w 0
+ret 2
+end
+end
+end
+for k ulong 18
+if ne get RFQ add k 46 0
+ret 2
+end
+end
+ret 0
+end
+
+note 0 valid, 2 invalid (RFQ)
+fn rfvalid to int
+if ne get RFQ 0 3544411312749556050
+ret 2
+end
+fam = get RFQ 1
+if eq fam 1
+ret rfvagg
+end
+if eq fam 2
+ret rfvfsm
+end
+ret 2
+end
+
+note value domain of a valid program: AGG 2^wl, FSM A
+fn rfdomq to ulong
+if eq get RFQ 1 1
+ret shl ulong 1 get RFQ 2
+end
+ret get RFQ 3
+end
+
+fn rfdom to ulong
+if eq get RFP 1 1
+ret shl ulong 1 get RFP 2
+end
+ret get RFP 3
+end
+
+note ---- changes (contract 1.3) ----
+
+note validity of one change on a state of n values with domain d: 0 or 3
+fn rfchk op ulong a ulong b ulong n ulong d ulong to ulong
+if eq op 3
+if or ge a n ge b d
+ret 3
+end
+ret 0
+end
+if eq op 4
+if or gt a n ge b d
+ret 3
+end
+if ge n 4096
+ret 3
+end
+ret 0
+end
+if eq op 5
+if or ge a n ne b 0
+ret 3
+end
+ret 0
+end
+if eq op 6
+if or ge a n ge b n
+ret 3
+end
+ret 0
+end
+ret 3
+end
+
+note apply one already validated change to RFX, RFN
+fn rfdo op ulong a ulong b ulong to void
+n = get RFN 0
+if eq op 3
+put RFX a b
+ret
+end
+if eq op 4
+i = n
+while gt i a bound 4097
+put RFX i get RFX sub i 1
+i = sub i 1
+end
+put RFX a b
+put RFN 0 add n 1
+ret
+end
+if eq op 5
+j = a
+while lt add j 1 n bound 4097
+put RFX j get RFX add j 1
+j = add j 1
+end
+put RFN 0 sub n 1
+ret
+end
+t = get RFX a
+put RFX a get RFX b
+put RFX b t
+end
+
+note BATCH payload at RFRQ[2..]: m, then m triples; p already checked against 1 + 3m
+fn rfbatch to ulong
+m = get RFRQ 2
+if or lt m 1 gt m 1024
+ret 3
+end
+d = rfdom
+n = get RFN 0
+for i ulong m
+o = get RFRQ add 3 mul i 3
+a = get RFRQ add 4 mul i 3
+b = get RFRQ add 5 mul i 3
+if ne rfchk o a b n d 0
+ret 3
+end
+if eq o 4
+n = add n 1
+end
+if eq o 5
+n = sub n 1
+end
+end
+for j ulong m
+o2 = get RFRQ add 3 mul j 3
+a2 = get RFRQ add 4 mul j 3
+b2 = get RFRQ add 5 mul j 3
+rfdo o2 a2 b2
+end
+ret 0
+end
+
+note ---- requests (contract 2) ----
+
+fn rfbegin p ulong to ulong
+if lt p 65
+ret 4
+end
+n = get RFRQ 66
+if ne p add n 65
+ret 4
+end
+if gt n 4096
+ret 5
+end
+for i ulong 64
+put RFQ i get RFRQ add i 2
+end
+if ne rfvalid 0
+ret 2
+end
+d = rfdomq
+for j ulong n
+if ge get RFRQ add j 67 d
+ret 3
+end
+end
+for k ulong 64
+put RFP k get RFQ k
+end
+for t ulong n
+put RFX t get RFRQ add t 67
+end
+put RFN 0 n
+put RFS 0 1
+ret 0
+end
+
+fn rfprog to ulong
+for i ulong 64
+put RFQ i get RFRQ add i 2
+end
+if ne rfvalid 0
+ret 2
+end
+d = rfdomq
+n = get RFN 0
+for j ulong n
+if ge get RFX j d
+ret 3
+end
+end
+for k ulong 64
+put RFP k get RFQ k
+end
+ret 0
+end
+
+fn rfquery to ulong
+rffull
+put RFRS 1 3
+put RFRS 2 get RFR 0
+put RFRS 3 get RFR 1
+ret 0
+end
+
+note the expected payload length of op given the frame, or 7235 when it cannot match
+fn rfplen op ulong p ulong to ulong
+if or eq op 2 or eq op 9 eq op 10
+ret 0
+end
+if or eq op 3 or eq op 4 eq op 6
+ret 2
+end
+if eq op 5
+ret 1
+end
+if eq op 8
+ret 64
+end
+if eq op 7
+if lt p 1
+ret 7235
+end
+m = get RFRQ 2
+if gt m 2411
+ret 7235
+end
+ret add 1 mul 3 m
+end
+ret 7235
+end
+
+fn rfreq2 to ulong
+op = get RFRQ 0
+p = get RFRQ 1
+if gt p 7234
+ret 4
+end
+if or lt op 1 gt op 10
+ret 4
+end
+if eq op 1
+ret rfbegin p
+end
+if ne p rfplen op p
+ret 4
+end
+if eq op 9
+ret 0
+end
+if eq op 10
+put RFS 0 0
+ret 0
+end
+if eq get RFS 0 0
+ret 6
+end
+if eq op 2
+ret rfquery
+end
+if eq op 7
+ret rfbatch
+end
+if eq op 8
+ret rfprog
+end
+b = ulong 0
+if ne op 5
+b = get RFRQ 3
+end
+a = get RFRQ 2
+if ne rfchk op a b get RFN 0 rfdom 0
+ret 3
+end
+rfdo op a b
+ret 0
+end
+
+fn rfreq to int
+for i ulong 8
+put RFRS i 0
+end
+st = rfreq2
+put RFRS 0 st
+ret int st
+end
+
+fn rfreset to void
+put RFS 0 0
+put RFN 0 0
+end
+
+note ---- SHA-256 through omsha (sha256 unit) ----
+
+fn rfbswap x ulong to ulong
+r = ulong 0
+v = x
+for i ulong 8
+r = or shl r 8 and v 255
+v = shr v 8
+end
+ret r
+end
+
+fn rfhini slot ulong to void
+c = new uchar 104 0
+b = new uchar 4096 0
+w = new ulong 64 0
+b8 = new ulong 512 0
+omsha c b 0 0 w b8
+rfhst c slot
+end
+
+note context slot into c and back; RFHB[off..off+k) into b
+fn rfhld c edit uchar 104 slot ulong to void
+o = mul slot 104
+for i ulong 104
+put c i get RFHC add o i
+end
+end
+
+fn rfhst c edit uchar 104 slot ulong to void
+o = mul slot 104
+for i ulong 104
+put RFHC add o i get c i
+end
+end
+
+fn rfhcp b edit uchar 4096 off ulong k ulong to void
+for j ulong k
+put b j get RFHB add off j
+end
+end
+
+fn rfhabs slot ulong n ulong to void
+c = new uchar 104 0
+b = new uchar 4096 0
+w = new ulong 64 0
+b8 = new ulong 512 0
+rfhld c slot
+off = ulong 0
+while lt off n bound 17
+k = sub n off
+if gt k 4096
+k = 4096
+end
+rfhcp b off k
+omsha c b k 1 w b8
+off = add off k
+end
+rfhst c slot
+end
+
+fn rfhfin slot ulong to void
+c = new uchar 104 0
+b = new uchar 4096 0
+w = new ulong 64 0
+b8 = new ulong 512 0
+rfhld c slot
+omsha c b 0 2 w b8
+for j ulong 4
+put RFHD j rfbswap get w j
+end
+end
+
+note program digest of RFP into RFPD (uses slot 7 and RFHB[0..512))
+fn rfpdig to void
+for i ulong 64
+x = get RFP i
+for j ulong 8
+put RFHB add mul i 8 j uchar and shr x mul j 8 255
+end
+end
+rfhini 7
+rfhabs 7 512
+rfhfin 7
+for k ulong 4
+put RFPD k get RFHD k
+end
+end
