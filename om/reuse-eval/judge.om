@@ -735,7 +735,7 @@ note ---- splitmix64 ----
 fn jdsmix to ulong
 s = add get JDSM 0 11400714819323198485
 put JDSM 0 s
-z = mul xor s shr s 30 13787848793156543017
+z = mul xor s shr s 30 13787848793156543929
 z = mul xor z shr z 27 10723151780598845931
 ret xor z shr z 31
 end
@@ -1078,6 +1078,7 @@ put JDC 9 0
 put JDC 15 0
 put JDC 18 0
 put JDC 27 0
+put JDC 28 0
 for i ulong 5
 put JDT i 0
 end
@@ -1244,7 +1245,9 @@ put JDC 8 0
 jdclosefd
 end
 
-note send END, reap, close
+note send END, require status 0 and q 0, reap; K17: END round trip into JDC 28, and 1024 added to
+note the exit word when END itself failed (bad status or q, end of file, timeout, write failure;
+note the low bits then hold the exit status, or 512 + 4 + code when the judge had to kill the arm)
 fn jdpfin to void
 if eq get JDC 8 0
 ret
@@ -1255,16 +1258,23 @@ end
 jdpread
 put JDM JMEND 10
 put JDM add JMEND 1 0
-dl = add monons 10000000000
+t1 = monons
+dl = add t1 10000000000
 e = jdsend JMEND 2 dl
 if eq e 0
 e = jdrecv dl
 end
+put JDC 28 ulong sub monons t1
 if ne e 0
 jdpkill add 4 ulong e
+put JDC 18 add get JDC 18 1024
 ret
 end
+bad = or ne get JDRS 0 0 ne get JDRS 1 0
 jdreap
+if bad
+put JDC 18 add get JDC 18 1024
+end
 put JDC 8 0
 jdclosefd
 end
@@ -1523,7 +1533,7 @@ put JDM add p 11 get JDC 7
 put JDM add p 12 get JDC 6
 put JDM add p 13 get JDC 24
 put JDM add p 14 get JDC 13
-put JDM add p 15 0
+put JDM add p 15 get JDC 28
 jdspath 0 4 JWPLOG 8
 x = jdstw 0 p 16 1089
 if lt x 0
