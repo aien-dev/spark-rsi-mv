@@ -810,7 +810,9 @@ stou code
 tuks TKDETL
 stou d
 stnl
+if ne get STQT 0 1
 r = stflush 1
+end
 ret 2
 end
 
