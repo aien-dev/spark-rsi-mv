@@ -32,6 +32,9 @@ global TSWR ulong 1
 global TSTR ulong 1
 global TSBAD ulong 1
 global TSNOC ulong 1
+global TSMISS ulong 1
+global TSEND ulong 1
+global TSEX ulong 1
 global TSRB uchar 4096
 global TSRL ulong 1
 
@@ -388,12 +391,20 @@ stow 0
 stow 0
 stow add 1000 a
 stow add 900 a
+if and eq a 7 and eq r 1 eq g 2
+stow get TSEX 0
+else
 stow 0
+end
 stow 8
 stow 0
 stow 19
 stow 0
+if eq a 4
+stow get TSEND 0
+else
 stow 0
+end
 end
 
 fn tsproc to int
@@ -431,21 +442,52 @@ stpk SKACQ
 ret stwfile
 end
 
+note one record per required (control, sub-case) pair (stcreq), outcome TSCO[c], served flag
+note TSCF[c] on its lowest sub-case; TSMISS = c leaves out c's highest sub-case; TSBAD 4 repeats
+note the first record
 fn tsctl to int
 put STOP 0 0
 for c ulong 14
-stow add c 1
-stow 0
-stow get TSCO add c 1
-stow get TSCF add c 1
-for k ulong 4
-stow 0
+m = stcreq add c 1
+if eq get TSMISS 0 add c 1
+m = tsdrophi m
 end
+f = get TSCF add c 1
+for s ulong 10
+if eq and shr m s 1 1
+tsctlrec add c 1 s get TSCO add c 1 f
+f = 0
+end
+end
+end
+if eq get TSBAD 0 4
+tsctlrec 1 0 1 0
 end
 tssub 3
 stpc 47
 stpk SKCTL
 ret stwfile
+end
+
+fn tsctlrec c ulong s ulong o ulong f ulong to void
+stow c
+stow s
+stow o
+stow f
+for k ulong 4
+stow 0
+end
+end
+
+note mask m without its highest set bit
+fn tsdrophi m ulong to ulong
+h = ulong 0
+for s ulong 10
+if eq and shr m s 1 1
+h = s
+end
+end
+ret xor m shl ulong 1 h
 end
 
 fn tsgen to int
@@ -487,6 +529,9 @@ put TSWR 0 0
 put TSTR 0 4
 put TSBAD 0 0
 put TSNOC 0 0
+put TSMISS 0 0
+put TSEND 0 0
+put TSEX 0 0
 for c ulong 16
 put TSCO c 1
 put TSCF c 0
@@ -778,6 +823,64 @@ ret 114
 end
 if ne get STRF 0 11
 ret 115
+end
+ret tsk17
+end
+
+note K17 and control-pair scenarios: s15 END round trip 500 ns on every delta process (cost
+note grows by 500 x 3 reps x 4 groups); s16 one select process with END failed (word 10 1029):
+note STOP wrong_refusal, failed and END-failed counts 1; s17 a plain nonzero exit 3: STOP, END
+note count 0; s18 C8 missing its sub-case 9: INVESTIGATE control_not_run; r4 a repeated control
+note pair: refused 13 with detail 3
+fn tsk17 to int
+tsset 2
+put TSEND 0 500
+if ne tsrun 0
+ret 120
+end
+if ne get STSUM 68 add div get STSUM 65 2 6000
+ret 121
+end
+if or not tsdec 1 0 ne get STSUM 100 0
+ret 122
+end
+tsset 2
+put TSEX 0 1029
+if ne tsrun 0
+ret 123
+end
+if not tsdec 3 2
+ret 124
+end
+if or ne get STSUM 103 1 ne get STSUM 111 1
+ret 125
+end
+if ne get STSUM 15 1
+ret 126
+end
+tsset 2
+put TSEX 0 3
+if ne tsrun 0
+ret 127
+end
+if or not tsdec 3 2 ne get STSUM 111 0
+ret 128
+end
+tsset 2
+put TSMISS 0 10
+if ne tsrun 0
+ret 129
+end
+if not tsdec 2 512
+ret 130
+end
+tsset 2
+put TSBAD 0 4
+if ne tsrun 2
+ret 131
+end
+if or ne get STRF 0 13 ne get STRF 2 3
+ret 132
 end
 ret 0
 end

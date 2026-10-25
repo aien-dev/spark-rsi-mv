@@ -19,8 +19,13 @@ note  - reps R = 3 (0-based in names and logs), arms 0 echo 1 full 2 cache 3 met
 note    5 idelta 6 deltap 7 select. Library charged per arm: method, delta, select = acq lib 1
 note    (TRAIN), deltap = lib 2 (TRAINP), every other arm none (idelta runs with LIBDIR -).
 note  - cost of one arm process (arm a, rep r, group g) = start-to-ready (proc word 3, which
-note    includes request 0's round trip) + sum of round trips of requests 1.. of the group. This
-note    charges start-to-ready to the first request (contract 5.4).
+note    includes request 0's round trip) + sum of round trips of requests 1.. of the group + the END
+note    round trip (proc word 15, K17; raw logs and proc word 12 exclude END). This charges
+note    start-to-ready to the first request (contract 5.4).
+note  - process exit (proc word 10, K17): 0 ok; any nonzero value (exit code, 256 + signal,
+note    512 + judge kill code, 1023 reap failure, + 1024 when END itself failed) is a failed process
+note    and counts as one wrong refusal of its arm (so STOP for arms 1..7); reported per arm as
+note    proc_failed (correct line), exit_nonzero and end_failed (memory line).
 note  - V(a, g) = sum over the 3 reps of the process cost; acq(a) = sum over the 3 reps of the
 note    elapsed ns of the arm's library build. T(a) = sum over groups of V(a, g) + acq(a). Sums over
 note    reps stand for the per-group means of contract 10 (the factor 3 cancels in every ratio).
@@ -46,8 +51,8 @@ note    the recomputation says 0; disagreements are counted as log_inconsistent.
 note  - transfer coverage: delta-arm QUERYs (all reps) in sessions of novelty class 2 with route 3
 note    or 4, over all such QUERYs. Fallback = route 5 among an arm's QUERYs.
 note  - payback(a): FINAL request order (group 0.., request 0..), per request the rep-summed
-note    (full - arm) cost (request 0 = start-to-ready); the number of QUERYs seen when the cumulative
-note    sum first exceeds acq(a); none if it never does.
+note    (full - arm) cost (request 0 = start-to-ready + END); the number of QUERYs seen when the
+note    cumulative sum first exceeds acq(a); none if it never does.
 note  - Cbar (contract 6, #744), per arm, ppm of one full QUERY: F = floor(full QUERY round-trip
 note    sum / count); r = echo mean QUERY / F; q = QUERYs not served by routes 2..4 / QUERYs;
 note    e = mean of the route 2..4 QUERYs / F - r; K = acq(a) / F (full-QUERY units); N = the arm's
@@ -57,7 +62,8 @@ note  - echo_sub(a) = (T(a) - T(echo)) / (T(full) - T(echo)), signed ppm (second
 note  - decision (contract 10, K7): STOP on any wrong answer or wrong refusal of arms 1..7, a control
 note    with outcome 0 or the served-tampered flag, or lower bound of rho(delta) >= 1; else GO when
 note    upper bounds of rho(delta), delta/cache and delta/idelta are < 1, transfer coverage >= 1/2
-note    (with at least one transfer QUERY) and every control C1..C12 has records and none not run;
+note    (with at least one transfer QUERY) and every control C1..C12 has all its required
+note    (control, sub-case) pairs (stcreq) and none not run; a missing pair counts as not run;
 note    else INVESTIGATE. Every failing condition is listed as a reason line.
 note
 note stats.sum: 256 words LE. 0 magic 3544386041195737426 (R1STS001), 1 version 1, 2 decision
@@ -69,12 +75,14 @@ note 10 bootstrap seed, 11 resamples, 12 scored QUERY responses (arms 1..7, all 
 note ones, 14 wrong ones, 15 wrong refusals, 16 transfer QUERYs, 17 covered, 18..21 holdout digest
 note (index words 7..10 as stored), 22 log inconsistencies, 24 + 3 s .. 26 + 3 s point, lo, hi ppm
 note of statistic s (s 0..12), 64 + a T(a), 72 + a acq(a), 80 + a route-5 QUERYs of arm a,
-note 88 + a payback QUERYs (18446744073709551615 = none or not applicable); the rest 0.
+note 88 + a payback QUERYs (18446744073709551615 = none or not applicable), 96 + a failed
+note processes of arm a (K17 nonzero exit), 104 + a processes of arm a whose END failed; the rest 0.
 note
 note Refusal codes: 1 usage, 2 index unreadable, 3 index invalid, 4 sessions invalid, 5 exp invalid,
 note 6 log missing, 7 log size, 8 log identity words, 9 log expectation words differ from exp,
 note 10 proc.log invalid, 11 proc record missing or duplicate, 12 acq.log invalid or a needed build
-note missing, 13 controls.log invalid, 14 capacity, 15 output write failed.
+note missing, 13 controls.log invalid (detail k.0 field range, k.1 reported outside C12, k.2
+note sub-case not required, k.3 repeated pair; k = record), 14 capacity, 15 output write failed.
 
 const SKINDEX ulong 0
 const SKSESS ulong 1
@@ -214,8 +222,12 @@ const SKR5 ulong 181
 const SKSPACE ulong 182
 const SKDIG ulong 183
 const SKR5D ulong 184
+const SKMISSP ulong 185
+const SKENDNS ulong 186
+const SKENDF ulong 187
+const SKPROCF ulong 188
 
-text STK "index\nsessions\n.exp\narm-\n-rep-\n-g\n.log\nproc.log\nacq.log\ncontrols.log\nstats.txt\nstats.sum\nreport=reuse1-stats version=1 contract=REUSE-1 v1.0\nstatus=REFUSED code=\n detail=\ninput split=\n groups=\n sessions=\n requests=\n queries=\n reps=\n arm=\ntotal\n rt_ns=\n ready_ns=\n acq_ns=\n total_ns=\nrho\n point_ppm=\n lo_ppm=\n hi_ppm=\nratio name=\ncorrect\n query_ok=\n query_wrong=\n change_ok=\n change_wrong=\n unscored=\n log_inconsistent=\nroutes\n r\n=\n other=\n fallback_ppm=\ncoverage arm=delta class=transfer queries=\n method_served=\n coverage_ppm=\nmemory\n procs=\n hwm_max_kb=\n hwm_mean_kb=\n rss_max_kb=\n cpu_ticks=\n exit_nonzero=\nacq lib=\n builds=\n elapsed_ns=\n libdir_bytes_max=\n drive_nonzero=\npayback\n queries=\nnone\ncbar\n r_ppm=\n q_ppm=\n e_ppm=\n k_units_ppm=\n n=\n cbar_ppm=\n observed_ppm=\necho_sub\n ppm=\nna\nquant\n temp=\ncold\nwarm\n cat=\n count=\n p50_ns=\n p95_ns=\n p99_ns=\ncat_rho\nregime cat=\n delta_over_method_ppm=\n idelta_over_full_ppm=\ncontrol id=\n records=\n detected=\n undetected=\n reported=\n not_run=\n served_tampered=\ndecision=\nreason=\nissue742 transfer_coverage_ppm=\nissue743\nissue744 select_over_delta\n verdict=\nhelps\ndoes_not_help\ninconclusive\nverdicts source=REVIEW_REQUIRED host=\n simulator=NOT_RUN physical=NOT_RUN\nfull_ns_per_step=NOT_RECORDED reason=raw_logs_carry_no_reference_timing\nbootstrap resamples=\n seed=\n rank_lo=\n rank_hi=\nGO\nINVESTIGATE\nSTOP\nwrong_answer\nwrong_refusal\ncontrol_undetected\ntampered_served\nrho_delta_lower_ge_1\nrho_delta_upper_ge_1\ndelta_over_cache_upper_ge_1\ndelta_over_idelta_upper_ge_1\ntransfer_coverage_below_half\ncontrol_not_run\n matched_correctness=\nyes\nno\necho\nfull\ncache\nmethod\ndelta\nidelta\ndeltap\nselect\nall\ntype:Z\ntype:S\ntype:D\ntype:R\ntype:I\ntype:A\ntype:P\ntype:C\nnov:none\nnov:recall\nnov:transfer\nnov:novel\nnov:fsm_recall\nnov:fsm_new\nfam:AGG\nfam:FSM\nn:64\nn:512\nn:4096\ndelta/cache\ndelta/idelta\nselect/delta\ndelta/method\nidelta/full\nC1\nC1b\nC1c\nC2\nC3\nC4\nC5\nC6\nC7\nC8\nC9\nC10\nC11\nC12\ndetected\nundetected\nreported\nnot_run\nmissing\n bind_failures=NOT_RECORDED\n restart_identity=\n delta_over_method\n idelta_over_full\n route5_method=\n \n0123456789abcdef\n route5_delta=\n"
+text STK "index\nsessions\n.exp\narm-\n-rep-\n-g\n.log\nproc.log\nacq.log\ncontrols.log\nstats.txt\nstats.sum\nreport=reuse1-stats version=1 contract=REUSE-1 v1.0\nstatus=REFUSED code=\n detail=\ninput split=\n groups=\n sessions=\n requests=\n queries=\n reps=\n arm=\ntotal\n rt_ns=\n ready_ns=\n acq_ns=\n total_ns=\nrho\n point_ppm=\n lo_ppm=\n hi_ppm=\nratio name=\ncorrect\n query_ok=\n query_wrong=\n change_ok=\n change_wrong=\n unscored=\n log_inconsistent=\nroutes\n r\n=\n other=\n fallback_ppm=\ncoverage arm=delta class=transfer queries=\n method_served=\n coverage_ppm=\nmemory\n procs=\n hwm_max_kb=\n hwm_mean_kb=\n rss_max_kb=\n cpu_ticks=\n exit_nonzero=\nacq lib=\n builds=\n elapsed_ns=\n libdir_bytes_max=\n drive_nonzero=\npayback\n queries=\nnone\ncbar\n r_ppm=\n q_ppm=\n e_ppm=\n k_units_ppm=\n n=\n cbar_ppm=\n observed_ppm=\necho_sub\n ppm=\nna\nquant\n temp=\ncold\nwarm\n cat=\n count=\n p50_ns=\n p95_ns=\n p99_ns=\ncat_rho\nregime cat=\n delta_over_method_ppm=\n idelta_over_full_ppm=\ncontrol id=\n records=\n detected=\n undetected=\n reported=\n not_run=\n served_tampered=\ndecision=\nreason=\nissue742 transfer_coverage_ppm=\nissue743\nissue744 select_over_delta\n verdict=\nhelps\ndoes_not_help\ninconclusive\nverdicts source=REVIEW_REQUIRED host=\n simulator=NOT_RUN physical=NOT_RUN\nfull_ns_per_step=NOT_RECORDED reason=raw_logs_carry_no_reference_timing\nbootstrap resamples=\n seed=\n rank_lo=\n rank_hi=\nGO\nINVESTIGATE\nSTOP\nwrong_answer\nwrong_refusal\ncontrol_undetected\ntampered_served\nrho_delta_lower_ge_1\nrho_delta_upper_ge_1\ndelta_over_cache_upper_ge_1\ndelta_over_idelta_upper_ge_1\ntransfer_coverage_below_half\ncontrol_not_run\n matched_correctness=\nyes\nno\necho\nfull\ncache\nmethod\ndelta\nidelta\ndeltap\nselect\nall\ntype:Z\ntype:S\ntype:D\ntype:R\ntype:I\ntype:A\ntype:P\ntype:C\nnov:none\nnov:recall\nnov:transfer\nnov:novel\nnov:fsm_recall\nnov:fsm_new\nfam:AGG\nfam:FSM\nn:64\nn:512\nn:4096\ndelta/cache\ndelta/idelta\nselect/delta\ndelta/method\nidelta/full\nC1\nC1b\nC1c\nC2\nC3\nC4\nC5\nC6\nC7\nC8\nC9\nC10\nC11\nC12\ndetected\nundetected\nreported\nnot_run\nmissing\n bind_failures=NOT_RECORDED\n restart_identity=\n delta_over_method\n idelta_over_full\n route5_method=\n \n0123456789abcdef\n route5_delta=\n missing_pairs=\n end_ns=\n end_failed=\n proc_failed=\n"
 
 global STOB uchar 4194304
 global STOP ulong 1
@@ -251,6 +263,7 @@ global STAG ulong 3072
 global STA0 ulong 3072
 global STPR ulong 3072
 global STPF ulong 3072
+global STPE ulong 3072
 global STCNT ulong 256
 global STSS ulong 8192
 global STAQ ulong 32
@@ -958,17 +971,32 @@ ret stref 11 a r g
 end
 put STPF slot 1
 put STPR slot strw k 128 3
+put STPE slot strw k 128 15
+stcadd a 26 strw k 128 15
 stcadd a 19 1
 stcmax a 20 strw k 128 8
 stcadd a 21 strw k 128 8
 stcmax a 22 strw k 128 9
 cpu = add add strw k 128 4 strw k 128 5 add strw k 128 6 strw k 128 7
 stcadd a 23 cpu
-if ne strw k 128 10 0
-stcadd a 24 1
-end
+stpexit a strw k 128 10
 stcadd a 25 strw k 128 3
 ret 0
+end
+
+note K17 exit word x of one arm process: nonzero = a failed process, counted as one wrong
+note refusal of the arm (counter 3, so STOP for arms 1..7) and in counters 24 (exit nonzero) and
+note 28 (failed processes); x >= 1024 = END itself failed (counter 27)
+fn stpexit a ulong x ulong to void
+if eq x 0
+ret
+end
+stcadd a 24 1
+stcadd a 28 1
+stcadd a 3 1
+if ge x 1024
+stcadd a 27 1
+end
 end
 
 fn stprocs to int
@@ -1037,8 +1065,39 @@ end
 ret 0
 end
 
+note required sub-cases of control c as a bit mask (bit s = sub-case s), the 36 pairs EvalJudge's
+note controls run writes (confirmed with EvalJudge 2026-10-25): C1 0,1; C1b 0,1; C1c 0; C2 0,1;
+note C3 0,1; C4 0; C5 0..5; C6 0,1,2; C7 0,1; C8 1..9 (crashafter K); C9 0,1; C10 0,1; C11 0;
+note C12 0
+fn stcreq c ulong to ulong
+if or or eq c 3 eq c 6 or eq c 13 eq c 14
+ret 1
+end
+if eq c 7
+ret 63
+end
+if eq c 8
+ret 7
+end
+if eq c 10
+ret 1022
+end
+ret 3
+end
+
+note required pairs of control c with no record
+fn stcmiss c ulong to ulong
+m = and stcreq c not get STCT add mul c 8 6
+n = ulong 0
+for s ulong 10
+n = add n and shr m s 1
+end
+ret n
+end
+
 note STCT per control id c (1..14), 8 slots: 0 records, 1 detected, 2 undetected, 3 reported,
-note 4 not run, 5 served tampered
+note 4 not run, 5 served tampered, 6 bit mask of the sub-cases seen. A sub-case outside the
+note required list or a repeated (control, sub-case) pair is refused (13).
 fn stctl1 k ulong to int
 c = strw k 64 0
 o = strw k 64 2
@@ -1049,7 +1108,19 @@ end
 if and eq o 2 ne c 14
 ret stref 13 k 1 0
 end
+s = strw k 64 1
+if ge s 10
+ret stref 13 k 2 0
+end
+if eq and shr stcreq c s 1 0
+ret stref 13 k 2 0
+end
 b = mul c 8
+bit = shl ulong 1 s
+if ne and get STCT add b 6 bit 0
+ret stref 13 k 3 0
+end
+put STCT add b 6 or get STCT add b 6 bit
 put STCT b add get STCT b 1
 if eq o 1
 put STCT add b 1 add get STCT add b 1 1
@@ -1102,7 +1173,8 @@ end
 note process cost of (a, r, g)
 fn stpcost a ulong r ulong g ulong to ulong
 slot = add mul add mul a 3 r 128 g
-ret sub add get STPR slot get STAG slot get STA0 slot
+v = add get STPR slot get STPE slot
+ret sub add v get STAG slot get STA0 slot
 end
 
 fn sttotals to void
@@ -1401,7 +1473,8 @@ i = add get STGO g j
 for r ulong 3
 k = add mul a 3 r
 if eq j 0
-v = add v get STPR add mul k 128 g
+x = add mul k 128 g
+v = add v add get STPR x get STPE x
 else
 v = add v get STRT add mul k 65536 i
 end
@@ -1460,6 +1533,7 @@ end
 end
 stkv SKRTNS rt
 stkv SKREADY rd
+stkv SKENDNS stc a 26
 stkv SKACQNS get STAA a
 stkv SKTOTNS get STT a
 stnl
@@ -1490,6 +1564,7 @@ stkv SKCOK stc a 2
 stkv SKCBAD stc a 3
 stkv SKUNSC stc a 4
 stkv SKINCON stc a 5
+stkv SKPROCF stc a 28
 stnl
 end
 
@@ -1517,6 +1592,7 @@ end
 stkv SKRSSX stc a 22
 stkv SKCPU stc a 23
 stkv SKEXITN stc a 24
+stkv SKENDF stc a 27
 stnl
 end
 
@@ -1620,7 +1696,7 @@ end
 if or gt get STCT add b 2 0 gt get STCT add b 5 0
 ret 0
 end
-if gt get STCT add b 4 0
+if or gt get STCT add b 4 0 gt stcmiss c 0
 ret 3
 end
 if gt get STCT add b 3 0
@@ -1639,6 +1715,7 @@ stkv SKUNDET get STCT add b 2
 stkv SKREPD get STCT add b 3
 stkv SKNRUN get STCT add b 4
 stkv SKTAMP get STCT add b 5
+stkv SKMISSP stcmiss c
 stnl
 end
 
@@ -1854,6 +1931,8 @@ for a ulong 8
 stsumw add 64 a get STT a
 stsumw add 72 a get STAA a
 stsumw add 80 a stc a 11
+stsumw add 96 a stc a 28
+stsumw add 104 a stc a 27
 end
 end
 
@@ -1990,6 +2069,7 @@ for i ulong len STAG
 put STAG i 0
 put STA0 i 0
 put STPR i 0
+put STPE i 0
 put STPF i 0
 end
 for i ulong len STSS
