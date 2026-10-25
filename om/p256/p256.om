@@ -1,0 +1,682 @@
+note SPDX-License-Identifier: Apache-2.0
+note p256.om: ECDSA over NIST P-256 with SHA-256, signing with the RFC 6979 deterministic nonce and
+note verification, written to match the spark-rsi judge signer byte for byte (RustCrypto p256 0.14.0,
+note ecdsa 0.17.0, rfc6979 0.6.0): the signature is over SHA-256(message), r||s 64 bytes big endian,
+note s is NOT normalized to low-S (p256 sets NORMALIZE_S = false) and verification accepts both s
+note and n - s. Library unit: functions and constants only, no main, no globals. It needs the sibling
+note unit om/p256/sha256.om (the omega-mv om/sha256/sha256.om bytes) concatenated before this file.
+note This is a parity-proven library, not a signer deployment: it holds no key and reads no file.
+note
+note Numbers: 256-bit values are 8 limbs of 32 bits, least significant first, one limb per ulong cell
+note of the workspace w (ulong 1024). Arithmetic mod p (field) and mod n (group order) is Montgomery
+note multiplication (CIOS, R = 2^256): a limb product plus two limbs is at most 2^64 - 1, so no ulong
+note ever wraps where a carry is meant. Every add, sub and mul result is fully reduced (below the
+note modulus); inputs must be below the modulus.
+note
+note Side channels (see README): field and scalar add, sub, mul and the final subtraction are branch
+note free and index only by public loop counters; the secret-scalar multiply is double-and-add-always
+note over all 256 bits with a masked select and complete (Renes-Costello-Batina 2015, Algorithm 4)
+note additions, so no secret-dependent branch or index occurs in it. Not constant time: the RFC 6979
+note retry (k >= n, r = 0, s = 0) branches on secret-derived values, as the Rust crate does; the
+note compiler gives no constant-time guarantee (omc instruction selection is not audited for it);
+note the key and nonce stay in caller memory with no zeroing.
+note
+note Workspace layout (cell offsets into w). A modulus block of 48 cells at PMP (p) and PMN (n):
+note   +0 the modulus, +8 n0' = -m^-1 mod 2^32, +16 R^2 mod m, +24 R mod m (Montgomery one), +32 m - 2.
+note Points are projective (X : Y : Z), 24 cells, coordinates in the Montgomery domain mod p.
+note Byte buffer b (uchar 4096): b[0..512) HMAC/SHA staging, PBK K, PBV V, PBX x, PBH h1, 1152 inner
+note tag, PBT candidate k (RFC 6979 3.2), 2048..3072 message, 3072..3137 public key (0x04 || X || Y),
+note 3200..3264 signature r||s, 3264..3296 private key d, 3296..3328 SHA-256 of the message.
+
+const PMP ulong 0
+const PMN ulong 48
+const PONE1 ulong 96
+const PBM ulong 104
+const PGX ulong 120
+const PW1 ulong 160
+const PW2 ulong 168
+const PXX ulong 176
+const PYY ulong 184
+const PZZ ulong 192
+const PXY ulong 200
+const PYZ ulong 208
+const PXZ ulong 216
+const PU ulong 224
+const PV ulong 232
+const PYM ulong 240
+const PYP ulong 248
+const PBX3 ulong 256
+const PXX3 ulong 264
+const PZZ3 ulong 272
+const PRX ulong 280
+const PACC ulong 304
+const PTMP ulong 328
+const PBASE ulong 352
+const PZI ulong 376
+const PD ulong 512
+const PK ulong 520
+const PZ ulong 528
+const PR ulong 536
+const PS ulong 544
+const PU1 ulong 552
+const PU2 ulong 560
+const PT1 ulong 576
+const PT2 ulong 584
+const PT3 ulong 592
+const PX ulong 608
+const PY ulong 616
+const PQ ulong 640
+const PP1 ulong 664
+const PP2 ulong 688
+const PBK ulong 1024
+const PBV ulong 1056
+const PBX ulong 1088
+const PBH ulong 1120
+const PBI ulong 1152
+const PBT ulong 1184
+const PBMSG ulong 2048
+const PBPUB ulong 3072
+const PBSIG ulong 3200
+const PBKEY ulong 3264
+const PBDIG ulong 3296
+
+fn p2cpy w edit ulong 1024 o ulong a ulong to void
+for i ulong 8
+put w add o i get w add a i
+end
+end
+
+fn p2pcpy w edit ulong 1024 o ulong a ulong to void
+for i ulong 24
+put w add o i get w add a i
+end
+end
+
+note o = the small number v
+fn p2set w edit ulong 1024 o ulong v ulong to void
+put w o v
+for i ulong 7
+put w add o add i 1 0
+end
+end
+
+note o = t mod m for t = t[0..8) + t[8] 2^256 below 2m: subtract m, keep the difference when t[8] is
+note set or the subtraction did not borrow; branch free (masked select)
+fn p2red w edit ulong 1024 o ulong t view ulong 10 m ulong to void
+u = new ulong 8 0
+bw = ulong 0
+x = ulong 0
+for i ulong 8
+x = sub sub get t i get w add m i bw
+put u i and x 4294967295
+bw = shr x 63
+end
+sel = or get t 8 xor bw 1
+mk = sub 0 sel
+for j ulong 8
+y = and get u j mk
+put w add o j or y and get t j not mk
+end
+end
+
+note t += a * bi over 8 limbs, carry into t[8], t[9] (one CIOS row)
+fn p2mrow t edit ulong 10 w edit ulong 1024 a ulong bi ulong to void
+c = ulong 0
+x = ulong 0
+for j ulong 8
+x = add add get t j mul get w add a j bi c
+put t j and x 4294967295
+c = shr x 32
+end
+x = add get t 8 c
+put t 8 and x 4294967295
+put t 9 shr x 32
+end
+
+note t = (t + q m) / 2^32 with q = t[0] n0' mod 2^32 (one CIOS reduction step)
+fn p2mred t edit ulong 10 w edit ulong 1024 m ulong to void
+q = and mul get t 0 get w add m 8 4294967295
+x = add get t 0 mul q get w m
+c = shr x 32
+j1 = ulong 0
+for k ulong 7
+j1 = add k 1
+x = add add get t j1 mul q get w add m j1 c
+put t k and x 4294967295
+c = shr x 32
+end
+x = add get t 8 c
+put t 7 and x 4294967295
+put t 8 add get t 9 shr x 32
+end
+
+note o = a b R^-1 mod m (Montgomery product); o may be a or b
+fn p2mul w edit ulong 1024 o ulong a ulong b ulong m ulong to void
+t = new ulong 10 0
+for i ulong 8
+p2mrow t w a get w add b i
+p2mred t w m
+end
+p2red w o t m
+end
+
+note o = a + b mod m; o may be a or b
+fn p2add w edit ulong 1024 o ulong a ulong b ulong m ulong to void
+t = new ulong 10 0
+c = ulong 0
+x = ulong 0
+for i ulong 8
+x = add add get w add a i get w add b i c
+put t i and x 4294967295
+c = shr x 32
+end
+put t 8 c
+p2red w o t m
+end
+
+note o = a - b mod m; o may be a or b (adds m under a mask when the subtraction borrows)
+fn p2sub w edit ulong 1024 o ulong a ulong b ulong m ulong to void
+t = new ulong 8 0
+bw = ulong 0
+x = ulong 0
+for i ulong 8
+x = sub sub get w add a i get w add b i bw
+put t i and x 4294967295
+bw = shr x 63
+end
+mk = sub 0 bw
+c = ulong 0
+for j ulong 8
+x = add add get t j and get w add m j mk c
+put w add o j and x 4294967295
+c = shr x 32
+end
+end
+
+note o = a mod m for a below 2m (one masked subtraction)
+fn p2modr w edit ulong 1024 o ulong m ulong to void
+t = new ulong 10 0
+for i ulong 8
+put t i get w add o i
+end
+p2red w o t m
+end
+
+note a < m as 256-bit integers
+fn p2lt w edit ulong 1024 a ulong m ulong to bool
+bw = ulong 0
+x = ulong 0
+for i ulong 8
+x = sub sub get w add a i get w add m i bw
+bw = shr x 63
+end
+ret eq bw 1
+end
+
+fn p2isz w edit ulong 1024 a ulong to bool
+v = ulong 0
+for i ulong 8
+v = or v get w add a i
+end
+ret eq v 0
+end
+
+fn p2eqv w edit ulong 1024 a ulong b ulong to bool
+v = ulong 0
+for i ulong 8
+v = or v xor get w add a i get w add b i
+end
+ret eq v 0
+end
+
+note 1 <= a < n
+fn p2rng w edit ulong 1024 a ulong to bool
+ret and not p2isz w a p2lt w a PMN
+end
+
+note o = a^e in the Montgomery domain mod m; the exponent e (plain limbs) is public: the branch
+note follows its bits. o may be a. Uses PW1, PW2.
+fn p2pow w edit ulong 1024 o ulong a ulong e ulong m ulong to void
+p2cpy w PW2 a
+p2cpy w PW1 add m 24
+i = ulong 0
+bit = ulong 0
+for j ulong 256
+i = sub 255 j
+p2mul w PW1 PW1 PW1 m
+bit = and shr get w add e shr i 5 and i 31 1
+if eq bit 1
+p2mul w PW1 PW1 PW2 m
+end
+end
+p2cpy w o PW1
+end
+
+note o = a^-1 = a^(m-2) (Fermat, m prime; 0 gives 0)
+fn p2inv w edit ulong 1024 o ulong a ulong m ulong to void
+p2pow w o a add m 32 m
+end
+
+note into the Montgomery domain (a R) and out of it (a R^-1)
+fn p2tom w edit ulong 1024 o ulong a ulong m ulong to void
+p2mul w o a add m 16 m
+end
+
+fn p2frm w edit ulong 1024 o ulong a ulong m ulong to void
+p2mul w o a PONE1 m
+end
+
+note a modulus block: n0' by Newton steps (x = m0 is right to 3 bits, five steps give 96),
+note R^2 mod m by 512 modular doublings of 1, R mod m = mont(1, R^2), and m - 2 (m0 >= 2 here)
+fn p2mod w edit ulong 1024 m ulong to void
+m0 = get w m
+x = m0
+for i ulong 5
+x = mul x sub 2 mul m0 x
+end
+put w add m 8 and sub 0 x 4294967295
+p2set w add m 16 1
+for j ulong 512
+p2add w add m 16 add m 16 add m 16 m
+end
+p2mul w add m 24 PONE1 add m 16 m
+p2cpy w add m 32 m
+put w add m 32 sub get w add m 32 2
+end
+
+note curve constants (SEC 2 v2 section 2.4.2, FIPS 186-4 D.1.2.3), 32-bit limbs least significant
+note first: p, n, b, G = (Gx, Gy). b and G are stored in the Montgomery domain, G with Z = R.
+fn p2init w edit ulong 1024 to void
+for i ulong 1024
+put w i 0
+end
+put w 0 4294967295
+put w 1 4294967295
+put w 2 4294967295
+put w 6 1
+put w 7 4294967295
+put w 48 4234356049
+put w 49 4089039554
+put w 50 2803342980
+put w 51 3169254061
+put w 52 4294967295
+put w 53 4294967295
+put w 55 4294967295
+put w PONE1 1
+p2mod w PMP
+p2mod w PMN
+put w PT1 668098635
+put w 577 1003371582
+put w 578 3428036854
+put w 579 1696401072
+put w 580 1989707452
+put w 581 3018571093
+put w 582 2855965671
+put w 583 1522939352
+p2tom w PBM PT1 PMP
+put w PT1 3633889942
+put w 577 4104206661
+put w 578 770388896
+put w 579 1996717441
+put w 580 1671708914
+put w 581 4173129445
+put w 582 3777774151
+put w 583 1796723186
+p2tom w PGX PT1 PMP
+put w PT1 935285237
+put w 577 3417718888
+put w 578 1798397646
+put w 579 734933847
+put w 580 2081398294
+put w 581 2397563722
+put w 582 4263149467
+put w 583 1340293858
+p2tom w add PGX 8 PT1 PMP
+p2cpy w add PGX 16 add PMP 24
+p2set w PT1 0
+end
+
+note o = a + q, complete projective addition for a = -3 (Renes-Costello-Batina 2015, Algorithm 4,
+note in the grouping of RustCrypto primeorder 0.14 EquationAIsMinusThree::add_assign). Valid for
+note a = q and for the identity (0 : 1 : 0). o may be a or q; a and q lie outside PXX..PRX+24.
+fn p2padd w edit ulong 1024 o ulong a ulong q ulong to void
+p2mul w PXX a q PMP
+p2mul w PYY add a 8 add q 8 PMP
+p2mul w PZZ add a 16 add q 16 PMP
+p2add w PU a add a 8 PMP
+p2add w PV q add q 8 PMP
+p2mul w PXY PU PV PMP
+p2add w PU PXX PYY PMP
+p2sub w PXY PXY PU PMP
+p2add w PU add a 8 add a 16 PMP
+p2add w PV add q 8 add q 16 PMP
+p2mul w PYZ PU PV PMP
+p2add w PU PYY PZZ PMP
+p2sub w PYZ PYZ PU PMP
+p2add w PU a add a 16 PMP
+p2add w PV q add q 16 PMP
+p2mul w PXZ PU PV PMP
+p2add w PU PXX PZZ PMP
+p2sub w PXZ PXZ PU PMP
+note bzz3 = 3 (xz - b zz); ym = yy - bzz3; yp = yy + bzz3
+p2mul w PU PBM PZZ PMP
+p2sub w PU PXZ PU PMP
+p2add w PV PU PU PMP
+p2add w PU PV PU PMP
+p2sub w PYM PYY PU PMP
+p2add w PYP PYY PU PMP
+note zz3 = 3 zz; bxz3 = 3 (b xz - (zz3 + xx)); xx3 = 3 xx - zz3
+p2add w PZZ3 PZZ PZZ PMP
+p2add w PZZ3 PZZ3 PZZ PMP
+p2mul w PU PBM PXZ PMP
+p2add w PV PZZ3 PXX PMP
+p2sub w PU PU PV PMP
+p2add w PV PU PU PMP
+p2add w PBX3 PV PU PMP
+p2add w PV PXX PXX PMP
+p2add w PV PV PXX PMP
+p2sub w PXX3 PV PZZ3 PMP
+note X3 = yp xy - yz bxz3; Y3 = yp ym + xx3 bxz3; Z3 = ym yz + xy xx3
+p2mul w PU PYP PXY PMP
+p2mul w PV PYZ PBX3 PMP
+p2sub w PRX PU PV PMP
+p2mul w PU PYP PYM PMP
+p2mul w PV PXX3 PBX3 PMP
+p2add w add PRX 8 PU PV PMP
+p2mul w PU PYM PYZ PMP
+p2mul w PV PXY PXX3 PMP
+p2add w add PRX 16 PU PV PMP
+p2pcpy w o PRX
+end
+
+note PACC = PTMP when bit is 1, else PACC kept: a masked select over all 24 cells, no branch on bit
+fn p2psel w edit ulong 1024 bit ulong to void
+mk = sub 0 bit
+nm = not mk
+for c ulong 24
+y = and get w add PTMP c mk
+put w add PACC c or y and get w add PACC c nm
+end
+end
+
+note o = k p for the plain scalar k (8 limbs, may be secret) and the point p: double-and-add-always
+note over all 256 bits, the sum kept or dropped by a masked select (no branch on k). o may be p.
+fn p2smul w edit ulong 1024 o ulong k ulong p ulong to void
+p2pcpy w PBASE p
+p2set w PACC 0
+p2cpy w add PACC 8 add PMP 24
+p2set w add PACC 16 0
+i = ulong 0
+for j ulong 256
+i = sub 255 j
+p2padd w PACC PACC PACC
+p2padd w PTMP PACC PBASE
+p2psel w and shr get w add k shr i 5 and i 31 1
+end
+p2pcpy w o PACC
+end
+
+note affine x, y (plain) of the projective point p; the identity gives (0, 0)
+fn p2aff w edit ulong 1024 x ulong y ulong p ulong to void
+p2inv w PZI add p 16 PMP
+p2mul w x p PZI PMP
+p2frm w x x PMP
+p2mul w y add p 8 PZI PMP
+p2frm w y y PMP
+end
+
+note 32 big-endian bytes of b at off into the 8 limbs at o, and back
+fn p2ld w edit ulong 1024 o ulong b edit uchar 4096 off ulong to void
+q = ulong 0
+v = ulong 0
+for i ulong 8
+q = add off sub 28 mul i 4
+v = ulong get b q
+v = or shl v 8 ulong get b add q 1
+v = or shl v 8 ulong get b add q 2
+v = or shl v 8 ulong get b add q 3
+put w add o i v
+end
+end
+
+fn p2st w edit ulong 1024 o ulong b edit uchar 4096 off ulong to void
+q = ulong 0
+v = ulong 0
+for i ulong 8
+q = add off sub 28 mul i 4
+v = get w add o i
+put b q uchar and shr v 24 255
+put b add q 1 uchar and shr v 16 255
+put b add q 2 uchar and shr v 8 255
+put b add q 3 uchar and v 255
+end
+end
+
+note the digest om/sha256 final leaves packed in s[0..4) (byte k = byte k mod 8 of s[k / 8]) into b[out..out+32)
+fn p2dig b edit uchar 4096 s edit ulong 64 out ulong to void
+for i ulong 32
+put b add out i uchar and shr get s shr i 3 mul and i 7 8 255
+end
+end
+
+note b[out..out+32) = SHA-256(b[off..off+n)); the bytes are first moved down to b[0..n), so off is 0
+note or off >= n; n <= 1024
+fn p2sha c edit uchar 104 b edit uchar 4096 s edit ulong 64 off ulong n ulong out ulong to void
+if gt n 1024
+trap 3
+end
+for i ulong n
+put b i get b add off i
+end
+init c
+absorb c b n s
+final c s
+p2dig b s out
+end
+
+note HMAC-SHA-256 (RFC 2104) keyed by the 32 bytes at b[kof..kof+32) over the mlen bytes the caller
+note staged at b[64..64+mlen); the tag goes to b[oof..oof+32) (oof may be kof). kof, oof >= 1024
+note and not PBI; mlen <= 448.
+fn p2hmac c edit uchar 104 b edit uchar 4096 s edit ulong 64 kof ulong mlen ulong oof ulong to void
+if gt mlen 448
+trap 3
+end
+for i ulong 32
+put b i xor get b add kof i 54
+put b add i 32 54
+end
+init c
+absorb c b add 64 mlen s
+final c s
+p2dig b s PBI
+for k ulong 32
+put b k xor get b add kof k 92
+put b add k 32 92
+put b add k 64 get b add PBI k
+end
+init c
+absorb c b 96 s
+final c s
+p2dig b s oof
+end
+
+note V = HMAC_K(V)
+fn p2vnext c edit uchar 104 b edit uchar 4096 s edit ulong 64 to void
+for i ulong 32
+put b add 64 i get b add PBV i
+end
+p2hmac c b s PBK 32 PBV
+end
+
+note RFC 6979 3.2 steps d-g: K = HMAC_K(V || sep || x || h1), V = HMAC_K(V)
+fn p2upd c edit uchar 104 b edit uchar 4096 s edit ulong 64 sep uchar to void
+for i ulong 32
+put b add 64 i get b add PBV i
+put b add 97 i get b add PBX i
+put b add 129 i get b add PBH i
+end
+put b 96 sep
+p2hmac c b s PBK 97 PBK
+p2vnext c b s
+end
+
+note RFC 6979 3.2 steps b-g: V = 0x01 * 32, K = 0x00 * 32, then the two updates
+fn p2drbg c edit uchar 104 b edit uchar 4096 s edit ulong 64 to void
+for i ulong 32
+put b add PBV i 1
+put b add PBK i 0
+end
+p2upd c b s 0
+p2upd c b s 1
+end
+
+note RFC 6979 3.2 step h: T = V = HMAC_K(V) into PBT (qlen = hlen = 256: one block), then
+note K = HMAC_K(V || 0x00), V = HMAC_K(V), as rfc6979 0.6 HmacDrbg::fill_bytes does after every draw
+fn p2gen c edit uchar 104 b edit uchar 4096 s edit ulong 64 to void
+p2vnext c b s
+for i ulong 32
+put b add PBT i get b add PBV i
+put b add 64 i get b add PBV i
+end
+put b 96 0
+p2hmac c b s PBK 33 PBK
+p2vnext c b s
+end
+
+note one signing attempt with the candidate k at PK (1 <= k < n): 0 and r||s at b[PBSIG..) on success,
+note 2 when r or s is 0 (the caller draws the next k, as ecdsa 0.17 sign_prehashed_rfc6979 does)
+fn p2try w edit ulong 1024 b edit uchar 4096 to ulong
+p2smul w PP1 PK PGX
+p2aff w PX PY PP1
+p2cpy w PR PX
+p2modr w PR PMN
+if p2isz w PR
+ret 2
+end
+p2tom w PT1 PK PMN
+p2inv w PT1 PT1 PMN
+p2tom w PT2 PR PMN
+p2tom w PT3 PD PMN
+p2mul w PT2 PT2 PT3 PMN
+p2tom w PT3 PZ PMN
+p2add w PT2 PT2 PT3 PMN
+p2mul w PS PT1 PT2 PMN
+p2frm w PS PS PMN
+if p2isz w PS
+ret 2
+end
+p2st w PR b PBSIG
+p2st w PS b add PBSIG 32
+ret 0
+end
+
+note p2sign: ECDSA P-256 signature of SHA-256(b[PBMSG..PBMSG+mlen)), mlen <= 1024, under the key d
+note (32 bytes big endian) at b[PBKEY..). 0: r||s at b[PBSIG..PBSIG+64), the accepted k at w[PK..).
+note 1: d is 0 or >= n (refused, as SigningKey::from_slice refuses it).
+fn p2sign w edit ulong 1024 c edit uchar 104 b edit uchar 4096 s edit ulong 64 mlen ulong to ulong
+p2ld w PD b PBKEY
+if not p2rng w PD
+ret 1
+end
+p2sha c b s PBMSG mlen PBDIG
+p2ld w PZ b PBDIG
+p2modr w PZ PMN
+p2st w PZ b PBH
+for i ulong 32
+put b add PBX i get b add PBKEY i
+end
+p2drbg c b s
+st = ulong 2
+while eq st 2 bound 64
+p2gen c b s
+p2ld w PK b PBT
+if p2rng w PK
+st = p2try w b
+end
+end
+ret st
+end
+
+note p2pub: the public key of d at b[PBKEY..) as uncompressed SEC1 0x04 || X || Y at
+note b[PBPUB..PBPUB+65). 0 done, 1 d refused (0 or >= n).
+fn p2pub w edit ulong 1024 b edit uchar 4096 to ulong
+p2ld w PD b PBKEY
+if not p2rng w PD
+ret 1
+end
+p2smul w PP1 PD PGX
+p2aff w PX PY PP1
+put b PBPUB 4
+p2st w PX b add PBPUB 1
+p2st w PY b add PBPUB 33
+ret 0
+end
+
+note the affine point (PX, PY) (plain) is on y^2 = x^3 - 3x + b with x, y < p
+fn p2oncv w edit ulong 1024 to bool
+if not p2lt w PX PMP
+ret false
+end
+if not p2lt w PY PMP
+ret false
+end
+p2tom w PT1 PX PMP
+p2tom w PT2 PY PMP
+p2mul w PT3 PT2 PT2 PMP
+p2mul w PT2 PT1 PT1 PMP
+p2mul w PT2 PT2 PT1 PMP
+p2sub w PT2 PT2 PT1 PMP
+p2sub w PT2 PT2 PT1 PMP
+p2sub w PT2 PT2 PT1 PMP
+p2add w PT2 PT2 PBM PMP
+ret p2eqv w PT2 PT3
+end
+
+note p2vrfy: 1 when r||s at b[PBSIG..PBSIG+64) is a valid signature of SHA-256(b[PBMSG..PBMSG+mlen))
+note under the uncompressed SEC1 key at b[PBPUB..PBPUB+65), else 0: a key that is not 0x04 || X || Y
+note with X, Y < p on the curve, r or s outside 1..n-1, u1 G + u2 Q the identity, or x mod n != r.
+note High s is accepted (p256 0.14 does not normalize s). Variable time is fine here: all inputs are public.
+fn p2vrfy w edit ulong 1024 c edit uchar 104 b edit uchar 4096 s edit ulong 64 mlen ulong to ulong
+if ne get b PBPUB 4
+ret 0
+end
+p2ld w PX b add PBPUB 1
+p2ld w PY b add PBPUB 33
+if not p2oncv w
+ret 0
+end
+p2ld w PR b PBSIG
+p2ld w PS b add PBSIG 32
+if not p2rng w PR
+ret 0
+end
+if not p2rng w PS
+ret 0
+end
+p2sha c b s PBMSG mlen PBDIG
+p2ld w PZ b PBDIG
+p2modr w PZ PMN
+p2tom w PT1 PS PMN
+p2inv w PT1 PT1 PMN
+p2tom w PT2 PZ PMN
+p2mul w PU1 PT2 PT1 PMN
+p2frm w PU1 PU1 PMN
+p2tom w PT2 PR PMN
+p2mul w PU2 PT2 PT1 PMN
+p2frm w PU2 PU2 PMN
+p2tom w PQ PX PMP
+p2tom w add PQ 8 PY PMP
+p2cpy w add PQ 16 add PMP 24
+p2smul w PP1 PU1 PGX
+p2smul w PP2 PU2 PQ
+p2padd w PP1 PP1 PP2
+if p2isz w add PP1 16
+ret 0
+end
+p2aff w PX PY PP1
+p2modr w PX PMN
+if p2eqv w PX PR
+ret 1
+end
+ret 0
+end
