@@ -1,0 +1,2105 @@
+note SPDX-License-Identifier: Apache-2.0
+note stats.om (lane EvalStats, spark-rsi-mv #73): the REUSE-1 statistics and decision unit.
+note Contract: omega-mv d6edaad1 docs/reuse/REUSE-1.md (sections 6, 9, 10); evaluator formats:
+note docs EVAL-FORMATS (split directory, raw run log, proc.log, acq.log, controls.log K7, seeds K6).
+note No fn main here: the evaluator dispatcher calls stmain. Names: functions st*, globals ST*,
+note constants SK*. turing.om and receipt.om reuse the st* output, path and file helpers.
+note
+note CLI (argv[1] is the dispatcher's subcommand and is not read):
+note   stats SPLITDIR RUNDIR CTRLDIR SEEDHEX OUTDIR
+note SPLITDIR = the FINAL split directory (index, sessions, gNN.exp); RUNDIR = arm-A-rep-R-gNN.log,
+note proc.log, acq.log; CTRLDIR = the directory holding controls.log, or - when no control run
+note exists (every control then counts as not run); SEEDHEX = the 32-byte FINAL seed as 64 hex;
+note OUTDIR receives stats.txt (the report, also written to stdout) and stats.sum (words below).
+note Exit 0 = report written (the decision is inside it), 2 = inputs refused (status=REFUSED line
+note with a code, nothing else decided), other = output write failure.
+note
+note Definitions (all integer, no floating point):
+note  - reps R = 3 (0-based in names and logs), arms 0 echo 1 full 2 cache 3 method 4 delta
+note    5 idelta 6 deltap 7 select. Library charged per arm: method, delta, select = acq lib 1
+note    (TRAIN), deltap = lib 2 (TRAINP), every other arm none (idelta runs with LIBDIR -).
+note  - cost of one arm process (arm a, rep r, group g) = start-to-ready (proc word 3, which
+note    includes request 0's round trip) + sum of round trips of requests 1.. of the group. This
+note    charges start-to-ready to the first request (contract 5.4).
+note  - V(a, g) = sum over the 3 reps of the process cost; acq(a) = sum over the 3 reps of the
+note    elapsed ns of the arm's library build. T(a) = sum over groups of V(a, g) + acq(a). Sums over
+note    reps stand for the per-group means of contract 10 (the factor 3 cancels in every ratio).
+note  - rho(a) = T(a) / T(full); ratio rho(x)/rho(y) = T(x) / T(y) (full cancels, same resample).
+note    Statistic s: 0..7 rho(arm s); 8 delta/cache; 9 delta/idelta; 10 select/delta;
+note    11 delta/method; 12 idelta/full.
+note  - ppm = floor(num * 1000000 / den), exact 128-bit product and division. Floor makes the
+note    decision comparisons exact: ppm < 1000000 iff ratio < 1; ppm >= 1000000 iff ratio >= 1.
+note  - bootstrap: B = 10000 resamples; resample b draws G group indices, each = splitmix64() mod G
+note    (bias below G / 2^64); one draw serves every arm (paired); splitmix64 state starts at the
+note    FINAL seed bytes 0..7 read little endian (contract 10, K6) and is advanced once per draw.
+note    The 10000 values of each statistic are sorted ascending; interval = (v[k_lo], v[k_hi]) with
+note    nearest rank k = ceil(p * B) - 1 (0-based): p = 0.025 gives k_lo = 249, p = 0.975 gives 9749.
+note    The point value is the statistic on the sample itself (every group once).
+note  - quantiles: nearest rank on ascending values, index ceil(p * m / 100) - 1 for p = 50, 95, 99,
+note    over the QUERY round trips (all 3 reps) of one arm, cold (exp cold flag 1) or warm (0),
+note    per category: all, session type, novelty class, family, n class. m = 0 prints na.
+note  - cat_rho: request round trips only (no start-to-ready, no acquisition), per session category,
+note    arm over full; regime lines are the cat_rho ratios delta/method and idelta/full per type.
+note  - correctness: the log's word 15 is recomputed from words 5..11 (QUERY 1 iff status, r0, r1
+note    equal; other requests 2 iff status equal; echo 2); a record is wrong when either the log or
+note    the recomputation says 0; disagreements are counted as log_inconsistent. Echo is never scored.
+note  - transfer coverage: delta-arm QUERYs (all reps) in sessions of novelty class 2 with route 3
+note    or 4, over all such QUERYs. Fallback = route 5 among an arm's QUERYs.
+note  - payback(a): FINAL request order (group 0.., request 0..), per request the rep-summed
+note    (full - arm) cost (request 0 = start-to-ready); the number of QUERYs seen when the cumulative
+note    sum first exceeds acq(a); none if it never does.
+note  - Cbar (contract 6, #744), per arm, ppm of one full QUERY: F = floor(full QUERY round-trip
+note    sum / count); r = echo mean QUERY / F; q = QUERYs not served by routes 2..4 / QUERYs;
+note    e = mean of the route 2..4 QUERYs / F - r; K = acq(a) / F (full-QUERY units); N = the arm's
+note    QUERYs over 3 reps; cbar = r + (1 - q) e + q + K / N (signed, truncating toward zero);
+note    observed = (QUERY round-trip sum + acq) / N / F. Reported, never in the decision.
+note  - echo_sub(a) = (T(a) - T(echo)) / (T(full) - T(echo)), signed ppm (secondary figure).
+note  - decision (contract 10, K7): STOP on any wrong answer or wrong refusal of arms 1..7, a control
+note    with outcome 0 or the served-tampered flag, or lower bound of rho(delta) >= 1; else GO when
+note    upper bounds of rho(delta), delta/cache and delta/idelta are < 1, transfer coverage >= 1/2
+note    (with at least one transfer QUERY) and every control C1..C12 has records and none not run;
+note    else INVESTIGATE. Every failing condition is listed as a reason line.
+note
+note stats.sum: 256 words LE. 0 magic 3544386041195737426 (R1STS001), 1 version 1, 2 decision
+note (1 GO, 2 INVESTIGATE, 3 STOP), 3 reason bits (0 wrong_answer, 1 wrong_refusal,
+note 2 control_undetected, 3 tampered_served, 4 rho_delta_lower_ge_1, 5 rho_delta_upper_ge_1,
+note 6 delta_over_cache_upper_ge_1, 7 delta_over_idelta_upper_ge_1, 8 transfer_coverage_below_half,
+note 9 control_not_run), 4 groups, 5 sessions, 6 requests, 7 queries (per rep), 8 reps, 9 split id,
+note 10 bootstrap seed, 11 resamples, 12 scored QUERY responses (arms 1..7, all reps), 13 correct
+note ones, 14 wrong ones, 15 wrong refusals, 16 transfer QUERYs, 17 covered, 18..21 holdout digest
+note (index words 7..10 as stored), 22 log inconsistencies, 24 + 3 s .. 26 + 3 s point, lo, hi ppm
+note of statistic s (s 0..12), 64 + a T(a), 72 + a acq(a), 80 + a route-5 QUERYs of arm a,
+note 88 + a payback QUERYs (18446744073709551615 = none or not applicable); the rest 0.
+note
+note Refusal codes: 1 usage, 2 index unreadable, 3 index invalid, 4 sessions invalid, 5 exp invalid,
+note 6 log missing, 7 log size, 8 log identity words, 9 log expectation words differ from exp,
+note 10 proc.log invalid, 11 proc record missing or duplicate, 12 acq.log invalid or a needed build
+note missing, 13 controls.log invalid, 14 capacity, 15 output write failed.
+
+const SKINDEX ulong 0
+const SKSESS ulong 1
+const SKEXP ulong 2
+const SKARMP ulong 3
+const SKREPP ulong 4
+const SKGP ulong 5
+const SKLOG ulong 6
+const SKPROC ulong 7
+const SKACQ ulong 8
+const SKCTL ulong 9
+const SKTXT ulong 10
+const SKSUM ulong 11
+const SKHEAD ulong 12
+const SKREFU ulong 13
+const SKDETL ulong 14
+const SKINPUT ulong 15
+const SKGROUP ulong 16
+const SKSESN ulong 17
+const SKREQS ulong 18
+const SKQRYS ulong 19
+const SKREPS ulong 20
+const SKARM ulong 21
+const SKTOTAL ulong 22
+const SKRTNS ulong 23
+const SKREADY ulong 24
+const SKACQNS ulong 25
+const SKTOTNS ulong 26
+const SKRHO ulong 27
+const SKPOINT ulong 28
+const SKLO ulong 29
+const SKHI ulong 30
+const SKRATIO ulong 31
+const SKCORR ulong 32
+const SKQOK ulong 33
+const SKQBAD ulong 34
+const SKCOK ulong 35
+const SKCBAD ulong 36
+const SKUNSC ulong 37
+const SKINCON ulong 38
+const SKROUTE ulong 39
+const SKRN ulong 40
+const SKEQ ulong 41
+const SKROTH ulong 42
+const SKFALL ulong 43
+const SKCOVER ulong 44
+const SKCOVD ulong 45
+const SKCOVP ulong 46
+const SKMEM ulong 47
+const SKPROCS ulong 48
+const SKHWMX ulong 49
+const SKHWMM ulong 50
+const SKRSSX ulong 51
+const SKCPU ulong 52
+const SKEXITN ulong 53
+const SKACQL ulong 54
+const SKBUILD ulong 55
+const SKELAP ulong 56
+const SKLIBB ulong 57
+const SKDRIVN ulong 58
+const SKPAYB ulong 59
+const SKPAYQ ulong 60
+const SKNONE ulong 61
+const SKCBAR ulong 62
+const SKCR ulong 63
+const SKCQ ulong 64
+const SKCE ulong 65
+const SKCK ulong 66
+const SKCN ulong 67
+const SKCBV ulong 68
+const SKCOBS ulong 69
+const SKECHO ulong 70
+const SKPPM ulong 71
+const SKNA ulong 72
+const SKQUANT ulong 73
+const SKTEMP ulong 74
+const SKCOLD ulong 75
+const SKWARM ulong 76
+const SKCAT ulong 77
+const SKCOUNT ulong 78
+const SKP50 ulong 79
+const SKP95 ulong 80
+const SKP99 ulong 81
+const SKCATR ulong 82
+const SKREGT ulong 83
+const SKDOM ulong 84
+const SKIOF ulong 85
+const SKCTLID ulong 86
+const SKRECS ulong 87
+const SKDET ulong 88
+const SKUNDET ulong 89
+const SKREPD ulong 90
+const SKNRUN ulong 91
+const SKTAMP ulong 92
+const SKDECI ulong 93
+const SKREAS ulong 94
+const SKI742 ulong 95
+const SKI743 ulong 96
+const SKI744 ulong 97
+const SKVERD ulong 98
+const SKHELPS ulong 99
+const SKNHELP ulong 100
+const SKINCO ulong 101
+const SKVERDS ulong 102
+const SKSIMNR ulong 103
+const SKSTEP ulong 104
+const SKBOOT ulong 105
+const SKSEED ulong 106
+const SKRKLO ulong 107
+const SKRKHI ulong 108
+const SKGO ulong 109
+const SKINV ulong 110
+const SKSTOP ulong 111
+const SKRWA ulong 112
+const SKRWR ulong 113
+const SKRCU ulong 114
+const SKRTS ulong 115
+const SKRLO ulong 116
+const SKRUP ulong 117
+const SKRDC ulong 118
+const SKRDI ulong 119
+const SKRCOV ulong 120
+const SKRNR ulong 121
+const SKMATCH ulong 122
+const SKYES ulong 123
+const SKNO ulong 124
+const SKARM0 ulong 125
+const SKCAT0 ulong 133
+const SKRAT0 ulong 153
+const SKCID0 ulong 157
+const SKOC0 ulong 172
+const SKBINDF ulong 177
+const SKRESTA ulong 178
+const SKDOMR ulong 179
+const SKIOFR ulong 180
+const SKR5 ulong 181
+const SKSPACE ulong 182
+const SKDIG ulong 183
+const SKR5D ulong 184
+
+text STK "index\nsessions\n.exp\narm-\n-rep-\n-g\n.log\nproc.log\nacq.log\ncontrols.log\nstats.txt\nstats.sum\nreport=reuse1-stats version=1 contract=REUSE-1 v1.0\nstatus=REFUSED code=\n detail=\ninput split=\n groups=\n sessions=\n requests=\n queries=\n reps=\n arm=\ntotal\n rt_ns=\n ready_ns=\n acq_ns=\n total_ns=\nrho\n point_ppm=\n lo_ppm=\n hi_ppm=\nratio name=\ncorrect\n query_ok=\n query_wrong=\n change_ok=\n change_wrong=\n unscored=\n log_inconsistent=\nroutes\n r\n=\n other=\n fallback_ppm=\ncoverage arm=delta class=transfer queries=\n method_served=\n coverage_ppm=\nmemory\n procs=\n hwm_max_kb=\n hwm_mean_kb=\n rss_max_kb=\n cpu_ticks=\n exit_nonzero=\nacq lib=\n builds=\n elapsed_ns=\n libdir_bytes_max=\n drive_nonzero=\npayback\n queries=\nnone\ncbar\n r_ppm=\n q_ppm=\n e_ppm=\n k_units_ppm=\n n=\n cbar_ppm=\n observed_ppm=\necho_sub\n ppm=\nna\nquant\n temp=\ncold\nwarm\n cat=\n count=\n p50_ns=\n p95_ns=\n p99_ns=\ncat_rho\nregime cat=\n delta_over_method_ppm=\n idelta_over_full_ppm=\ncontrol id=\n records=\n detected=\n undetected=\n reported=\n not_run=\n served_tampered=\ndecision=\nreason=\nissue742 transfer_coverage_ppm=\nissue743\nissue744 select_over_delta\n verdict=\nhelps\ndoes_not_help\ninconclusive\nverdicts source=REVIEW_REQUIRED host=\n simulator=NOT_RUN physical=NOT_RUN\nfull_ns_per_step=NOT_RECORDED reason=raw_logs_carry_no_reference_timing\nbootstrap resamples=\n seed=\n rank_lo=\n rank_hi=\nGO\nINVESTIGATE\nSTOP\nwrong_answer\nwrong_refusal\ncontrol_undetected\ntampered_served\nrho_delta_lower_ge_1\nrho_delta_upper_ge_1\ndelta_over_cache_upper_ge_1\ndelta_over_idelta_upper_ge_1\ntransfer_coverage_below_half\ncontrol_not_run\n matched_correctness=\nyes\nno\necho\nfull\ncache\nmethod\ndelta\nidelta\ndeltap\nselect\nall\ntype:Z\ntype:S\ntype:D\ntype:R\ntype:I\ntype:A\ntype:P\ntype:C\nnov:none\nnov:recall\nnov:transfer\nnov:novel\nnov:fsm_recall\nnov:fsm_new\nfam:AGG\nfam:FSM\nn:64\nn:512\nn:4096\ndelta/cache\ndelta/idelta\nselect/delta\ndelta/method\nidelta/full\nC1\nC1b\nC1c\nC2\nC3\nC4\nC5\nC6\nC7\nC8\nC9\nC10\nC11\nC12\ndetected\nundetected\nreported\nnot_run\nmissing\n bind_failures=NOT_RECORDED\n restart_identity=\n delta_over_method\n idelta_over_full\n route5_method=\n \n0123456789abcdef\n route5_delta=\n"
+
+global STOB uchar 4194304
+global STOP ulong 1
+global STPB uchar 4096
+global STPL ulong 1
+global STBD uchar 16384
+global STBL ulong 4
+global STFB uchar 8388608
+global STRNG ulong 1
+global STRF ulong 4
+global STNG ulong 1
+global STNS ulong 1
+global STNR ulong 1
+global STNQ ulong 1
+global STSPL ulong 1
+global STHD ulong 4
+global STSEED ulong 1
+global STGO ulong 128
+global STGN ulong 128
+global STSG ulong 1024
+global STSF ulong 1024
+global STST ulong 1024
+global STSN ulong 1024
+global STSC ulong 1024
+global STRO ulong 65536
+global STRC ulong 65536
+global STRS ulong 65536
+global STRX ulong 65536
+global STR0 ulong 65536
+global STR1 ulong 65536
+global STRT ulong 1572864
+global STAG ulong 3072
+global STA0 ulong 3072
+global STPR ulong 3072
+global STPF ulong 3072
+global STCNT ulong 256
+global STSS ulong 8192
+global STAQ ulong 32
+global STAQC ulong 32
+global STAQX ulong 32
+global STAQB ulong 32
+global STAQF ulong 32
+global STCT ulong 128
+global STV ulong 1024
+global STAA ulong 8
+global STT ulong 8
+global STBS ulong 130000
+global STPT ulong 13
+global STLO ulong 13
+global STHI ulong 13
+global STQV ulong 262144
+global STQI ulong 262144
+global STHL ulong 2
+global STDEC ulong 2
+global STSUM ulong 256
+global STPYC long 1
+global STPYQ ulong 1
+global STQT ulong 1
+
+note ---------- output buffer ----------
+fn stoc c uchar to void
+p = get STOP 0
+put STOB p c
+put STOP 0 add p 1
+end
+
+fn stkoff k ulong to ulong
+i = ulong 0
+c = ulong 0
+while lt c k bound 999999
+if eq get STK i 10
+c = add c 1
+end
+i = add i 1
+end
+ret i
+end
+
+fn stks k ulong to void
+i = stkoff k
+while ne get STK i 10 bound 4096
+stoc get STK i
+i = add i 1
+end
+end
+
+fn stnl to void
+stoc 10
+end
+
+fn stou v ulong to void
+d = new uchar 24 0
+n = ulong 0
+x = v
+while true bound 30
+put d n uchar add rem x 10 48
+n = add n 1
+x = div x 10
+if eq x 0
+break
+end
+end
+for i ulong n
+stoc get d sub sub n i 1
+end
+end
+
+fn stol v long to void
+if lt v 0
+stoc 45
+stou ulong neg v
+ret
+end
+stou ulong v
+end
+
+note one lowercase hex digit pair of byte b
+fn stohb b ulong to void
+h = add stkoff SKDIG shr b 4
+l = add stkoff SKDIG and b 15
+stoc get STK h
+stoc get STK l
+end
+
+note a digest word as stored in the split files (bytes 8j..8j+7 read big endian) as 16 hex digits
+fn stohw w ulong to void
+for k ulong 8
+stohb and shr w mul sub 7 k 8 255
+end
+end
+
+note key k, then value v
+fn stkv k ulong v ulong to void
+stks k
+stou v
+end
+
+fn stkvl k ulong v long to void
+stks k
+stol v
+end
+
+note write the output buffer to fd; 0 ok
+fn stflush fd int to int
+n = get STOP 0
+o = ulong 0
+while lt o n bound 999999
+w = write fd STOB o sub n o
+if le w 0
+ret 1
+end
+o = add o ulong w
+end
+ret 0
+end
+
+note ---------- paths and files ----------
+fn stpc c uchar to void
+p = get STPL 0
+put STPB p c
+put STPL 0 add p 1
+end
+
+fn stpk k ulong to void
+i = stkoff k
+while ne get STK i 10 bound 4096
+stpc get STK i
+i = add i 1
+end
+end
+
+fn stpu v ulong to void
+d = new uchar 24 0
+n = ulong 0
+x = v
+while true bound 30
+put d n uchar add rem x 10 48
+n = add n 1
+x = div x 10
+if eq x 0
+break
+end
+end
+for i ulong n
+stpc get d sub sub n i 1
+end
+end
+
+fn stpu2 v ulong to void
+stpc uchar add div v 10 48
+stpc uchar add rem v 10 48
+end
+
+note base b (argv copy) as the path, then a slash
+fn stpbase b ulong to void
+put STPL 0 0
+o = mul b 4096
+for i ulong get STBL b
+stpc get STBD add o i
+end
+stpc 47
+end
+
+note argv[ix] into base slot b; returns its length (0 = missing)
+fn stargb ix ulong b ulong to ulong
+o = mul b 4096
+n = argread ix STBD o 4095
+if le n 0
+put STBL b 0
+ret 0
+end
+put STBL b ulong n
+ret ulong n
+end
+
+note the whole file at STPB into STFB; bytes read, or -errno, or -27 when it does not fit
+fn stload to long
+fd = fopen STPB 0 get STPL 0 0 0
+if lt fd 0
+ret fd
+end
+tot = ulong 0
+cap = len STFB
+r = long 0
+while lt tot cap bound 999999
+m = sub cap tot
+if gt m 1048576
+m = 1048576
+end
+n = read int fd STFB tot m
+if lt n 0
+r = n
+break
+end
+if eq n 0
+break
+end
+tot = add tot ulong n
+end
+c = fclose int fd
+if lt r 0
+ret r
+end
+if lt c 0
+ret c
+end
+if eq tot cap
+ret -27
+end
+ret long tot
+end
+
+note little-endian word at byte o of STFB
+fn stw o ulong to ulong
+v = ulong 0
+for k ulong 8
+b = ulong get STFB add o k
+v = or v shl b mul k 8
+end
+ret v
+end
+
+note word k of record rec (rb bytes per record)
+fn strw rec ulong rb ulong k ulong to ulong
+ret stw add mul rec rb mul k 8
+end
+
+note write STOB[0..n) to the path in STPB (create or truncate, mode 0644, fsync); 0 ok
+fn stwfile to int
+fd = fopen STPB 0 get STPL 0 577 420
+if lt fd 0
+ret 1
+end
+r = stflush int fd
+s = fsync int fd
+c = fclose int fd
+if or ne r 0 or ne s 0 ne c 0
+ret 1
+end
+ret 0
+end
+
+note ---------- 128-bit exact arithmetic ----------
+note a * b into STHL (0 high, 1 low)
+fn stmul a ulong b ulong to void
+m = ulong 4294967295
+al = and a m
+bl = and b m
+p0 = mul al bl
+p1 = mul al shr b 32
+p2 = mul shr a 32 bl
+mid = add add shr p0 32 and p1 m and p2 m
+put STHL 1 or and p0 m shl mid 32
+hi = mul shr a 32 shr b 32
+hi = add add hi shr p1 32 add shr p2 32 shr mid 32
+put STHL 0 hi
+end
+
+note floor(a * b / c), saturated at 2^64 - 1; c = 0 gives 2^64 - 1
+fn stmd a ulong b ulong c ulong to ulong
+if eq c 0
+ret 18446744073709551615
+end
+stmul a b
+hi = get STHL 0
+lo = get STHL 1
+r = ulong 0
+q = ulong 0
+ov = false
+bit = ulong 0
+for i ulong 128
+if lt i 64
+bit = and shr hi sub 63 i 1
+else
+bit = and shr lo sub 127 i 1
+end
+cy = shr r 63
+r = or shl r 1 bit
+qb = ulong 0
+if or eq cy 1 ge r c
+r = sub r c
+qb = 1
+end
+if and lt i 64 eq qb 1
+ov = true
+end
+q = or shl q 1 qb
+end
+if ov
+ret 18446744073709551615
+end
+ret q
+end
+
+note ppm of num over den (floor)
+fn stppm num ulong den ulong to ulong
+ret stmd num 1000000 den
+end
+
+note signed ppm (truncation toward zero); den must be > 0
+fn stppms num long den long to long
+if lt num 0
+ret neg long stmd ulong neg num 1000000 ulong den
+end
+ret long stmd ulong num 1000000 ulong den
+end
+
+note ---------- splitmix64 ----------
+fn stsm to ulong
+s = add get STRNG 0 11400714819323198485
+put STRNG 0 s
+z = mul xor s shr s 30 13787848793156543929
+z = mul xor z shr z 27 10723151780598845931
+ret xor z shr z 31
+end
+
+note hex digit value, 16 = not a hex digit
+fn sthexv c uchar to ulong
+if and ge c 48 le c 57
+ret ulong sub c 48
+end
+if and ge c 97 le c 102
+ret ulong sub c 87
+end
+if and ge c 65 le c 70
+ret ulong sub c 55
+end
+ret 16
+end
+
+note byte i (0..31) of the 64-hex text held in base slot b; 256 = bad
+fn sthexb b ulong i ulong to ulong
+o = add mul b 4096 mul i 2
+h = sthexv get STBD o
+l = sthexv get STBD add o 1
+if or gt h 15 gt l 15
+ret 256
+end
+ret or shl h 4 l
+end
+
+note little-endian word from hex bytes s..s+7 of base slot b; STRF 3 = 1 on a bad digit
+fn sthexw b ulong s ulong to ulong
+v = ulong 0
+for k ulong 8
+x = sthexb b add s k
+if gt x 255
+put STRF 3 1
+x = 0
+end
+v = or v shl x mul k 8
+end
+ret v
+end
+
+note ---------- refusal ----------
+fn stref code ulong a ulong r ulong g ulong to int
+put STRF 0 code
+put STRF 1 a
+put STRF 2 r
+put STRF 3 g
+ret int code
+end
+
+fn stprref to void
+stks SKREFU
+stou get STRF 0
+stks SKDETL
+stou get STRF 1
+stoc 46
+stou get STRF 2
+stoc 46
+stou get STRF 3
+stnl
+end
+
+note ---------- split directory ----------
+fn stidx to int
+stpbase 0
+stpk SKINDEX
+n = stload
+if lt n 128
+ret stref 2 0 0 0
+end
+if or ne stw 0 3544386032354079058 ne stw 8 1
+ret stref 3 0 0 0
+end
+g = stw 24
+if or eq g 0 gt g 99
+ret stref 3 1 0 0
+end
+if ne ulong n add 128 mul g 8
+ret stref 3 2 0 0
+end
+put STNG 0 g
+put STSPL 0 stw 16
+put STNS 0 stw 32
+put STNR 0 stw 40
+put STNQ 0 stw 48
+for j ulong 4
+put STHD j stw add 56 mul j 8
+end
+off = ulong 0
+for i ulong g
+c = stw add 128 mul i 8
+put STGN i c
+put STGO i off
+off = add off c
+end
+if ne off get STNR 0
+ret stref 3 3 0 0
+end
+if gt off len STRO
+ret stref 14 0 0 0
+end
+ret 0
+end
+
+note checks one sessions record i; 0 ok
+fn stsone i ulong to int
+g = strw i 128 1
+f = strw i 128 2
+t = strw i 128 3
+v = strw i 128 4
+c = strw i 128 5
+if or ne strw i 128 0 i ge g get STNG 0
+ret 1
+end
+if or or lt f 1 gt f 2 or lt t 1 gt t 8
+ret 1
+end
+if or gt v 5 gt c 2
+ret 1
+end
+put STSG i g
+put STSF i f
+put STST i t
+put STSN i v
+put STSC i c
+ret 0
+end
+
+fn stsess to int
+stpbase 0
+stpk SKSESS
+n = stload
+s = get STNS 0
+if or eq s 0 gt s len STSG
+ret stref 4 0 0 0
+end
+if ne n long mul s 128
+ret stref 4 1 0 0
+end
+for i ulong s
+if ne stsone i 0
+ret stref 4 2 i 0
+end
+end
+ret 0
+end
+
+fn stexpg g ulong to int
+stpbase 0
+stpc 103
+stpu2 g
+stpk SKEXP
+n = stload
+c = get STGN g
+if ne n long mul c 64
+ret stref 5 0 0 g
+end
+o = get STGO g
+for j ulong c
+i = add o j
+s = strw j 64 5
+if or ge s get STNS 0 ne get STSG s g
+ret stref 5 1 j g
+end
+put STRX i strw j 64 0
+put STR0 i strw j 64 2
+put STR1 i strw j 64 3
+put STRO i strw j 64 4
+put STRS i s
+put STRC i strw j 64 6
+end
+ret 0
+end
+
+fn stexps to int
+q = ulong 0
+for g ulong get STNG 0
+r = stexpg g
+if ne r 0
+ret r
+end
+o = get STGO g
+for j ulong get STGN g
+if eq get STRO add o j 2
+q = add q 1
+end
+end
+end
+if ne q get STNQ 0
+ret stref 5 2 q 0
+end
+ret 0
+end
+
+note ---------- raw run logs ----------
+fn stcadd a ulong k ulong v ulong to void
+x = add mul a 32 k
+put STCNT x add get STCNT x v
+end
+
+fn stcmax a ulong k ulong v ulong to void
+x = add mul a 32 k
+if gt v get STCNT x
+put STCNT x v
+end
+end
+
+note the correctness the log should carry for record j (byte base o) of request i
+fn stwant a ulong i ulong o ulong to ulong
+if eq a 0
+ret 2
+end
+sg = stw add o 40
+if ne sg get STRX i
+ret 0
+end
+if ne get STRO i 2
+ret 2
+end
+if and eq stw add o 48 get STR0 i eq stw add o 56 get STR1 i
+ret 1
+end
+ret 0
+end
+
+note correctness counters for one record
+fn stcorr a ulong i ulong o ulong to void
+corr = stw add o 120
+want = stwant a i o
+if ne corr want
+stcadd a 5 1
+end
+if eq a 0
+stcadd a 4 1
+ret
+end
+bad = or eq want 0 eq corr 0
+if eq get STRO i 2
+if bad
+stcadd a 1 1
+else
+stcadd a 0 1
+end
+ret
+end
+if bad
+stcadd a 3 1
+else
+stcadd a 2 1
+end
+end
+
+note QUERY route, round-trip, hit and transfer counters
+fn stquery a ulong i ulong o ulong rt ulong to void
+rte = stw add o 64
+if le rte 5
+stcadd a add 6 rte 1
+else
+stcadd a 12 1
+end
+stcadd a 13 rt
+stcadd a 14 1
+hit = and ge rte 2 le rte 4
+if hit
+stcadd a 15 rt
+stcadd a 16 1
+end
+s = get STRS i
+if and eq a 4 eq get STSN s 2
+stcadd a 17 1
+if and ge rte 3 le rte 4
+stcadd a 18 1
+end
+end
+end
+
+note word k of the record at byte o differs from v
+fn stwne o ulong k ulong v ulong to bool
+ret ne stw add o mul k 8 v
+end
+
+note identity and expectation words of record j at byte o; 0 ok, else refusal code
+fn stchk a ulong r ulong g ulong j ulong o ulong to int
+i = add get STGO g j
+if or stwne o 0 g stwne o 1 r
+ret 8
+end
+if or stwne o 2 a stwne o 3 j
+ret 8
+end
+if stwne o 4 get STRO i
+ret 8
+end
+if or stwne o 9 get STRX i stwne o 10 get STR0 i
+ret 9
+end
+if or stwne o 11 get STR1 i stwne o 13 get STRC i
+ret 9
+end
+if stwne o 14 get STRS i
+ret 9
+end
+ret 0
+end
+
+note one raw log record j of (a, r, g), already in STFB; 0 ok, else a refusal code
+fn strec a ulong r ulong g ulong j ulong to int
+o = mul j 128
+e = stchk a r g j o
+if ne e 0
+ret e
+end
+i = add get STGO g j
+rt = stw add o 96
+put STRT add mul add mul a 3 r 65536 i rt
+slot = add mul add mul a 3 r 128 g
+put STAG slot add get STAG slot rt
+if eq j 0
+put STA0 slot rt
+end
+s = add mul a 1024 get STRS i
+put STSS s add get STSS s rt
+stcorr a i o
+if eq get STRO i 2
+stquery a i o rt
+end
+ret 0
+end
+
+fn stlog a ulong r ulong g ulong to int
+stpbase 1
+stpk SKARMP
+stpc uchar add a 48
+stpk SKREPP
+stpc uchar add r 48
+stpk SKGP
+stpu2 g
+stpk SKLOG
+n = stload
+if lt n 0
+ret stref 6 a r g
+end
+c = get STGN g
+if ne n long mul c 128
+ret stref 7 a r g
+end
+for j ulong c
+e = strec a r g j
+if ne e 0
+ret stref ulong e a r add mul g 100000 j
+end
+end
+ret 0
+end
+
+fn stlogs to int
+for a ulong 8
+for r ulong 3
+for g ulong get STNG 0
+e = stlog a r g
+if ne e 0
+ret e
+end
+end
+end
+end
+ret 0
+end
+
+note ---------- proc.log, acq.log, controls.log ----------
+fn stproc1 k ulong to int
+a = strw k 128 0
+g = strw k 128 1
+r = strw k 128 2
+if or or ge a 8 ge g get STNG 0 ge r 3
+ret stref 10 k 0 0
+end
+slot = add mul add mul a 3 r 128 g
+if ne get STPF slot 0
+ret stref 11 a r g
+end
+put STPF slot 1
+put STPR slot strw k 128 3
+stcadd a 19 1
+stcmax a 20 strw k 128 8
+stcadd a 21 strw k 128 8
+stcmax a 22 strw k 128 9
+cpu = add add strw k 128 4 strw k 128 5 add strw k 128 6 strw k 128 7
+stcadd a 23 cpu
+if ne strw k 128 10 0
+stcadd a 24 1
+end
+stcadd a 25 strw k 128 3
+ret 0
+end
+
+fn stprocs to int
+stpbase 1
+stpk SKPROC
+n = stload
+if or lt n 0 ne rem ulong n 128 0
+ret stref 10 0 0 0
+end
+for k ulong div ulong n 128
+e = stproc1 k
+if ne e 0
+ret e
+end
+end
+for a ulong 8
+for r ulong 3
+for g ulong get STNG 0
+if eq get STPF add mul add mul a 3 r 128 g 0
+ret stref 11 a r g
+end
+end
+end
+end
+ret 0
+end
+
+fn stacq1 k ulong to int
+l = strw k 64 0
+r = strw k 64 1
+if or gt l 9 ge r 3
+ret stref 12 k 0 0
+end
+x = add mul l 3 r
+if ne get STAQF x 0
+ret stref 12 k 1 0
+end
+put STAQF x 1
+put STAQ x strw k 64 2
+put STAQC x add strw k 64 3 strw k 64 4
+put STAQX x strw k 64 5
+put STAQB x strw k 64 6
+ret 0
+end
+
+fn stacqs to int
+stpbase 1
+stpk SKACQ
+n = stload
+if or lt n 0 ne rem ulong n 64 0
+ret stref 12 0 0 0
+end
+for k ulong div ulong n 64
+e = stacq1 k
+if ne e 0
+ret e
+end
+end
+for l ulong 2
+for r ulong 3
+if eq get STAQF add mul add l 1 3 r 0
+ret stref 12 add l 1 r 2
+end
+end
+end
+ret 0
+end
+
+note STCT per control id c (1..14), 8 slots: 0 records, 1 detected, 2 undetected, 3 reported,
+note 4 not run, 5 served tampered
+fn stctl1 k ulong to int
+c = strw k 64 0
+o = strw k 64 2
+f = strw k 64 3
+if or or lt c 1 gt c 14 or gt o 3 gt f 1
+ret stref 13 k 0 0
+end
+if and eq o 2 ne c 14
+ret stref 13 k 1 0
+end
+b = mul c 8
+put STCT b add get STCT b 1
+if eq o 1
+put STCT add b 1 add get STCT add b 1 1
+end
+if eq o 0
+put STCT add b 2 add get STCT add b 2 1
+end
+if eq o 2
+put STCT add b 3 add get STCT add b 3 1
+end
+if eq o 3
+put STCT add b 4 add get STCT add b 4 1
+end
+if eq f 1
+put STCT add b 5 add get STCT add b 5 1
+end
+ret 0
+end
+
+fn stctls to int
+if and eq get STBL 2 1 eq get STBD 8192 45
+ret 0
+end
+stpbase 2
+stpk SKCTL
+n = stload
+if or lt n 0 ne rem ulong n 64 0
+ret stref 13 0 0 0
+end
+for k ulong div ulong n 64
+e = stctl1 k
+if ne e 0
+ret e
+end
+end
+ret 0
+end
+
+note ---------- totals and bootstrap ----------
+fn stlib a ulong to ulong
+if or or eq a 3 eq a 4 eq a 7
+ret 1
+end
+if eq a 6
+ret 2
+end
+ret 0
+end
+
+note process cost of (a, r, g)
+fn stpcost a ulong r ulong g ulong to ulong
+slot = add mul add mul a 3 r 128 g
+ret sub add get STPR slot get STAG slot get STA0 slot
+end
+
+fn sttotals to void
+for a ulong 8
+t = ulong 0
+for g ulong get STNG 0
+v = ulong 0
+for r ulong 3
+v = add v stpcost a r g
+end
+put STV add mul a 128 g v
+t = add t v
+end
+l = stlib a
+q = ulong 0
+if gt l 0
+for r ulong 3
+q = add q get STAQ add mul l 3 r
+end
+end
+put STAA a q
+put STT a add t q
+end
+end
+
+fn stnum s ulong to ulong
+if lt s 8
+ret s
+end
+if eq s 11
+ret 4
+end
+if eq s 12
+ret 5
+end
+if eq s 10
+ret 7
+end
+ret 4
+end
+
+fn stden s ulong to ulong
+if lt s 8
+ret 1
+end
+if eq s 8
+ret 2
+end
+if eq s 9
+ret 5
+end
+if eq s 10
+ret 4
+end
+if eq s 11
+ret 3
+end
+ret 1
+end
+
+note one resample b: acc holds the 8 resampled totals
+fn stres b ulong acc edit ulong 8 to void
+for a ulong 8
+put acc a get STAA a
+end
+g = get STNG 0
+for i ulong g
+x = rem stsm g
+for a ulong 8
+put acc a add get acc a get STV add mul a 128 x
+end
+end
+for s ulong 13
+v = stppm get acc stnum s get acc stden s
+put STBS add mul s 10000 b v
+end
+end
+
+note ---------- heap sort of STQV[0..n) ascending, STQI moved along ----------
+fn stswap i ulong j ulong to void
+v = get STQV i
+put STQV i get STQV j
+put STQV j v
+w = get STQI i
+put STQI i get STQI j
+put STQI j w
+end
+
+fn stsift s ulong n ulong to void
+r = s
+while true bound 64
+c = add mul r 2 1
+if ge c n
+break
+end
+if lt add c 1 n
+if gt get STQV add c 1 get STQV c
+c = add c 1
+end
+end
+if le get STQV c get STQV r
+break
+end
+stswap r c
+r = c
+end
+end
+
+fn stsort n ulong to void
+if lt n 2
+ret
+end
+i = div n 2
+while gt i 0 bound 999999
+i = sub i 1
+stsift i n
+end
+e = n
+while gt e 1 bound 999999
+e = sub e 1
+stswap 0 e
+stsift 0 e
+end
+end
+
+note nearest rank index for p per mille of n (n > 0): ceil(p n / 1000) - 1
+fn strank p ulong n ulong to ulong
+ret sub div add mul p n 999 1000 1
+end
+
+fn stboot to void
+put STRNG 0 get STSEED 0
+acc = new ulong 8 0
+for b ulong 10000
+stres b acc
+end
+for s ulong 13
+put STPT s stppm get STT stnum s get STT stden s
+for b ulong 10000
+put STQV b get STBS add mul s 10000 b
+put STQI b 0
+end
+stsort 10000
+put STLO s get STQV strank 25 10000
+put STHI s get STQV strank 975 10000
+end
+end
+
+note ---------- categories and quantiles ----------
+fn stcatm cat ulong s ulong to bool
+if eq cat 0
+ret true
+end
+if le cat 8
+ret eq get STST s cat
+end
+if le cat 14
+ret eq get STSN s sub cat 9
+end
+if le cat 16
+ret eq get STSF s sub cat 14
+end
+ret eq get STSC s sub cat 17
+end
+
+note request i is a QUERY with cold flag t
+fn stisq i ulong t ulong to bool
+if ne get STRO i 2
+ret false
+end
+ret eq get STRC i t
+end
+
+note fill STQV/STQI with the QUERY round trips of arm a with cold flag t; returns the count
+fn stqfill a ulong t ulong to ulong
+m = ulong 0
+n = get STNR 0
+for r ulong 3
+base = mul add mul a 3 r 65536
+for i ulong n
+if stisq i t
+put STQV m get STRT add base i
+put STQI m get STRS i
+m = add m 1
+end
+end
+end
+ret m
+end
+
+note the value at rank k (0-based) among the sorted entries of category cat
+fn stqpick m ulong cat ulong k ulong to ulong
+c = ulong 0
+for j ulong m
+if stcatm cat get STQI j
+if eq c k
+ret get STQV j
+end
+c = add c 1
+end
+end
+ret 0
+end
+
+fn stqline a ulong t ulong cat ulong m ulong to void
+c = ulong 0
+for j ulong m
+if stcatm cat get STQI j
+c = add c 1
+end
+end
+stks SKQUANT
+stks SKARM
+stks add SKARM0 a
+stks SKTEMP
+if eq t 1
+stks SKCOLD
+else
+stks SKWARM
+end
+stks SKCAT
+stks add SKCAT0 cat
+stkv SKCOUNT c
+if eq c 0
+stks SKP50
+stks SKNA
+stks SKP95
+stks SKNA
+stks SKP99
+stks SKNA
+stnl
+ret
+end
+stkv SKP50 stqpick m cat strank 500 c
+stkv SKP95 stqpick m cat strank 950 c
+stkv SKP99 stqpick m cat strank 990 c
+stnl
+end
+
+fn stquants to void
+for a ulong 8
+for t ulong 2
+tt = sub 1 t
+m = stqfill a tt
+stsort m
+for cat ulong 20
+stqline a tt cat m
+end
+end
+end
+end
+
+note request round-trip sum of arm a over sessions of category cat (all reps)
+fn stcsum a ulong cat ulong to ulong
+v = ulong 0
+for s ulong get STNS 0
+if stcatm cat s
+v = add v get STSS add mul a 1024 s
+end
+end
+ret v
+end
+
+fn stcatline a ulong cat ulong to void
+d = stcsum 1 cat
+if eq d 0
+ret
+end
+stks SKCATR
+stks SKARM
+stks add SKARM0 a
+stks SKCAT
+stks add SKCAT0 cat
+stkv SKPPM stppm stcsum a cat d
+stnl
+end
+
+fn stregime t ulong to void
+m = stcsum 3 t
+f = stcsum 1 t
+if or eq m 0 eq f 0
+ret
+end
+stks SKREGT
+stks add SKCAT0 t
+stkv SKDOM stppm stcsum 4 t m
+stkv SKIOF stppm stcsum 5 t f
+stnl
+end
+
+note ---------- payback ----------
+note rep-summed cost of request j of group g for arm a (request 0 = start-to-ready)
+fn streqc a ulong g ulong j ulong to ulong
+v = ulong 0
+i = add get STGO g j
+for r ulong 3
+k = add mul a 3 r
+if eq j 0
+v = add v get STPR add mul k 128 g
+else
+v = add v get STRT add mul k 65536 i
+end
+end
+ret v
+end
+
+note one group of the payback walk; state in STPYC (cumulative) and STPYQ (QUERYs seen);
+note true when the cumulative sum exceeds lim
+fn stpayg a ulong g ulong lim long to bool
+o = get STGO g
+for j ulong get STGN g
+d = sub long streqc 1 g j long streqc a g j
+cum = add get STPYC 0 d
+put STPYC 0 cum
+if eq get STRO add o j 2
+put STPYQ 0 add get STPYQ 0 1
+end
+if gt cum lim
+ret true
+end
+end
+ret false
+end
+
+note QUERYs until the cumulative (full - arm) cost exceeds acq(a); 2^64 - 1 = never
+fn stpay a ulong to ulong
+put STPYC 0 0
+put STPYQ 0 0
+lim = long get STAA a
+for g ulong get STNG 0
+if stpayg a g lim
+ret get STPYQ 0
+end
+end
+ret 18446744073709551615
+end
+
+note ---------- report sections ----------
+fn starmk k ulong a ulong to void
+stks k
+stks SKARM
+stks add SKARM0 a
+end
+
+fn sttotline a ulong to void
+starmk SKTOTAL a
+rt = ulong 0
+rd = ulong 0
+for r ulong 3
+for g ulong get STNG 0
+slot = add mul add mul a 3 r 128 g
+rt = add rt get STAG slot
+rd = add rd get STPR slot
+end
+end
+stkv SKRTNS rt
+stkv SKREADY rd
+stkv SKACQNS get STAA a
+stkv SKTOTNS get STT a
+stnl
+end
+
+fn ststatline s ulong to void
+if lt s 8
+starmk SKRHO s
+else
+stks SKRATIO
+stks add SKRAT0 sub s 8
+end
+stkv SKPOINT get STPT s
+stkv SKLO get STLO s
+stkv SKHI get STHI s
+stnl
+end
+
+fn stc a ulong k ulong to ulong
+ret get STCNT add mul a 32 k
+end
+
+fn stcorrline a ulong to void
+starmk SKCORR a
+stkv SKQOK stc a 0
+stkv SKQBAD stc a 1
+stkv SKCOK stc a 2
+stkv SKCBAD stc a 3
+stkv SKUNSC stc a 4
+stkv SKINCON stc a 5
+stnl
+end
+
+fn strouteline a ulong to void
+starmk SKROUTE a
+for k ulong 6
+stks SKRN
+stou k
+stks SKEQ
+stou stc a add 6 k
+end
+stkv SKROTH stc a 12
+stkv SKFALL stppm stc a 11 stc a 14
+stnl
+end
+
+fn stmemline a ulong to void
+starmk SKMEM a
+n = stc a 19
+stkv SKPROCS n
+stkv SKHWMX stc a 20
+if gt n 0
+stkv SKHWMM div stc a 21 n
+end
+stkv SKRSSX stc a 22
+stkv SKCPU stc a 23
+stkv SKEXITN stc a 24
+stnl
+end
+
+fn stacqline l ulong to void
+stks SKACQL
+stou l
+e = ulong 0
+c = ulong 0
+b = ulong 0
+x = ulong 0
+for r ulong 3
+k = add mul l 3 r
+e = add e get STAQ k
+c = add c get STAQC k
+if gt get STAQB k b
+b = get STAQB k
+end
+if ne get STAQX k 0
+x = add x 1
+end
+end
+stkv SKBUILD 3
+stkv SKELAP e
+stkv SKCPU c
+stkv SKLIBB b
+stkv SKDRIVN x
+stnl
+end
+
+fn stpayline a ulong to void
+starmk SKPAYB a
+p = stpay a
+put STSUM add 88 a p
+stks SKPAYQ
+if eq p 18446744073709551615
+stks SKNONE
+else
+stou p
+end
+stnl
+end
+
+note r + (1 - q) e + q + kn, every term in ppm (division truncates toward zero)
+fn stcbarv r long q long e long kn long to long
+t = div mul sub 1000000 q e 1000000
+ret add add r t add q kn
+end
+
+note the Cbar line of arm a, f = mean full QUERY round trip (ns, > 0)
+fn stcbar2 a ulong f ulong to void
+n = stc a 14
+r = long stppm div stc 0 13 stc 0 14 f
+h = stc a 16
+e = sub long 0 r
+if gt h 0
+e = sub long stppm div stc a 15 h f r
+end
+q = long stppm sub n h n
+k = stppm get STAA a f
+starmk SKCBAR a
+stkvl SKCR r
+stkvl SKCQ q
+stkvl SKCE e
+stkv SKCK k
+stkv SKCN n
+stkvl SKCBV stcbarv r q e long div k n
+stkv SKCOBS stppm div add stc a 13 get STAA a n f
+stnl
+end
+
+fn stcbarline a ulong to void
+fc = stc 1 14
+if or or eq fc 0 eq stc a 14 0 eq stc 0 14 0
+ret
+end
+f = div stc 1 13 fc
+if gt f 0
+stcbar2 a f
+end
+end
+
+fn stecholine a ulong to void
+num = sub long get STT a long get STT 0
+den = sub long get STT 1 long get STT 0
+starmk SKECHO a
+stks SKPPM
+if le den 0
+stks SKNA
+else
+stol stppms num den
+end
+stnl
+end
+
+note outcome word of control c: 1 detected, 0 undetected, 2 reported, 3 not run, 4 missing
+fn stcout c ulong to ulong
+b = mul c 8
+if eq get STCT b 0
+ret 4
+end
+if or gt get STCT add b 2 0 gt get STCT add b 5 0
+ret 0
+end
+if gt get STCT add b 4 0
+ret 3
+end
+if gt get STCT add b 3 0
+ret 2
+end
+ret 1
+end
+
+fn stctlline c ulong to void
+b = mul c 8
+stks SKCTLID
+stks add SKCID0 c
+stkv SKRECS get STCT b
+stkv SKDET get STCT add b 1
+stkv SKUNDET get STCT add b 2
+stkv SKREPD get STCT add b 3
+stkv SKNRUN get STCT add b 4
+stkv SKTAMP get STCT add b 5
+stnl
+end
+
+note the outcome word of stcout value o
+fn stocw o ulong to void
+if eq o 1
+stks SKOC0
+ret
+end
+if eq o 0
+stks add SKOC0 1
+ret
+end
+stks add SKOC0 o
+end
+
+note " Cx=<outcome word>"
+fn stctlw c ulong to void
+stks SKSPACE
+stks add SKCID0 c
+stks SKEQ
+stocw stcout c
+end
+
+note ---------- decision ----------
+fn streason k ulong bit ulong to void
+stks SKREAS
+stks k
+stnl
+put STDEC 1 or get STDEC 1 shl ulong 1 bit
+end
+
+fn streasa k ulong bit ulong a ulong to void
+stks SKREAS
+stks k
+stks SKARM
+stks add SKARM0 a
+stnl
+put STDEC 1 or get STDEC 1 shl ulong 1 bit
+end
+
+fn streasc k ulong bit ulong c ulong to void
+stks SKREAS
+stks k
+stks SKSPACE
+stks add SKCID0 c
+stnl
+put STDEC 1 or get STDEC 1 shl ulong 1 bit
+end
+
+note writes the reason lines; returns 3 STOP, 1 GO, 2 INVESTIGATE
+fn stdecide to ulong
+put STDEC 1 0
+for a ulong 8
+if gt a 0
+if gt stc a 1 0
+streasa SKRWA 0 a
+end
+if gt stc a 3 0
+streasa SKRWR 1 a
+end
+end
+end
+for c ulong 15
+if gt c 0
+if gt get STCT add mul c 8 2 0
+streasc SKRCU 2 c
+end
+if gt get STCT add mul c 8 5 0
+streasc SKRTS 3 c
+end
+end
+end
+if ge get STLO 4 1000000
+streason SKRLO 4
+end
+stop = gt get STDEC 1 0
+if ge get STHI 4 1000000
+streason SKRUP 5
+end
+if ge get STHI 8 1000000
+streason SKRDC 6
+end
+if ge get STHI 9 1000000
+streason SKRDI 7
+end
+tq = stc 4 17
+if or eq tq 0 lt mul stc 4 18 2 tq
+streason SKRCOV 8
+end
+for c ulong 15
+if gt c 0
+o = stcout c
+if or eq o 3 eq o 4
+streasc SKRNR 9 c
+end
+end
+end
+if stop
+ret 3
+end
+if eq get STDEC 1 0
+ret 1
+end
+ret 2
+end
+
+fn stiss to void
+tq = stc 4 17
+stks SKI742
+stou stppm stc 4 18 tq
+stks SKBINDF
+stks SKR5
+stou stc 3 11
+stks SKR5D
+stou stc 4 11
+stks SKRESTA
+stocw stcout 13
+stctlw 1
+stctlw 2
+stctlw 3
+stctlw 4
+stctlw 5
+for c ulong 6
+stctlw add c 8
+end
+stnl
+stks SKI743
+stks SKDOMR
+stkv SKPOINT get STPT 11
+stkv SKLO get STLO 11
+stkv SKHI get STHI 11
+stks SKIOFR
+stkv SKPOINT get STPT 12
+stkv SKLO get STLO 12
+stkv SKHI get STHI 12
+stctlw 6
+stctlw 10
+stnl
+stks SKI744
+stkv SKPOINT get STPT 10
+stkv SKLO get STLO 10
+stkv SKHI get STHI 10
+m = and and eq stc 4 1 0 eq stc 4 3 0 and eq stc 7 1 0 eq stc 7 3 0
+stks SKMATCH
+if m
+stks SKYES
+else
+stks SKNO
+end
+stks SKVERD
+if lt get STHI 10 1000000
+stks SKHELPS
+else
+if ge get STLO 10 1000000
+stks SKNHELP
+else
+stks SKINCO
+end
+end
+stnl
+end
+
+note ---------- report and summary ----------
+fn stsumw k ulong v ulong to void
+put STSUM k v
+end
+
+fn stfillsum d ulong to void
+stsumw 0 3544386041195737426
+stsumw 1 1
+stsumw 2 d
+stsumw 3 get STDEC 1
+stsumw 4 get STNG 0
+stsumw 5 get STNS 0
+stsumw 6 get STNR 0
+stsumw 7 get STNQ 0
+stsumw 8 3
+stsumw 9 get STSPL 0
+stsumw 10 get STSEED 0
+stsumw 11 10000
+sc = ulong 0
+ok = ulong 0
+bad = ulong 0
+cw = ulong 0
+for a ulong 8
+if gt a 0
+ok = add ok stc a 0
+bad = add bad stc a 1
+cw = add cw stc a 3
+end
+end
+stsumw 12 add ok bad
+stsumw 13 ok
+stsumw 14 bad
+stsumw 15 cw
+stsumw 16 stc 4 17
+stsumw 17 stc 4 18
+for j ulong 4
+stsumw add 18 j get STHD j
+end
+ic = ulong 0
+for a ulong 8
+ic = add ic stc a 5
+end
+stsumw 22 ic
+for s ulong 13
+stsumw add 24 mul s 3 get STPT s
+stsumw add 25 mul s 3 get STLO s
+stsumw add 26 mul s 3 get STHI s
+end
+for a ulong 8
+stsumw add 64 a get STT a
+stsumw add 72 a get STAA a
+stsumw add 80 a stc a 11
+end
+end
+
+fn streport to ulong
+stks SKHEAD
+stnl
+stks SKINPUT
+stou get STSPL 0
+stkv SKGROUP get STNG 0
+stkv SKSESN get STNS 0
+stkv SKREQS get STNR 0
+stkv SKQRYS get STNQ 0
+stkv SKREPS 3
+stnl
+stks SKBOOT
+stou 10000
+stkv SKSEED get STSEED 0
+stkv SKRKLO strank 25 10000
+stkv SKRKHI strank 975 10000
+stnl
+for a ulong 8
+sttotline a
+end
+for s ulong 13
+ststatline s
+end
+for a ulong 8
+stcorrline a
+end
+for a ulong 8
+strouteline a
+end
+stks SKCOVER
+stou stc 4 17
+stkv SKCOVD stc 4 18
+stkv SKCOVP stppm stc 4 18 stc 4 17
+stnl
+for a ulong 8
+stmemline a
+end
+stacqline 1
+stacqline 2
+for a ulong 8
+put STSUM add 88 a 18446744073709551615
+if gt a 1
+stpayline a
+end
+end
+for a ulong 8
+if gt a 1
+stcbarline a
+end
+end
+for a ulong 8
+if ne a 1
+stecholine a
+end
+end
+for a ulong 8
+for cat ulong 20
+if gt cat 0
+stcatline a cat
+end
+end
+end
+for t ulong 8
+stregime add t 1
+end
+stquants
+stks SKSTEP
+stnl
+for c ulong 14
+stctlline add c 1
+end
+stiss
+d = stdecide
+stks SKDECI
+if eq d 1
+stks SKGO
+end
+if eq d 2
+stks SKINV
+end
+if eq d 3
+stks SKSTOP
+end
+stnl
+stks SKVERDS
+if eq d 1
+stks SKGO
+end
+if eq d 2
+stks SKINV
+end
+if eq d 3
+stks SKSTOP
+end
+stks SKSIMNR
+stnl
+ret d
+end
+
+note one little-endian word appended to STOB
+fn stow v ulong to void
+for b ulong 8
+stoc uchar and shr v mul b 8 255
+end
+end
+
+note STSUM as 2048 bytes into STOB (replacing its contents)
+fn stsumbytes to void
+put STOP 0 0
+for k ulong 256
+stow get STSUM k
+end
+end
+
+note the path now in STPB becomes base slot b
+fn stbfromp b ulong to void
+o = mul b 4096
+n = get STPL 0
+for i ulong n
+put STBD add o i get STPB i
+end
+put STBL b n
+end
+
+note zero every accumulator, so one process can run several evaluations (tests)
+fn streset to void
+for i ulong len STCNT
+put STCNT i 0
+end
+for i ulong len STAG
+put STAG i 0
+put STA0 i 0
+put STPR i 0
+put STPF i 0
+end
+for i ulong len STSS
+put STSS i 0
+end
+for i ulong len STAQ
+put STAQ i 0
+put STAQC i 0
+put STAQX i 0
+put STAQB i 0
+put STAQF i 0
+end
+for i ulong len STCT
+put STCT i 0
+end
+for i ulong len STSUM
+put STSUM i 0
+end
+put STDEC 0 0
+put STDEC 1 0
+put STOP 0 0
+end
+
+note runs every reading step; 0 ok, else refusal code
+fn stread to int
+e = stidx
+if ne e 0
+ret e
+end
+e = stsess
+if ne e 0
+ret e
+end
+e = stexps
+if ne e 0
+ret e
+end
+e = stlogs
+if ne e 0
+ret e
+end
+e = stprocs
+if ne e 0
+ret e
+end
+e = stacqs
+if ne e 0
+ret e
+end
+ret stctls
+end
+
+note prints the refusal line to stdout; returns the exit code 2
+fn stfail code ulong d ulong to int
+r = stref code d 0 0
+stprref
+w = stflush 1
+ret 2
+end
+
+note the evaluation on base slots 0 split, 1 run, 2 ctrl (- = none), 3 out and the seed in
+note STSEED; the report goes to stdout unless STQT is 1. Returns the exit code.
+fn strun to int
+streset
+e = stread
+if ne e 0
+stprref
+if ne get STQT 0 1
+r = stflush 1
+end
+ret 2
+end
+sttotals
+stboot
+d = streport
+stfillsum d
+if ne get STQT 0 1
+r = stflush 1
+end
+stpbase 3
+stpk SKTXT
+w = stwfile
+if ne w 0
+ret 15
+end
+stsumbytes
+stpbase 3
+stpk SKSUM
+w = stwfile
+if ne w 0
+ret 15
+end
+ret 0
+end
+
+fn stmain to int
+put STOP 0 0
+if lt argcnt 7
+ret stfail 1 0
+end
+l0 = stargb 2 0
+l1 = stargb 3 1
+l2 = stargb 4 2
+l3 = stargb 5 3
+if ne l3 64
+ret stfail 1 1
+end
+put STRF 3 0
+put STSEED 0 sthexw 3 0
+if ne get STRF 3 0
+ret stfail 1 2
+end
+l4 = stargb 6 3
+if or or eq l0 0 eq l1 0 or eq l2 0 eq l4 0
+ret stfail 1 3
+end
+ret strun
+end
