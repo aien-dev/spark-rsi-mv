@@ -1,0 +1,11 @@
+REUSE-1 FINAL holdout commitment (spark-rsi-mv #73; contract omega-mv d6edaad1 docs/reuse/REUSE-1.md section 7.3)
+
+secret_commitment_sha256=cc6cbc60cc5417c8de406a11261738805d7e4d99490794b566893a2fc8a99878
+secret_definition=32 bytes from the Linux getrandom pool, stored only in the operator's TPM vault (atlas-vault name REUSE73_FINAL_SECRET) as 64 lowercase hex characters
+commitment_definition=SHA-256 of the 32 raw secret bytes
+final_seed_definition=SHA-256(32 raw secret bytes || candidate-freeze commit id as 40 ASCII hex || evaluator-freeze commit id as 40 ASCII hex)
+seed_use=bytes 0..7 LE bootstrap; bytes 8..15 LE FINAL generator; bytes 16..23 LE arm order
+order=this commitment pushed; evaluator freeze pushed (spark-rsi-mv); candidate freeze pushed (omega-mv); reveal; one FINAL run
+void_rule=a void run burns the seed; a new run needs a new secret, a new commitment and a recorded reason
+independence=UNISOLATED: one operator account holds both sides; non-access is procedural and auditable by commit order
+created_utc=2026-10-25
