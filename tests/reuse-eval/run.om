@@ -522,7 +522,7 @@ v = ulong 0
 for i ulong get RVL r
 v = or v shl ulong get RVS add mul r 4096 i mul i 8
 end
-if eq v 7169383
+if eq v 7234919
 ret 0
 end
 if eq v 1818326629
