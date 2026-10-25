@@ -221,8 +221,8 @@ global STOB uchar 4194304
 global STOP ulong 1
 global STPB uchar 4096
 global STPL ulong 1
-global STBD uchar 16384
-global STBL ulong 4
+global STBD uchar 32768
+global STBL ulong 8
 global STFB uchar 8388608
 global STRNG ulong 1
 global STRF ulong 4
@@ -409,13 +409,18 @@ stpc uchar add div v 10 48
 stpc uchar add rem v 10 48
 end
 
-note base b (argv copy) as the path, then a slash
-fn stpbase b ulong to void
+note base slot b (an argv copy) exactly as the path
+fn stpexact b ulong to void
 put STPL 0 0
 o = mul b 4096
 for i ulong get STBL b
 stpc get STBD add o i
 end
+end
+
+note base slot b as the path, then a slash
+fn stpbase b ulong to void
+stpexact b
 stpc 47
 end
 
