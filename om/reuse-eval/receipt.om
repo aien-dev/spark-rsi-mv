@@ -39,7 +39,10 @@ note signature.
 note Exit 0 = written; 2 = refused (status=REFUSED code=N): 1 usage, 2 commit not 40 lowercase
 note hex, 3 MANSHA not 64 lowercase hex, 4 index unreadable or invalid, 5 contract unreadable,
 note 6 evaluator binary unreadable, 7 stats.sum missing or invalid, 8 an acq-1-R.mansha missing,
-note 9 MANSHA differs from a rebuild (BLOCKED: not reproducible); 15 output failure.
+note 9 MANSHA differs from a rebuild (BLOCKED: not reproducible), 10 the index is not FINAL
+note (split id 4), 11 stats.sum is not the summary of this split (its split id is not 4, its
+note words 18..21 differ from index words 7..10, or its group, session, request or QUERY count
+note differs from the index); 15 output failure.
 
 text RCK "receipt=REUSE-1 format_version=2 kind=evaluation status=UNSIGNED\nsignature=UNSIGNED reason=no_om_p256_signer (REUSE-1 7.5, spark-rsi #67 signer is Rust)\nsubject_commit=\nsubject_mansha=\nholdout_set_sha256=\npolicy_sha256=\nevaluator_binary_sha256=\nstats_summary_sha256=\nholdouts_total=\n holdouts_passed=\ncounts groups=\n sessions=\n requests=\n queries=\n reps=\n arms=8 wrong_refusals=\ndecision=\n reason_bits=\nbudget split=FINAL runs_allowed=1 runs_used=1 seed=burned\nindependence=UNISOLATED\nreceipt_identity_sha256=\nspark-rsi.reuse1-receipt.v2-unsigned\n/proc/self/exe\nacq-1-\n.mansha\nstatus=REFUSED code=\nGO\nINVESTIGATE\nSTOP\n"
 
@@ -331,6 +334,23 @@ end
 ret 2
 end
 
+note stats.sum describes this split: split id 4, words 18..21 = the index holdout words 7..10
+note (both as stored), and the group, session, request and QUERY counts equal the index's
+fn rcsame to bool
+if ne get RCS 9 4
+ret false
+end
+for j ulong 4
+if ne get RCS add 18 j get STHD j
+ret false
+end
+end
+if or ne get RCS 4 get STNG 0 ne get RCS 5 get STNS 0
+ret false
+end
+ret and eq get RCS 6 get STNR 0 eq get RCS 7 get STNQ 0
+end
+
 note the receipt on slots 0 split, 1 run, 2 stats dir, 3 contract, 4 commit, 5 MANSHA, 6 out
 note file; stdout unless STQT is 1
 fn rcrun to int
@@ -344,6 +364,9 @@ end
 if ne stidx 0
 ret rcfail 4
 end
+if ne get STSPL 0 4
+ret rcfail 10
+end
 rchold
 stpexact 3
 if not rcfile 1
@@ -356,6 +379,9 @@ ret rcfail 6
 end
 if not rcsum
 ret rcfail 7
+end
+if not rcsame
+ret rcfail 11
 end
 e = rcmansha
 if ne e 0

@@ -7,7 +7,9 @@ note (checked against SHA-256 of /proc/self/exe computed here) and the receipt i
 note (recomputed here from the documented length-prefixed field list). policy_sha256 and
 note stats_summary_sha256 are SHA-256 values computed independently (Python hashlib, development
 note only). Then the refusals: MANSHA differing from a rebuild (9), a missing rebuild file (8),
-note an uppercase commit (2), a stats.sum with a wrong magic (7).
+note an uppercase commit (2), a stats.sum with a wrong magic (7), a summary whose holdout digest
+note differs from the index (11), a DEV summary (11), a DEV index (10), a summary with another
+note request count (11).
 note argv[1] = temporary directory (default /tmp/reuse-test-evalstats-rc-<pid>).
 note Exit 0 = pass; otherwise the failing check's code.
 
@@ -19,9 +21,9 @@ text RTM "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
 text RTM2 "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5b"
 text RTH "0102030405060708090a0b0c0d0e0f1011111111111111111918171615141312"
 text RTP "0e6940071a1f189c69a3faa6d9ca6dc78f92f8520c4548f2c6a878c89e4e9e98"
-text RTS "fb6c99c5fa98525f6fdf40e0c1e6cc16e1ec24e435f11571689c56027e6558c3"
+text RTS "dd51cbe03f9a9c7e61a4d471f9312ee703b2910541daf12bbd7c9b5790dfe192"
 text RTD "spark-rsi.reuse1-receipt.v2-unsigned"
-text RTEXP "receipt=REUSE-1 format_version=2 kind=evaluation status=UNSIGNED\nsignature=UNSIGNED reason=no_om_p256_signer (REUSE-1 7.5, spark-rsi #67 signer is Rust)\nsubject_commit=0123456789abcdef0123456789abcdef01234567\nsubject_mansha=5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a\nholdout_set_sha256=0102030405060708090a0b0c0d0e0f1011111111111111111918171615141312\npolicy_sha256=0e6940071a1f189c69a3faa6d9ca6dc78f92f8520c4548f2c6a878c89e4e9e98\nevaluator_binary_sha256=????????????????????????????????????????????????????????????????\nstats_summary_sha256=fb6c99c5fa98525f6fdf40e0c1e6cc16e1ec24e435f11571689c56027e6558c3\nholdouts_total=189504 holdouts_passed=189500\ncounts groups=24 sessions=192 requests=18000 queries=9024 reps=3 arms=8 wrong_refusals=1\ndecision=INVESTIGATE reason_bits=512\nbudget split=FINAL runs_allowed=1 runs_used=1 seed=burned\nindependence=UNISOLATED\nreceipt_identity_sha256=????????????????????????????????????????????????????????????????\n"
+text RTEXP "receipt=REUSE-1 format_version=2 kind=evaluation status=UNSIGNED\nsignature=UNSIGNED reason=no_om_p256_signer (REUSE-1 7.5, spark-rsi #67 signer is Rust)\nsubject_commit=0123456789abcdef0123456789abcdef01234567\nsubject_mansha=5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a\nholdout_set_sha256=0102030405060708090a0b0c0d0e0f1011111111111111111918171615141312\npolicy_sha256=0e6940071a1f189c69a3faa6d9ca6dc78f92f8520c4548f2c6a878c89e4e9e98\nevaluator_binary_sha256=????????????????????????????????????????????????????????????????\nstats_summary_sha256=dd51cbe03f9a9c7e61a4d471f9312ee703b2910541daf12bbd7c9b5790dfe192\nholdouts_total=189504 holdouts_passed=189500\ncounts groups=24 sessions=192 requests=18000 queries=9024 reps=3 arms=8 wrong_refusals=1\ndecision=INVESTIGATE reason_bits=512\nbudget split=FINAL runs_allowed=1 runs_used=1 seed=burned\nindependence=UNISOLATED\nreceipt_identity_sha256=????????????????????????????????????????????????????????????????\n"
 
 global RTRB uchar 4096
 global RTRL ulong 1
@@ -110,15 +112,16 @@ end
 stoc 10
 end
 
-fn rtfiles to int
+note the split index: split id sp, 24 groups of 750 requests, 192 sessions, 9024 QUERYs
+fn rtindex sp ulong to int
 put STOP 0 0
 stow 3544386032354079058
 stow 1
-stow 4
-stow 1
-stow 1
-stow 5
-stow 3
+stow sp
+stow 24
+stow 192
+stow 18000
+stow 9024
 stow 72623859790382856
 stow 651345242494996240
 stow 1229782938247303441
@@ -126,19 +129,29 @@ stow 1808220633999610642
 for k ulong 5
 stow 0
 end
-stow 5
+for g ulong 24
+stow 750
+end
 rtpath 1 6
 if ne stwfile 0
 ret 3
 end
-for r ulong 3
+ret 0
+end
+
+fn rtfiles to int
+r = rtindex 4
+if ne r 0
+ret r
+end
+for k ulong 3
 rtmsh 0
-rtpath 2 add 7 r
+rtpath 2 add 7 k
 if ne stwfile 0
 ret 4
 end
 end
-r = rtsum 3544386041195737426
+r = rtsum 3544386041195737426 4 0
 if ne r 0
 ret r
 end
@@ -150,7 +163,8 @@ rtpath 4 0
 ret stwfile
 end
 
-fn rtsum magic ulong to int
+note stats.sum with split id sp; hx is added to holdout word 7 (0 = the index's digest)
+fn rtsum magic ulong sp ulong hx ulong to int
 put STOP 0 0
 stow magic
 stow 1
@@ -161,14 +175,20 @@ stow 192
 stow 18000
 stow 9024
 stow 3
-stow 4
+stow sp
 stow 0
 stow 10000
 stow 189504
 stow 189500
 stow 4
 stow 1
-for k ulong 240
+stow 0
+stow 0
+stow add 72623859790382856 hx
+stow 651345242494996240
+stow 1229782938247303441
+stow 1808220633999610642
+for k ulong 234
 stow 0
 end
 rtpath 3 10
@@ -343,14 +363,74 @@ if ne get STOB 20 50
 ret 36
 end
 rtslots 0
-r = rtsum 3544386041195737427
+r = rtsum 3544386041195737427 4 0
 if ne rcrun 2
 ret 37
 end
 if ne get STOB 20 55
 ret 38
 end
+ret rtfinal
+end
+
+note the refusal code printed by the last rcrun
+fn rtcode to ulong
+if ne get STOB 0 115
+ret 999
+end
+v = ulong 0
+for k ulong 4
+c = get STOB add 20 k
+if or lt c 48 gt c 57
+break
+end
+v = add mul v 10 ulong sub c 48
+end
+ret v
+end
+
+note split and summary identity: a mismatched holdout digest, a DEV summary, DEV index, and
+note a summary with another request count are refused (11, 11, 10, 11); restored = accepted
+fn rtfinal to int
+r = rtsum 3544386041195737426 4 1
+if or ne rcrun 2 ne rtcode 11
+ret 39
+end
+r = rtsum 3544386041195737426 3 0
+if or ne rcrun 2 ne rtcode 11
+ret 40
+end
+r = rtsum 3544386041195737426 4 0
+r = rtindex 3
+if or ne rcrun 2 ne rtcode 10
+ret 41
+end
+r = rtindex 4
+if ne rcrun 0
+ret 42
+end
+r = rtsumreq
+if or ne rcrun 2 ne rtcode 11
+ret 43
+end
 ret 0
+end
+
+note stats.sum as written by rtsum but with request count 17999 (word 6)
+fn rtsumreq to int
+r = rtsum 3544386041195737426 4 0
+rtpath 3 10
+n = stload
+put STOP 0 0
+for k ulong 256
+if eq k 6
+stow 17999
+else
+stow stw mul k 8
+end
+end
+rtpath 3 10
+ret stwfile
 end
 
 fn main to int
