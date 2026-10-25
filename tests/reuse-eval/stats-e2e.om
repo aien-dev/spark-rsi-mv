@@ -1,0 +1,783 @@
+note units: stats
+note SPDX-License-Identifier: Apache-2.0
+note stats-e2e: synthetic FINAL-shaped inputs (G groups of 2 sessions, 8 requests per group:
+note BEGIN, QUERY cold, SET, QUERY warm per session; 3 reps; 8 arms) written to a temporary
+note directory, then strun, then the summary words are checked. Costs per request:
+note base = 1000 + 100 g + 20 j, start-to-ready = base(j = 0) + 400, both times m / 4 where m is
+note the scenario's multiplier for (arm, group). Expected values:
+note  s1 identical arms: every rho and ratio 1000000 with zero-width interval; STOP with reasons
+note     rho_delta_lower_ge_1, upper bounds >= 1 (bits 4..7 = 240).
+note  s2 delta costs exactly half: rho(delta) = delta/cache = delta/idelta = delta/method = 500000,
+note     select/delta = 2000000, zero width; GO; payback(delta) = 0 QUERYs (acq 0).
+note  s3 = s2 with acq 1000 ns per rep for lib 1: T(delta) = T(full) / 2 + 3000.
+note  s4 24 groups (the FINAL group count), delta multiplier 1 + (5 g mod 7) quarters, acq 1000 per
+note     rep, seed bytes 0123456789abcdef...: point, lo, hi of rho(delta) and the ratios as
+note     computed by an independent reimplementation (Python, development only) of the
+note     documented bootstrap; a changed splitmix64 constant or draw rule changes them.
+note     s13: 4 groups, multipliers (2, 5, 3, 5): the same INVESTIGATE branch (224).
+note  s5..s14: one decision branch each (see tsrun calls in main).
+note  r1..r3: refusals (identity word, expectation word, missing proc record).
+note Exit 0 = pass; otherwise the failing check's code.
+
+text TSK "/tmp/reuse-test-evalstats-\nsplit\nrun\nctrl\nout\n-\n"
+text TSHEX "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+global TSG ulong 1
+global TSSC ulong 1
+global TSAQ ulong 3
+global TSCO ulong 16
+global TSCF ulong 16
+global TSWA ulong 1
+global TSWR ulong 1
+global TSTR ulong 1
+global TSBAD ulong 1
+global TSNOC ulong 1
+global TSRB uchar 4096
+global TSRL ulong 1
+
+fn tsoff k ulong to ulong
+i = ulong 0
+c = ulong 0
+while lt c k bound 100000
+if eq get TSK i 10
+c = add c 1
+end
+i = add i 1
+end
+ret i
+end
+
+fn tskp k ulong to void
+i = tsoff k
+while ne get TSK i 10 bound 4096
+stpc get TSK i
+i = add i 1
+end
+end
+
+note the test root as the path (no slash)
+fn tsroot to void
+put STPL 0 0
+for i ulong get TSRL 0
+stpc get TSRB i
+end
+end
+
+note root/sub as the path
+fn tssub k ulong to void
+tsroot
+stpc 47
+tskp k
+end
+
+fn tsmkdirs to int
+tsroot
+r = makedir STPB 0 get STPL 0 448
+if and ne r 0 ne r -17
+ret 1
+end
+for k ulong 4
+tssub add k 1
+r = makedir STPB 0 get STPL 0 448
+if and ne r 0 ne r -17
+ret 2
+end
+end
+ret 0
+end
+
+note multiplier in quarters for arm a, group g
+fn tsmul a ulong g ulong to ulong
+s = get TSSC 0
+if eq s 1
+ret 4
+end
+if eq s 4
+if eq a 4
+ret add 1 rem mul g 5 7
+end
+ret 4
+end
+if eq s 13
+if eq a 4
+if eq g 0
+ret 2
+end
+if eq g 1
+ret 5
+end
+if eq g 2
+ret 3
+end
+ret 5
+end
+ret 4
+end
+if eq s 11
+if or eq a 2 eq a 4
+ret 2
+end
+ret 4
+end
+if eq s 12
+if or eq a 5 eq a 4
+ret 2
+end
+ret 4
+end
+if eq a 4
+ret 2
+end
+ret 4
+end
+
+fn tscost a ulong g ulong j ulong to ulong
+b = add add 1000 mul 100 g mul 20 j
+ret div mul b tsmul a g 4
+end
+
+fn tsready a ulong g ulong to ulong
+ret add tscost a g 0 div mul 400 tsmul a g 4
+end
+
+fn tsop j ulong to ulong
+k = rem j 4
+if eq k 0
+ret 1
+end
+if eq k 2
+ret 3
+end
+ret 2
+end
+
+fn tscold j ulong to ulong
+if eq rem j 4 1
+ret 1
+end
+ret 0
+end
+
+fn tsroute a ulong j ulong to ulong
+if ne tsop j 2
+ret 0
+end
+if eq a 0
+ret 0
+end
+if eq a 1
+ret 1
+end
+if eq a 2
+ret 2
+end
+if eq a 3
+ret 3
+end
+if and eq a 4 lt j 4
+ret get TSTR 0
+end
+ret 4
+end
+
+fn tsindex to int
+g = get TSG 0
+put STOP 0 0
+stow 3544386032354079058
+stow 1
+stow 4
+stow g
+stow mul g 2
+stow mul g 8
+stow mul g 4
+stow 1311768467463790320
+stow 2
+stow 3
+stow 4
+for k ulong 5
+stow 0
+end
+for i ulong g
+stow 8
+end
+tssub 1
+stpc 47
+stpk SKINDEX
+ret stwfile
+end
+
+fn tssessions to int
+put STOP 0 0
+for s ulong mul get TSG 0 2
+l = rem s 2
+stow s
+stow div s 2
+stow add l 1
+stow sub 2 l
+stow add mul l 2 2
+stow l
+stow 64
+for k ulong 5
+stow 0
+end
+stow 4
+stow 2
+stow mul l 4
+stow 0
+end
+tssub 1
+stpc 47
+stpk SKSESS
+ret stwfile
+end
+
+fn tsexp g ulong to int
+put STOP 0 0
+for j ulong 8
+i = add mul g 8 j
+op = tsop j
+stow 0
+if eq op 2
+stow 3
+stow add 1000 i
+stow i
+else
+stow 0
+stow 0
+stow 0
+end
+stow op
+stow add mul g 2 div j 4
+stow tscold j
+stow 0
+end
+tssub 1
+stpc 47
+stpc 103
+stpu2 g
+stpk SKEXP
+ret stwfile
+end
+
+note knob predicates: identity corruption, wrong refusal, wrong answer, expectation corruption
+fn tsk1 a ulong g ulong j ulong to bool
+if ne get TSBAD 0 1
+ret false
+end
+ret and and eq a 3 eq g 1 eq j 5
+end
+
+fn tskwr a ulong g ulong j ulong to bool
+if ne get TSWR 0 1
+ret false
+end
+ret and and eq a 3 eq j 2 eq g 0
+end
+
+fn tskwa a ulong r ulong g ulong j ulong to bool
+if ne get TSWA 0 1
+ret false
+end
+ret and and eq a 7 eq g 0 and eq r 0 eq j 1
+end
+
+fn tsk2 a ulong g ulong j ulong to bool
+if ne get TSBAD 0 2
+ret false
+end
+ret and and eq a 5 eq g 0 eq j 3
+end
+
+note expected r0 (k = 0) or r1 (k = 1) of request j of group g
+fn tsrv g ulong j ulong k ulong to ulong
+if ne tsop j 2
+ret 0
+end
+i = add mul g 8 j
+if eq k 1
+ret i
+end
+ret add 1000 i
+end
+
+note one raw log record
+fn tsrec a ulong r ulong g ulong j ulong to void
+op = tsop j
+stow g
+stow r
+if tsk1 a g j
+stow 9
+else
+stow a
+end
+stow j
+stow op
+st = ulong 0
+if tskwr a g j
+st = 3
+end
+stow st
+c = ulong 2
+if tskwa a r g j
+stow add tsrv g j 0 1
+c = 0
+else
+if eq a 0
+stow 0
+else
+stow tsrv g j 0
+end
+end
+if eq a 0
+stow 0
+else
+stow tsrv g j 1
+end
+stow tsroute a j
+stow 0
+if tsk2 a g j
+stow add tsrv g j 0 7
+else
+stow tsrv g j 0
+end
+stow tsrv g j 1
+stow tscost a g j
+stow tscold j
+stow add mul g 2 div j 4
+if ne st 0
+c = 0
+end
+if and and ne a 0 eq op 2 eq c 2
+c = 1
+end
+if eq a 0
+c = 2
+end
+stow c
+end
+
+fn tslog a ulong r ulong g ulong to int
+put STOP 0 0
+for j ulong 8
+tsrec a r g j
+end
+tssub 2
+stpc 47
+stpk SKARMP
+stpc uchar add a 48
+stpk SKREPP
+stpc uchar add r 48
+stpk SKGP
+stpu2 g
+stpk SKLOG
+ret stwfile
+end
+
+note one proc.log record, left out for (6, 2, 1) when TSBAD is 3
+fn tsprec a ulong r ulong g ulong to void
+if and eq get TSBAD 0 3 and eq a 6 and eq r 2 eq g 1
+ret
+end
+stow a
+stow g
+stow r
+stow tsready a g
+stow 1
+stow 1
+stow 0
+stow 0
+stow add 1000 a
+stow add 900 a
+stow 0
+stow 8
+stow 0
+stow 19
+stow 0
+stow 0
+end
+
+fn tsproc to int
+put STOP 0 0
+for a ulong 8
+for r ulong 3
+for g ulong get TSG 0
+tsprec a r g
+end
+end
+end
+tssub 2
+stpc 47
+stpk SKPROC
+ret stwfile
+end
+
+fn tsacq to int
+put STOP 0 0
+for l ulong 2
+for r ulong 3
+stow add l 1
+stow r
+stow get TSAQ l
+stow 1
+stow 1
+stow 0
+stow 4096
+stow 0
+end
+end
+tssub 2
+stpc 47
+stpk SKACQ
+ret stwfile
+end
+
+fn tsctl to int
+put STOP 0 0
+for c ulong 14
+stow add c 1
+stow 0
+stow get TSCO add c 1
+stow get TSCF add c 1
+for k ulong 4
+stow 0
+end
+end
+tssub 3
+stpc 47
+stpk SKCTL
+ret stwfile
+end
+
+fn tsgen to int
+if ne tsindex 0
+ret 1
+end
+if ne tssessions 0
+ret 2
+end
+for g ulong get TSG 0
+if ne tsexp g 0
+ret 3
+end
+for a ulong 8
+for r ulong 3
+if ne tslog a r g 0
+ret 4
+end
+end
+end
+end
+if ne tsproc 0
+ret 5
+end
+if ne tsacq 0
+ret 6
+end
+ret tsctl
+end
+
+note default knobs, then scenario s
+fn tsset s ulong to void
+put TSSC 0 s
+put TSG 0 4
+put TSAQ 0 0
+put TSAQ 1 0
+put TSWA 0 0
+put TSWR 0 0
+put TSTR 0 4
+put TSBAD 0 0
+put TSNOC 0 0
+for c ulong 16
+put TSCO c 1
+put TSCF c 0
+end
+put TSCO 14 2
+end
+
+note writes the inputs, sets the bases and runs stats; returns strun's code (or 90+ on a setup error)
+fn tsrun to int
+e = tsgen
+if ne e 0
+ret add 90 e
+end
+tssub 1
+stbfromp 0
+tssub 2
+stbfromp 1
+if eq get TSNOC 0 1
+put STPL 0 0
+stpc 45
+else
+tssub 3
+end
+stbfromp 2
+tssub 4
+stbfromp 3
+put STQT 0 1
+ret strun
+end
+
+fn tsseed to void
+o = ulong 12288
+for i ulong 64
+put STBD add o i get TSHEX i
+end
+put STBL 3 64
+put STRF 3 0
+put STSEED 0 sthexw 3 0
+end
+
+note statistic s point/lo/hi equal to p, l, h
+fn tsstat s ulong p ulong l ulong h ulong to bool
+b = add 24 mul s 3
+if ne get STSUM b p
+ret false
+end
+if ne get STSUM add b 1 l
+ret false
+end
+ret eq get STSUM add b 2 h
+end
+
+fn tsdec d ulong bits ulong to bool
+if ne get STSUM 2 d
+ret false
+end
+ret eq get STSUM 3 bits
+end
+
+note reads stats.sum back and compares it with STSUM
+fn tsfile to bool
+tssub 4
+stpc 47
+stpk SKSUM
+n = stload
+if ne n 2048
+ret false
+end
+for k ulong 256
+if ne stw mul k 8 get STSUM k
+ret false
+end
+end
+ret true
+end
+
+fn tsroot0 to void
+put TSRL 0 0
+if ge argcnt 2
+n = argread 1 TSRB 0 4000
+if gt n 0
+put TSRL 0 ulong n
+ret
+end
+end
+put STPL 0 0
+tskp 0
+stpu ulong getpid
+for i ulong get STPL 0
+put TSRB i get STPB i
+end
+put TSRL 0 get STPL 0
+end
+
+fn main to int
+tsroot0
+if ne tsmkdirs 0
+ret 1
+end
+tsseed
+if ne get STSEED 0 17279655951921914625
+ret 2
+end
+tsset 1
+if ne tsrun 0
+ret 3
+end
+for s ulong 13
+if not tsstat s 1000000 1000000 1000000
+ret 4
+end
+end
+if not tsdec 3 240
+ret 5
+end
+if not tsfile
+ret 6
+end
+tsset 2
+if ne tsrun 0
+ret 10
+end
+if not tsstat 4 500000 500000 500000
+ret 11
+end
+if not tsstat 8 500000 500000 500000
+ret 12
+end
+if not tsstat 9 500000 500000 500000
+ret 13
+end
+if not tsstat 10 2000000 2000000 2000000
+ret 14
+end
+if not tsstat 11 500000 500000 500000
+ret 15
+end
+if not tsstat 12 1000000 1000000 1000000
+ret 16
+end
+if not tsdec 1 0
+ret 17
+end
+if ne get STSUM 92 0
+ret 18
+end
+if or ne get STSUM 16 24 ne get STSUM 17 24
+ret 19
+end
+if or ne get STSUM 12 336 ne get STSUM 13 336
+ret 20
+end
+tsset 3
+put TSAQ 0 1000
+if ne tsrun 0
+ret 21
+end
+if ne get STSUM 68 add div get STSUM 65 2 3000
+ret 22
+end
+if ne get STSUM 76 3000
+ret 23
+end
+if ne get STSUM 92 1
+ret 24
+end
+tsset 4
+put TSG 0 24
+put TSAQ 0 1000
+if ne tsrun 0
+ret 30
+end
+if not tsstat 4 998072 798314 1200645
+ret 31
+end
+if not tsstat 8 998072 798314 1200645
+ret 32
+end
+if not tsstat 10 1004229 834617 1255445
+ret 33
+end
+if not tsstat 11 995787 796468 1197803
+ret 35
+end
+if not tsdec 2 224
+ret 34
+end
+tsset 5
+put TSWA 0 1
+if ne tsrun 0
+ret 40
+end
+if not tsdec 3 1
+ret 41
+end
+if ne get STSUM 14 1
+ret 42
+end
+tsset 6
+put TSCO 4 0
+if ne tsrun 0
+ret 50
+end
+if not tsdec 3 4
+ret 51
+end
+tsset 7
+put TSCF 9 1
+if ne tsrun 0
+ret 60
+end
+if not tsdec 3 8
+ret 61
+end
+tsset 8
+put TSCO 5 3
+if ne tsrun 0
+ret 70
+end
+if not tsdec 2 512
+ret 71
+end
+tsset 9
+put TSNOC 0 1
+if ne tsrun 0
+ret 80
+end
+if not tsdec 2 512
+ret 81
+end
+tsset 10
+put TSTR 0 1
+if ne tsrun 0
+ret 82
+end
+if not tsdec 2 256
+ret 83
+end
+tsset 11
+if ne tsrun 0
+ret 84
+end
+if not tsdec 2 64
+ret 85
+end
+tsset 12
+if ne tsrun 0
+ret 86
+end
+if not tsdec 2 128
+ret 87
+end
+tsset 13
+put TSAQ 0 1000
+if ne tsrun 0
+ret 88
+end
+if not tsdec 2 224
+ret 89
+end
+tsset 14
+put TSWR 0 1
+if ne tsrun 0
+ret 100
+end
+if not tsdec 3 2
+ret 101
+end
+tsset 2
+put TSBAD 0 1
+if ne tsrun 2
+ret 110
+end
+if ne get STRF 0 8
+ret 111
+end
+tsset 2
+put TSBAD 0 2
+if ne tsrun 2
+ret 112
+end
+if ne get STRF 0 9
+ret 113
+end
+tsset 2
+put TSBAD 0 3
+if ne tsrun 2
+ret 114
+end
+if ne get STRF 0 11
+ret 115
+end
+ret 0
+end

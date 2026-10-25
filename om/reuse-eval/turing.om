@@ -1,0 +1,905 @@
+note SPDX-License-Identifier: Apache-2.0
+note turing.om (lane EvalStats, spark-rsi-mv #73): Turing accounting of REUSE-1 section 8 under
+note calibration/profiles/Turing-profile-REUSE-v1.0.toml. Needs the units sha256 and stats (st*
+note helpers: paths, files, output, split readers). Names: functions tu*, globals TU*.
+note
+note CLI (argv[1] is the dispatcher's subcommand):
+note   turing SPLITDIR PROFILE TRAINLIB TRAINPLIB BASEOM CODER OUTDIR
+note SPLITDIR = the FINAL split (index, sessions, gNN.exp); PROFILE = the profile TOML file;
+note TRAINLIB, TRAINPLIB = the evaluator's rebuilt LIBDIRs (CURRENT, gen-G.man, gen-G.om);
+note BASEOM = base.om written by drive base; CODER = the external turing-coder referee
+note (omega-mv a647b6a9 src/turing), or - (T_real is then NOT_RUN); OUTDIR receives B.tps,
+note M1.tps (TRAIN library), M2.tps (TRAINP library), D.tsy, the coded files X.tps.rans and
+note X.tps.range, and turing.txt (the report, also on stdout).
+note Exit 0 = report written; 2 = inputs refused (status=REFUSED code=N); 15 = output failure.
+note
+note D: the low 4 bits of r0 of every QUERY record of gNN.exp, groups in order, records in order
+note (the evaluator's reference = repetition 1 of every arm). One TPS1 record per symbol t:
+note observation_index t, context_key 0, crumb ordinal t, norm_sum 65536, q = 65521 on the symbol
+note and 1 on each of the 15 others (CODER_SPEC sections 2 and 3; K 16, qbits 16).
+note profile_digest = SHA-256 of the profile file bytes; dataset_digest = the FINAL holdout digest
+note (index words 7..10, each word's 8 bytes big endian); model_digest = SHA-256(
+note "turing.reuse.model.v1" 0x00 || the 2048 manifest bytes of the arm's library), and for B the
+note hashed bytes are 32 zero bytes (the profile's "or 32 zero bytes for B", read as the payload).
+note Trailers: SHA-256("turing.tc.pstream.v1" 0x00 || header || records) and
+note SHA-256("turing.tc.symbols.v1" 0x00 || header || symbols).
+note
+note Charges (profile model_code): P1 = 64 bits x 8 manifest words per template (manifest word 4
+note = K) plus, for select, 64 bits x 193 calibration values (192 cell words + E_q) when the
+note manifest names a calibration file (words 52..55 not all 0). P2 = 8 bits x (bytes of gen-G.om
+note - bytes of base.om + 2048 manifest bytes). Models: method, delta, select = M1; deltap = M2;
+note idelta, cache = B (no charge).
+note L_ideal(D|X) = n ub(65521) micro-bits for every model (CODER_SPEC section 8 rule). The data
+note terms are equal, so T_ideal(arm) = -charge. T_real(arm, coder) = -charge + 8 (coded bytes
+note of B - coded bytes of M), each coded file run through `CODER encode` then `CODER verify`.
+note H1 per coded file: |coded bits x 10^6 - ideal ub - 448 x 10^6| <= 64 x 10^6 + 1000 n.
+note No Turing verdict word is issued (profile verdict_rule).
+note
+note Refusal codes: 1 usage, 2 split (detail = the stats refusal code), 3 profile unreadable,
+note 4 library CURRENT or manifest invalid (detail 1 TRAIN, 2 TRAINP), 5 base.om unreadable,
+note 7 too many symbols for the TPS1 buffer, 15 output write failed.
+
+text TUK "turing.reuse.model.v1\nturing.tc.pstream.v1\nturing.tc.symbols.v1\nCURRENT\ngen-\n.man\n.om\nB.tps\nD.tsy\nM1.tps\nM2.tps\nencode\nverify\nrans\nrange\n.\nturing.txt\nreport=reuse1-turing version=1 profile=Turing-profile-REUSE-v1.0\nprofile_sha256=\n dataset_sha256=\n n=\n k=16\nmodel name=\n model_sha256=\n tps1_trailer=\n generation=\n k_templates=\n calibration=\n gen_om_bytes=\n base_om_bytes=\ndata ideal_ub=\n ub_per_symbol=\ncoded model=\n coder=\n bytes=\n overhead_ub=\n h1=\nPASS\nFAIL\nNOT_RUN\ncharge arm=\n p1_bits=\n p2_bits=\nturing arm=\n t_ideal_p1_bits=\n t_real_p1_bits_rans=\n t_real_p1_bits_range=\n t_ideal_p2_bits=\n t_real_p2_bits_rans=\n t_real_p2_bits_range=\nB\nM1\nM2\ndelta_t=NOT_APPLICABLE reason=one_library_generation_per_arm verdict=none\nstatus=REFUSED code=\n exit=\nyes\nno\nh1_all=\n tsy1_trailer=\n detail=\n"
+
+const TKMOD ulong 0
+const TKPST ulong 1
+const TKSYM ulong 2
+const TKCUR ulong 3
+const TKGEN ulong 4
+const TKMAN ulong 5
+const TKOM ulong 6
+const TKBTPS ulong 7
+const TKDTSY ulong 8
+const TKM1 ulong 9
+const TKM2 ulong 10
+const TKENC ulong 11
+const TKVER ulong 12
+const TKRANS ulong 13
+const TKRANGE ulong 14
+const TKDOT ulong 15
+const TKTXT ulong 16
+const TKHEAD ulong 17
+const TKPROF ulong 18
+const TKDATA ulong 19
+const TKN ulong 20
+const TKK ulong 21
+const TKMODEL ulong 22
+const TKMSHA ulong 23
+const TKTRAIL ulong 24
+const TKGENER ulong 25
+const TKKT ulong 26
+const TKCAL ulong 27
+const TKGOMB ulong 28
+const TKBOMB ulong 29
+const TKIDEAL ulong 30
+const TKUBPS ulong 31
+const TKCODED ulong 32
+const TKCODER ulong 33
+const TKBYTES ulong 34
+const TKOVH ulong 35
+const TKH1 ulong 36
+const TKPASS ulong 37
+const TKFAIL ulong 38
+const TKNRUN ulong 39
+const TKCHG ulong 40
+const TKP1 ulong 41
+const TKP2 ulong 42
+const TKTUR ulong 43
+const TKTI1 ulong 44
+const TKTR1R ulong 45
+const TKTR1G ulong 46
+const TKTI2 ulong 47
+const TKTR2R ulong 48
+const TKTR2G ulong 49
+const TKMB ulong 50
+const TKDELT ulong 53
+const TKREFU ulong 54
+const TKEXIT ulong 55
+const TKYES ulong 56
+const TKNO ulong 57
+const TKH1ALL ulong 58
+const TKTSYT ulong 59
+const TKDETL ulong 60
+
+global TUFB uchar 8388608
+global TUFL ulong 1
+global TUD ulong 4
+global TUPD ulong 4
+global TUMD ulong 12
+global TUTR ulong 12
+global TUSYT ulong 4
+global TUSY uchar 1048576
+global TUN ulong 1
+global TUKT ulong 3
+global TUCAL ulong 3
+global TUGEN ulong 3
+global TUGOM ulong 3
+global TUBOM ulong 1
+global TUCS ulong 6
+global TUCX ulong 6
+global TUPK uchar 4096
+global TUPKL ulong 1
+global TUWS uchar 4
+global TURF ulong 2
+
+note ---------- text table ----------
+fn tukoff k ulong to ulong
+i = ulong 0
+c = ulong 0
+while lt c k bound 999999
+if eq get TUK i 10
+c = add c 1
+end
+i = add i 1
+end
+ret i
+end
+
+fn tuks k ulong to void
+i = tukoff k
+while ne get TUK i 10 bound 4096
+stoc get TUK i
+i = add i 1
+end
+end
+
+fn tukp k ulong to void
+i = tukoff k
+while ne get TUK i 10 bound 4096
+stpc get TUK i
+i = add i 1
+end
+end
+
+note length of string k
+fn tuklen k ulong to ulong
+i = tukoff k
+s = i
+while ne get TUK i 10 bound 4096
+i = add i 1
+end
+ret sub i s
+end
+
+note ---------- SHA-256 over global bytes ----------
+note copies n bytes of source src (0 TUFB, 1 STFB, 2 TUSY) from byte off into b
+fn tucopy b edit uchar 4096 src ulong off ulong n ulong to void
+for i ulong n
+if eq src 0
+put b i get TUFB add off i
+else
+if eq src 1
+put b i get STFB add off i
+else
+put b i get TUSY add off i
+end
+end
+end
+end
+
+note string k then a zero byte into b; returns the length
+fn tutag b edit uchar 4096 k ulong to ulong
+i = tukoff k
+n = ulong 0
+while ne get TUK i 10 bound 4096
+put b n get TUK i
+n = add n 1
+i = add i 1
+end
+put b n 0
+ret add n 1
+end
+
+note SHA-256 of (domain string tag and 0x00, unless tag >= 1000) || src[off .. off + n) into TUD
+note (TUD word j = digest bytes 8j..8j+7 read little endian)
+fn tusha tag ulong src ulong off ulong n ulong to void
+c = new uchar 104 0
+b = new uchar 4096 0
+w = new ulong 64 0
+b8 = new ulong 512 0
+omsha c b 0 0 w b8
+if lt tag 1000
+m = tutag b tag
+omsha c b m 1 w b8
+end
+o = ulong 0
+while lt o n bound 999999
+m = sub n o
+if gt m 4096
+m = 4096
+end
+tucopy b src add off o m
+omsha c b m 1 w b8
+o = add o m
+end
+omsha c b 0 2 w b8
+for j ulong 4
+put TUD j get w j
+end
+end
+
+note the 32 digest bytes of TUD as hex
+fn tuohd to void
+for j ulong 4
+v = get TUD j
+for k ulong 8
+stohb and shr v mul k 8 255
+end
+end
+end
+
+note ---------- TPS1 / TSY1 byte building in TUFB ----------
+fn tub v ulong to void
+p = get TUFL 0
+put TUFB p uchar and v 255
+put TUFL 0 add p 1
+end
+
+note little-endian integer of nb bytes
+fn tule v ulong nb ulong to void
+for k ulong nb
+tub shr v mul k 8
+end
+end
+
+note 32 bytes of digest words (word j little-endian bytes)
+fn tudig4 a ulong b ulong c ulong d ulong to void
+tule a 8
+tule b 8
+tule c 8
+tule d 8
+end
+
+note the dataset digest: index words 7..10, each word's bytes big endian
+fn tudata to void
+for j ulong 4
+v = get STHD j
+for k ulong 8
+tub shr v mul sub 7 k 8
+end
+end
+end
+
+note TPS1 for model m (0 B, 1 M1, 2 M2) into TUFB; trailer digest stored in TUTR
+fn tutps m ulong to void
+put TUFL 0 0
+tule 827543636 4
+tule 1 2
+tule 16 1
+tule 16 1
+tule 0 4
+n = get TUN 0
+tule n 8
+tule 56 4
+tule 0 4
+tudig4 get TUPD 0 get TUPD 1 get TUPD 2 get TUPD 3
+b = mul m 4
+tudig4 get TUMD b get TUMD add b 1 get TUMD add b 2 get TUMD add b 3
+tudata
+tule 0 4
+for t ulong n
+tule t 8
+tule 0 8
+tule t 4
+tule 65536 4
+s = ulong get TUSY t
+for x ulong 16
+if eq x s
+tule 65521 2
+else
+tule 1 2
+end
+end
+end
+tusha TKPST 0 0 get TUFL 0
+for j ulong 4
+put TUTR add b j get TUD j
+tule get TUD j 8
+end
+end
+
+note TSY1 into TUFB
+fn tutsy to void
+put TUFL 0 0
+tule 827937620 4
+tule 1 2
+tule 16 1
+tule 0 1
+n = get TUN 0
+tule n 8
+tule 0 8
+tudata
+for t ulong n
+tub ulong get TUSY t
+end
+tusha TKSYM 0 0 get TUFL 0
+for j ulong 4
+put TUSYT j get TUD j
+tule get TUD j 8
+end
+end
+
+note TUFB[0..TUFL) to the path in STPB; 0 ok
+fn tuwfile to int
+fd = fopen STPB 0 get STPL 0 577 420
+if lt fd 0
+ret 1
+end
+n = get TUFL 0
+o = ulong 0
+while lt o n bound 999999
+w = write int fd TUFB o sub n o
+if le w 0
+c = fclose int fd
+ret 1
+end
+o = add o ulong w
+end
+s = fsync int fd
+c = fclose int fd
+if or ne s 0 ne c 0
+ret 1
+end
+ret 0
+end
+
+note output file name of model m (k = TKBTPS, TKM1, TKM2) in OUTDIR (slot 6)
+fn tutpsname m ulong to void
+stpbase 6
+if eq m 0
+tukp TKBTPS
+end
+if eq m 1
+tukp TKM1
+end
+if eq m 2
+tukp TKM2
+end
+end
+
+note ---------- D ----------
+fn tusyms to int
+n = ulong 0
+for i ulong get STNR 0
+if eq get STRO i 2
+if ge n len TUSY
+ret 7
+end
+put TUSY n uchar and get STR0 i 15
+n = add n 1
+end
+end
+put TUN 0 n
+ret 0
+end
+
+note ---------- libraries ----------
+note checks library l (1 TRAIN in slot 2, 2 TRAINP in slot 3): CURRENT, gen-G.man (magic, SHA-256
+note equal to CURRENT's), K, calibration presence, model digest, gen-G.om size. 0 ok.
+fn tulib l ulong to int
+s = add l 1
+stpbase s
+tukp TKCUR
+n = stload
+if ne n 40
+ret 1
+end
+g = stw 0
+cd = new ulong 4 0
+for j ulong 4
+put cd j stw add 8 mul j 8
+end
+put TUGEN l g
+stpbase s
+tukp TKGEN
+stpu g
+tukp TKMAN
+n = stload
+if ne n 2048
+ret 2
+end
+if ne stw 0 3544386019401740626
+ret 3
+end
+tusha 1000 1 0 2048
+for j ulong 4
+if ne get TUD j get cd j
+ret 4
+end
+end
+put TUKT l stw 32
+cal = or or stw 416 stw 424 or stw 432 stw 440
+put TUCAL l 0
+if ne cal 0
+put TUCAL l 1
+end
+tusha TKMOD 1 0 2048
+for j ulong 4
+put TUMD add mul l 4 j get TUD j
+end
+stpbase s
+tukp TKGEN
+stpu g
+tukp TKOM
+n = stload
+if lt n 0
+ret 5
+end
+put TUGOM l ulong n
+ret 0
+end
+
+note B's model digest over 32 zero bytes
+fn tubmodel to void
+for i ulong 32
+put STFB i 0
+end
+tusha TKMOD 1 0 32
+for j ulong 4
+put TUMD j get TUD j
+end
+end
+
+note ---------- the external coder ----------
+fn tupkc c uchar to void
+p = get TUPKL 0
+put TUPK p c
+put TUPKL 0 add p 1
+end
+
+note appends the path in STPB as one packed record
+fn tupkpath to void
+n = get STPL 0
+tupkc uchar and n 255
+tupkc uchar shr n 8
+for i ulong n
+tupkc get STPB i
+end
+end
+
+fn tupkk k ulong to void
+n = tuklen k
+tupkc uchar n
+tupkc 0
+i = tukoff k
+for j ulong n
+tupkc get TUK add i j
+end
+end
+
+note runs the packed list; returns the exit code, 256 + signal, or 512 when fork or exec failed
+fn turun to ulong
+put TUPK 0 6
+put TUPK 1 0
+pid = fork
+if lt pid 0
+ret 512
+end
+if eq pid 0
+d = dupfd 2 1 0
+r = execprog TUPK 0 get TUPKL 0
+exit 127
+end
+r = waitpid int pid TUWS 0 4 0
+if ne r pid
+ret 512
+end
+sg = and ulong get TUWS 0 127
+if ne sg 0
+ret add 256 sg
+end
+ret ulong get TUWS 1
+end
+
+note the coded file name of model m, coder c (0 rans, 1 range) as the path
+fn tucodedname m ulong c ulong to void
+tutpsname m
+tukp TKDOT
+if eq c 0
+tukp TKRANS
+else
+tukp TKRANGE
+end
+end
+
+note CODER op coder model: op TKENC or TKVER
+fn tucoder op ulong m ulong c ulong to ulong
+put TUPKL 0 2
+stpexact 5
+tupkpath
+tupkk op
+if eq c 0
+tupkk TKRANS
+else
+tupkk TKRANGE
+end
+tutpsname m
+tupkpath
+stpbase 6
+tukp TKDTSY
+tupkpath
+tucodedname m c
+tupkpath
+ret turun
+end
+
+note encode, verify and size one coded file; TUCX = exit (0 ok), TUCS = bytes
+fn tucode m ulong c ulong to void
+x = add mul m 2 c
+e = tucoder TKENC m c
+if eq e 0
+e = tucoder TKVER m c
+end
+put TUCX x e
+put TUCS x 0
+if ne e 0
+ret
+end
+tucodedname m c
+n = stload
+if lt n 56
+put TUCX x 600
+ret
+end
+if ne stw 48 sub ulong n 56
+put TUCX x 601
+ret
+end
+put TUCS x ulong n
+end
+
+note ---------- CODER_SPEC section 8 ideal length ----------
+fn tuub q ulong to ulong
+ip = ulong 0
+for i ulong 64
+if ne and shr q i 1 0
+ip = i
+end
+end
+m = shl q sub 62 ip
+frac = ulong 0
+for i ulong 32
+stmul m m
+m = or shl get STHL 0 2 shr get STHL 1 62
+if ge m 9223372036854775808
+frac = or frac shl ulong 1 sub 31 i
+m = shr m 1
+end
+end
+lg = or shl ip 32 frac
+x = sub 68719476736 lg
+ret shr add mul x 1000000 2147483648 32
+end
+
+note ---------- report ----------
+note model of arm a: 0 B, 1 M1, 2 M2
+fn tumodel a ulong to ulong
+if or or eq a 3 eq a 4 eq a 7
+ret 1
+end
+if eq a 6
+ret 2
+end
+ret 0
+end
+
+fn tup1 a ulong to ulong
+m = tumodel a
+if eq m 0
+ret 0
+end
+v = mul 512 get TUKT m
+if and eq a 7 eq get TUCAL m 1
+v = add v 12352
+end
+ret v
+end
+
+fn tup2 a ulong to long
+m = tumodel a
+if eq m 0
+ret 0
+end
+d = sub long get TUGOM m long get TUBOM 0
+ret mul 8 add d 2048
+end
+
+note T_real for charge ch (bits) and coder c: -ch + 8 (bytes of B - bytes of M); 0 = NOT_RUN flag in TURF
+fn tureal ch long m ulong c ulong to long
+put TURF 0 0
+if or ne get TUCX c 0 ne get TUCX add mul m 2 c 0
+put TURF 0 1
+ret 0
+end
+d = sub long get TUCS c long get TUCS add mul m 2 c
+ret add neg ch mul 8 d
+end
+
+fn tuoreal ch long m ulong c ulong to void
+v = tureal ch m c
+if eq get TURF 0 1
+tuks TKNRUN
+else
+stol v
+end
+end
+
+fn tuarmline a ulong to void
+p1 = long tup1 a
+p2 = tup2 a
+m = tumodel a
+tuks TKCHG
+stks add SKARM0 a
+tuks TKP1
+stol p1
+tuks TKP2
+stol p2
+stnl
+tuks TKTUR
+stks add SKARM0 a
+tuks TKTI1
+stol neg p1
+tuks TKTR1R
+tuoreal p1 m 0
+tuks TKTR1G
+tuoreal p1 m 1
+tuks TKTI2
+stol neg p2
+tuks TKTR2R
+tuoreal p2 m 0
+tuks TKTR2G
+tuoreal p2 m 1
+stnl
+end
+
+note H1 for coded file x: returns 1 PASS, 0 FAIL, 2 NOT_RUN
+fn tuh1 x ulong to ulong
+if ne get TUCX x 0
+ret 2
+end
+n = get TUN 0
+id = mul n tuub 65521
+cb = mul get TUCS x 8000000
+ov = sub long sub long cb long id 448000000
+if lt ov 0
+ov = neg ov
+end
+if le ov long add 64000000 mul 1000 n
+ret 1
+end
+ret 0
+end
+
+fn tucodedline m ulong c ulong to ulong
+x = add mul m 2 c
+tuks TKCODED
+tuks add TKMB m
+tuks TKCODER
+if eq c 0
+tuks TKRANS
+else
+tuks TKRANGE
+end
+h = tuh1 x
+if eq h 2
+if ne get TUCX x 1000
+tuks TKEXIT
+stou get TUCX x
+end
+tuks TKH1
+tuks TKNRUN
+stnl
+ret h
+end
+tuks TKBYTES
+stou get TUCS x
+n = get TUN 0
+tuks TKOVH
+stol sub long mul get TUCS x 8000000 long mul n tuub 65521
+tuks TKH1
+if eq h 1
+tuks TKPASS
+else
+tuks TKFAIL
+end
+stnl
+ret h
+end
+
+fn tumodelline m ulong to void
+tuks TKMODEL
+tuks add TKMB m
+tuks TKMSHA
+b = mul m 4
+for j ulong 4
+v = get TUMD add b j
+for k ulong 8
+stohb and shr v mul k 8 255
+end
+end
+tuks TKTRAIL
+for j ulong 4
+v = get TUTR add b j
+for k ulong 8
+stohb and shr v mul k 8 255
+end
+end
+if gt m 0
+tuks TKGENER
+stou get TUGEN m
+tuks TKKT
+stou get TUKT m
+tuks TKCAL
+if eq get TUCAL m 1
+tuks TKYES
+else
+tuks TKNO
+end
+tuks TKGOMB
+stou get TUGOM m
+tuks TKBOMB
+stou get TUBOM 0
+end
+stnl
+end
+
+fn tureport to void
+tuks TKHEAD
+stnl
+tuks TKPROF
+for j ulong 4
+put TUD j get TUPD j
+end
+tuohd
+tuks TKDATA
+for j ulong 4
+stohw get STHD j
+end
+tuks TKN
+stou get TUN 0
+tuks TKK
+tuks TKTSYT
+for j ulong 4
+put TUD j get TUSYT j
+end
+tuohd
+stnl
+for m ulong 3
+tumodelline m
+end
+n = get TUN 0
+tuks TKIDEAL
+stou mul n tuub 65521
+tuks TKUBPS
+stou tuub 65521
+stnl
+all = ulong 1
+for m ulong 3
+for c ulong 2
+h = tucodedline m c
+if ne h 1
+all = 0
+end
+end
+end
+tuks TKH1ALL
+if eq all 1
+tuks TKPASS
+else
+if eq get TUCX 0 1000
+tuks TKNRUN
+else
+tuks TKFAIL
+end
+end
+stnl
+tuarmline 3
+tuarmline 4
+tuarmline 7
+tuarmline 6
+tuarmline 5
+tuarmline 2
+tuks TKDELT
+stnl
+end
+
+fn tufail code ulong d ulong to int
+put STOP 0 0
+tuks TKREFU
+stou code
+tuks TKDETL
+stou d
+stnl
+if ne get STQT 0 1
+r = stflush 1
+end
+ret 2
+end
+
+note the evaluation on slots 0 split, 1 profile, 2 TRAIN lib, 3 TRAINP lib, 4 base.om,
+note 5 coder (- = NOT_RUN), 6 out; report to stdout unless STQT is 1
+fn turun2 to int
+streset
+e = stidx
+if eq e 0
+e = stsess
+end
+if eq e 0
+e = stexps
+end
+if ne e 0
+ret tufail 2 ulong e
+end
+if ne tusyms 0
+ret tufail 7 0
+end
+stpexact 1
+n = stload
+if lt n 0
+ret tufail 3 0
+end
+tusha 1000 1 0 ulong n
+for j ulong 4
+put TUPD j get TUD j
+end
+tubmodel
+for l ulong 2
+e = tulib add l 1
+if ne e 0
+ret tufail 4 add mul add l 1 10 ulong e
+end
+end
+stpexact 4
+n = stload
+if lt n 0
+ret tufail 5 0
+end
+put TUBOM 0 ulong n
+for m ulong 3
+tutps m
+tutpsname m
+if ne tuwfile 0
+ret tufail 15 m
+end
+end
+tutsy
+stpbase 6
+tukp TKDTSY
+if ne tuwfile 0
+ret tufail 15 3
+end
+nocoder = and eq get STBL 5 1 eq get STBD 20480 45
+for x ulong 6
+put TUCX x 1000
+put TUCS x 0
+end
+if not nocoder
+for m ulong 3
+tucode m 0
+tucode m 1
+end
+end
+put STOP 0 0
+tureport
+if ne get STQT 0 1
+r = stflush 1
+end
+stpbase 6
+tukp TKTXT
+if ne stwfile 0
+ret 15
+end
+ret 0
+end
+
+fn tumain to int
+if lt argcnt 9
+ret tufail 1 0
+end
+for k ulong 7
+if eq stargb add k 2 k 0
+ret tufail 1 add k 1
+end
+end
+ret turun2
+end
