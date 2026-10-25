@@ -8,7 +8,7 @@ and 3 repetitions. Every negative control was detected (36 of 36 required cases;
 
 | Item | Value |
 |---|---|
-| Contract | omega-mv `d6edaad1` `docs/reuse/REUSE-1.md`, sha256 `71a6da13...5deb`; clarifications K1..K17 |
+| Contract | omega-mv `d6edaad1` `docs/reuse/REUSE-1.md`, sha256 `71a6da13...5deb`; clarifications K1..K8 frozen with the candidate; K9..K17 written after FINAL (omega-mv `feat/742-reuse-r1`) to record decisions already in the frozen code, no rule changed |
 | Evaluator freeze | spark-rsi-mv `4345eda9e58fe625a4d9b8e9175305160369f760` (pushed 2026-10-25T16:20:47Z), evaluator ELF sha256 `b550ad7e...46cf` |
 | Candidate freeze | omega-mv `6ad09bff0c544bf73ceb3c63b349ba0cd6998e52` (pushed 2026-10-25T16:21:52Z), source `2b25e1bf`, base ELF `bf7dd018...2568`, drive ELF `ade1c049...9825` |
 | Compiler | omc sha256 `734f0a39...6b61` |
