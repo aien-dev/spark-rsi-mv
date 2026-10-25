@@ -1,0 +1,482 @@
+note units: sha256 ref
+note ref-hand: ref.om against hand-computed cases (contract v1.0 section 1, statuses section 2 and
+note clarification K2). Values worked by hand in the notes beside each case; the digest constant is
+note the SHA-256 of the 512 program bytes computed outside Omega.
+note Exit 0 pass, otherwise the number of the first failed check.
+
+fn thbeg fam ulong n ulong to void
+put RFRQ 0 1
+put RFRQ 1 add n 65
+put RFRQ 2 3544411312749556050
+for i ulong 63
+put RFRQ add i 3 0
+end
+put RFRQ 3 fam
+put RFRQ 66 n
+end
+
+note PROGRAM frame header with the same layout as BEGIN's PROG (payload words 2..65)
+fn thprog fam ulong to void
+put RFRQ 0 8
+put RFRQ 1 64
+put RFRQ 2 3544411312749556050
+for i ulong 63
+put RFRQ add i 3 0
+end
+put RFRQ 3 fam
+end
+
+fn thsend op ulong p ulong to int
+put RFRQ 0 op
+put RFRQ 1 p
+ret rfreq
+end
+
+fn thq r0 ulong r1 ulong to bool
+put RFRQ 0 2
+put RFRQ 1 0
+if ne rfreq 0
+ret false
+end
+if ne get RFRS 1 3
+ret false
+end
+ret and eq get RFRS 2 r0 eq get RFRS 3 r1
+end
+
+fn thchg op ulong a ulong b ulong to int
+put RFRQ 2 a
+put RFRQ 3 b
+p = ulong 2
+if eq op 5
+p = 1
+end
+ret thsend op p
+end
+
+note BATCH item i
+fn thitem i ulong op ulong a ulong b ulong to void
+put RFRQ add 3 mul i 3 op
+put RFRQ add 4 mul i 3 a
+put RFRQ add 5 mul i 3 b
+end
+
+note case A: wl 8, ADD fold, k 3: ADD 200, MUL 3, SHR 1. e(100) = ((300 mod 256) 3 mod 256) >> 1 =
+note (44 * 3 = 132) >> 1 = 66; e(0) = (600 mod 256 = 88) >> 1 = 44; e(255) = (199 * 3 = 597 mod 256
+note = 85) >> 1 = 42; e(1) = (201 * 3 = 603 mod 256 = 91) >> 1 = 45.
+fn thcasea to int
+thbeg 1 2
+put RFRQ 4 8
+put RFRQ 5 1
+put RFRQ 6 3
+put RFRQ 7 1
+put RFRQ 8 200
+put RFRQ 9 3
+put RFRQ 10 3
+put RFRQ 11 8
+put RFRQ 12 1
+put RFRQ 67 100
+put RFRQ 68 0
+if ne rfreq 0
+ret 1
+end
+if not thq 110 2
+ret 2
+end
+if ne rfshape 137441544
+ret 3
+end
+rfpdig
+if or ne get RFPD 0 2728764828787738933 ne get RFPD 1 894935584194808807
+ret 4
+end
+if or ne get RFPD 2 17635222896771188420 ne get RFPD 3 1726349768284173359
+ret 4
+end
+if ne thchg 3 1 255 0
+ret 5
+end
+if not thq 108 2
+ret 6
+end
+if ne thchg 4 0 1 0
+ret 7
+end
+if not thq 153 3
+ret 8
+end
+if ne thchg 5 1 0 0
+ret 9
+end
+if not thq 87 2
+ret 10
+end
+if ne thchg 6 0 1 0
+ret 11
+end
+if ne thchg 6 1 1 0
+ret 12
+end
+if not thq 87 2
+ret 13
+end
+if ne thchg 3 2 5 3
+ret 14
+end
+if ne thchg 3 0 256 3
+ret 15
+end
+if ne thchg 4 3 0 3
+ret 16
+end
+if ne thchg 4 2 256 3
+ret 17
+end
+if ne thchg 5 2 0 3
+ret 18
+end
+if ne thchg 6 0 2 3
+ret 19
+end
+if not thq 87 2
+ret 20
+end
+ret 0
+end
+
+note case B: empty state identities, ADD 0, XOR 0, MIN 2^64 - 1, MAX 0, OR 0, AND 2^64 - 1
+fn thcaseb to int
+for f ulong 6
+thbeg 1 0
+put RFRQ 4 16
+put RFRQ 5 add f 1
+put RFRQ 6 1
+put RFRQ 7 6
+if ne rfreq 0
+ret 21
+end
+want = ulong 0
+if or eq f 2 eq f 5
+want = 18446744073709551615
+end
+if not thq want 0
+ret 22
+end
+end
+note FSM n = 0: r0 = s0, r1 = 0
+thbeg 2 0
+put RFRQ 4 3
+put RFRQ 5 2
+put RFRQ 6 2
+put RFRQ 7 1
+put RFRQ 24 65536
+if ne rfreq 0
+ret 23
+end
+if not thq 2 0
+ret 24
+end
+ret 0
+end
+
+note case C: S 3, A 4, s0 1, lambda 10 20 30; rule0 (0, 0..3, 2), rule1 (1, 2..3, 0),
+note rule2 (1, 3..3, 2) shadowed by rule1. w = 0 3 1 0: q1 = 1 (no rule for state 1 and symbol 0:
+note default self-loop, +20), q2 = 0 (rule1, +10; rule2 would give 2), q3 = 2 (rule0, +30),
+note q4 = 2 (state 2 has no rule, +30): r0 2, r1 90.
+fn thcasec to int
+thbeg 2 4
+put RFRQ 4 3
+put RFRQ 5 4
+put RFRQ 6 1
+put RFRQ 7 3
+put RFRQ 8 10
+put RFRQ 9 20
+put RFRQ 10 30
+put RFRQ 24 33751040
+put RFRQ 25 197121
+put RFRQ 26 33751809
+put RFRQ 67 0
+put RFRQ 68 3
+put RFRQ 69 1
+put RFRQ 70 0
+if ne rfreq 0
+ret 31
+end
+if not thq 2 90
+ret 32
+end
+if ne rfshape 1
+ret 33
+end
+ret 0
+end
+
+note case D (after C): BATCH all or nothing. (SET 0 1, SET 1 4): the second is outside A = 4, so 3
+note and the state is unchanged. (INS 4 3, SET 4 2, DEL 0): SET 4 is valid only on the state INS
+note left; result state 3 1 0 2: q = 0 (+10), 2 (+30), 2 (+30), 2 (+30) = r0 2, r1 100.
+fn thcased to int
+put RFRQ 2 2
+thitem 0 3 0 1
+thitem 1 3 1 4
+if ne thsend 7 7 3
+ret 41
+end
+if not thq 2 90
+ret 42
+end
+put RFRQ 2 3
+thitem 0 4 4 3
+thitem 1 3 4 2
+thitem 2 5 0 0
+if ne thsend 7 10 0
+ret 43
+end
+if not thq 2 100
+ret 44
+end
+put RFRQ 2 1
+thitem 0 5 0 1
+if ne thsend 7 4 3
+ret 45
+end
+put RFRQ 2 0
+if ne thsend 7 1 3
+ret 46
+end
+put RFRQ 2 2
+if ne thsend 7 4 4
+ret 47
+end
+put RFRQ 2 1
+thitem 0 9 0 0
+if ne thsend 7 4 3
+ret 48
+end
+put RFRQ 2 1025
+if ne thsend 7 3076 3
+ret 49
+end
+if ne thsend 7 0 4
+ret 50
+end
+note (DEL 3, DEL 2, DEL 1, DEL 0, DEL 0): the fifth finds n = 0, so 3 and all four stay
+put RFRQ 2 5
+thitem 0 5 3 0
+thitem 1 5 2 0
+thitem 2 5 1 0
+thitem 3 5 0 0
+thitem 4 5 0 0
+if ne thsend 7 16 3
+ret 51
+end
+if not thq 2 100
+ret 52
+end
+ret 0
+end
+
+note case E (after D, state 3 1 0 2): PROGRAM to AGG wl 8 MAX k 1 ADD 1: e = 4 2 1 3, r0 4, r1 4.
+note PROGRAM to FSM with A = 3: the value 3 is outside, 3, unchanged. Invalid PROG (k 7): 2.
+note Invalid and out of domain together (FSM A 2, R 0): 2 first.
+fn thcasee to int
+thprog 1
+put RFRQ 4 8
+put RFRQ 5 4
+put RFRQ 6 1
+put RFRQ 7 1
+put RFRQ 8 1
+if ne rfreq 0
+ret 61
+end
+if not thq 4 4
+ret 62
+end
+thprog 2
+put RFRQ 4 4
+put RFRQ 5 3
+put RFRQ 6 0
+put RFRQ 7 1
+put RFRQ 24 65536
+if ne rfreq 3
+ret 63
+end
+if not thq 4 4
+ret 64
+end
+thprog 1
+put RFRQ 4 8
+put RFRQ 5 4
+put RFRQ 6 7
+put RFRQ 7 1
+put RFRQ 8 1
+if ne rfreq 2
+ret 65
+end
+thprog 2
+put RFRQ 4 4
+put RFRQ 5 2
+put RFRQ 6 0
+put RFRQ 7 0
+if ne rfreq 2
+ret 66
+end
+note a shift constant equal to wl is invalid, wl - 1 is valid
+thprog 1
+put RFRQ 4 8
+put RFRQ 5 4
+put RFRQ 6 1
+put RFRQ 7 7
+put RFRQ 8 8
+if ne rfreq 2
+ret 67
+end
+put RFRQ 8 7
+if ne rfreq 0
+ret 68
+end
+note e = shl x 7 mod 256: 3 -> 128, 1 -> 128, 0 -> 0, 2 -> 0: max 128
+if not thq 128 4
+ret 69
+end
+note BEGIN refusals keep the session: value outside the domain 3; n 4097 with p = 4162: 5;
+note p 64: 4; invalid PROG: 2
+thbeg 1 1
+put RFRQ 4 8
+put RFRQ 5 1
+put RFRQ 6 1
+put RFRQ 7 1
+put RFRQ 8 0
+put RFRQ 67 256
+if ne rfreq 3
+ret 70
+end
+thbeg 1 4097
+put RFRQ 4 8
+put RFRQ 5 1
+put RFRQ 6 1
+put RFRQ 7 1
+if ne rfreq 5
+ret 71
+end
+thbeg 1 1
+put RFRQ 1 64
+if ne rfreq 4
+ret 72
+end
+thbeg 1 1
+put RFRQ 4 9
+put RFRQ 5 1
+put RFRQ 6 1
+put RFRQ 7 1
+if ne rfreq 2
+ret 73
+end
+if not thq 128 4
+ret 74
+end
+ret 0
+end
+
+note case F: framing and no session
+fn thcasef to int
+rfreset
+if ne thsend 2 0 6
+ret 81
+end
+if ne thchg 3 0 0 6
+ret 82
+end
+if ne thsend 9 0 0
+ret 83
+end
+if ne thsend 10 0 0
+ret 84
+end
+if ne thsend 11 0 4
+ret 85
+end
+if ne thsend 0 0 4
+ret 86
+end
+if ne thsend 2 1 4
+ret 87
+end
+if ne thsend 3 1 4
+ret 88
+end
+if ne thsend 2 7235 4
+ret 89
+end
+ret 0
+end
+
+note case G: n = 4096 refuses INS (3); DEL then INS succeed; AGG XOR wl 16 identity map with
+note values i: xor of 0..4095 = 0, after DEL 0 and INS 0 7 the xor is 7
+fn thcaseg to int
+thbeg 1 4096
+put RFRQ 4 16
+put RFRQ 5 2
+put RFRQ 6 1
+put RFRQ 7 1
+put RFRQ 8 0
+for i ulong 4096
+put RFRQ add 67 i i
+end
+if ne rfreq 0
+ret 91
+end
+if not thq 0 4096
+ret 92
+end
+if ne thchg 4 0 0 3
+ret 93
+end
+if ne thchg 5 0 0 0
+ret 94
+end
+if ne thchg 4 0 7 0
+ret 95
+end
+if not thq 7 4096
+ret 96
+end
+if ne thsend 10 0 0
+ret 97
+end
+if ne thsend 2 0 6
+ret 98
+end
+ret 0
+end
+
+fn main to int
+r = thcasea
+if ne r 0
+ret r
+end
+r = thcaseb
+if ne r 0
+ret r
+end
+r = thcasec
+if ne r 0
+ret r
+end
+r = thcased
+if ne r 0
+ret r
+end
+r = thcasee
+if ne r 0
+ret r
+end
+r = thcasef
+if ne r 0
+ret r
+end
+r = thcaseg
+if ne r 0
+ret r
+end
+ret 0
+end
