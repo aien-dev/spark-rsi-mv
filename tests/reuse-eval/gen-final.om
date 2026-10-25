@@ -827,7 +827,11 @@ end
 if ne get TGCU 10 9024
 ret 65
 end
-ret tgcounts
+e = tgcounts
+if ne e 0
+ret e
+end
+ret tgmixed
 end
 
 note novelty counts of cell v: classes 1..5 must be a b c d e
@@ -846,6 +850,27 @@ if ne get TGNV add x 4 d
 ret false
 end
 ret eq get TGNV add x 5 e
+end
+
+note the seeded dealing: no group holds 8 sessions of one family and type (the composition order,
+note dealt without a permutation, would)
+fn tgmixed to ulong
+for g ulong 24
+b = mul g 128
+k0 = add mul get TGSS add b 2 16 get TGSS add b 3
+same = true
+for i ulong 8
+r = add b mul i 16
+k = add mul get TGSS add r 2 16 get TGSS add r 3
+if ne k k0
+same = false
+end
+end
+if same
+ret 69
+end
+end
+ret 0
 end
 
 note 4 sessions per family x type x n class, novelty counts of contract 7.2 and K8
