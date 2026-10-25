@@ -60,8 +60,8 @@ All values are u64 little-endian words. R is 0-based, NN is the group number in 
   - 3: start-to-ready, from `monons` just before fork to the end of the first response; this includes request 0's round trip
   - 4..7: utime, stime, cutime, cstime (ticks)
   - 8: VmHWM, 9: VmRSS (kB)
-  - 10: exit word: the exit code, 256 + signal when killed by a signal, 512 + violation code when the judge killed the arm (1 short or end of file, 2 bad q, 3 timeout, 4 write), 1023 when reaping failed
-  - 11: requests sent, 12: sum of round-trip ns, 13: CPU, 14: loadavg x 100, 15: 0
+  - 10: exit word: the exit code, 256 + signal when killed by a signal, 512 + violation code when the judge killed the arm (1 short or end of file, 2 bad q, 3 timeout, 4 write; 5..8 the same four failures at END), 1023 when reaping failed. K17: 1024 is added when END itself failed (a response other than status 0, q 0, or any of codes 5..8). A nonzero exit after a good END keeps the plain exit code. Any nonzero word 10 is a failed process.
+  - 11: requests sent, 12: sum of round-trip ns (END excluded), 13: CPU, 14: loadavg x 100, 15: END round-trip ns (K17; until failure when END failed)
 - `OUT/stats-A-R-gNN.ctr` (K14): 34 words: STATS status, q, then q counters zero-padded to 32. Diagnostic only and not timed. The status word is 2^64-1 if STATS failed.
 - `ACQDIR/acq.log`: 8 words per build:
   - 0: library id (1 TRAIN, 2 TRAINP, 3 EMPTY, 9 control), 1: repetition
@@ -111,4 +111,4 @@ From the repo root: `OMC < tests/reuse-eval/run.om > run.elf`, then `run.elf OMC
 - A line `note fixture:` marks a helper program, which is compiled for `needs` and never run as a test.
 - Each test may run for at most 120 s. The runner prints `PASS` or `FAIL name rc=N`, with 2048 + rc for a compile failure, and then `TOTAL`.
 
-`judge-arm.om` is a fake arm built on `ref.om`. Its mode comes from the ARM word: full; wrong (r0 + 1); echo; badq; short; stall (sleeps 10.1 s); tap (writes R1EXP001 records). `judge-drive.om` is a fake drive. The fakes check only the judge's protocol, logs and fail-closed behaviour. They are not the candidate.
+`judge-arm.om` is a fake arm built on `ref.om`. Its mode comes from the ARM word: full; wrong (r0 + 1); echo; badq; short; stall (sleeps 10.1 s); tap (writes R1EXP001 records); endbad (END answered q 1), endst (END status 3), endeof (no END answer), endexit (good END, exit 7). `judge-drive.om` is a fake drive. The fakes check only the judge's protocol, logs and fail-closed behaviour. They are not the candidate. `judge-end.om` also pins the arm order: for splitmix64 seed 0 over arms 01234567, the first two permutations are 2,5,0,3,4,6,1,7 and 3,7,0,5,6,2,1,4 (computed outside the judge from the standard splitmix64 constants).

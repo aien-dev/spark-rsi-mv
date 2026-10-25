@@ -123,10 +123,34 @@ end
 if and eq m 7364980 eq op 2
 fjexp
 end
-fjresp mode
 if eq op 10
+ret fjend m
+end
+fjresp mode
+end
 ret 0
 end
+
+note END faults: endbad answers status 0 q 1; endst status 3 q 0; endeof exits without an answer;
+note endexit answers correctly and exits 7. Every other mode answers 0 0 and exits 0.
+fn fjend m ulong to int
+if eq m 112628628483685
+ret 0
+end
+jdpiw 0 0
+jdpiw 8 0
+jdpiw 16 0
+nb = ulong 16
+if eq m 110369425354341
+jdpiw 8 1
+nb = 24
+end
+if eq m 500152168037
+jdpiw 0 3
+end
+r = write 1 JDIO 0 nb
+if eq m 32767063116508773
+ret 7
 end
 ret 0
 end
