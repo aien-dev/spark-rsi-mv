@@ -3206,7 +3206,7 @@ z = jdhfile 0
 jdspath 0 9 JWCUR 7
 jdpfw 0 g
 for i ulong 4
-jdpfw mul add i 1 8 get JDH i
+jdpfw mul add i 1 8 jdbswap get JDH i
 end
 x = jdwrf 0 40 577
 note K7 C9 must pass the mutated manifest as MANSHA so the compiler/profile check itself is tested.
@@ -3365,7 +3365,7 @@ ret false
 end
 g = jdgfw 0
 for i ulong 4
-put JDK add 16 i jdgfw mul add i 1 8
+put JDK add 16 i jdbswap jdgfw mul add i 1 8
 end
 jdgenpath 0 9 g JWMAN
 n = jdhfile 0
