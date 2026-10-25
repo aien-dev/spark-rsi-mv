@@ -1,0 +1,76 @@
+note units: sha256 ref judge
+note needs: drive
+note SPDX-License-Identifier: Apache-2.0
+text JBOMC "/no/compiler/needed/by/fake"
+text JBMAN "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+text JBFAIL "fail10"
+fn main to int
+if ne argcnt 3
+ret 2
+end
+b = jdsarg 19 1
+b = jdsarg 18 2
+jdscp 30 19
+jdscp 9 19
+jdsc 9 47
+jdsc 9 108
+jdsclr 20
+for i ulong len JBOMC
+jdsc 20 get JBOMC i
+end
+jdsdsh 11
+jdsdsh 21
+jdx0
+rc = jdbuild 1 0
+if ne rc 0
+ret 1
+end
+jdsclr 1
+for i ulong len JBMAN
+jdsc 1 get JBMAN i
+end
+if not jdseq 10 1
+ret 3
+end
+jdspath 0 30 JWACQ 7
+n = jdldw 0 JDLOGW 16
+if ne n 8
+ret 4
+end
+if ne get JDM JDLOGW 1
+ret 5
+end
+if ne get JDM add JDLOGW 1 0
+ret 6
+end
+if lt get JDM add JDLOGW 2 2000000
+ret 7
+end
+if ne get JDM add JDLOGW 5 0
+ret 8
+end
+if ne get JDM add JDLOGW 6 37
+ret 9
+end
+jdsclr 0
+for i ulong len JBFAIL
+jdsc 0 get JBFAIL i
+end
+jdxadd 0
+rc = jdbuild 1 1
+if ne rc 10
+ret 10
+end
+jdspath 0 30 JWACQ 7
+n = jdldw 0 JDLOGW 16
+if ne n 16
+ret 11
+end
+if ne get JDM add JDLOGW 13 10
+ret 12
+end
+if ne get JDSL 10 0
+ret 13
+end
+ret 0
+end

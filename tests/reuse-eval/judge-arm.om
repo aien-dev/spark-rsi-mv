@@ -1,0 +1,132 @@
+note units: sha256 ref judge
+note fixture: arm
+note SPDX-License-Identifier: Apache-2.0
+note This fake is deliberately the evaluator reference, not candidate code. Protocol tests compile it.
+global FJSEQ ulong 1
+fn fjread n ulong to bool
+k = ulong 0
+while lt k n bound 999999
+r = read 0 JDIO k sub n k
+if le r 0
+ret false
+end
+k = add k ulong r
+end
+ret true
+end
+
+fn fjexp to void
+for i ulong 1024
+put JDF i 0
+end
+put FJSEQ 0 add get FJSEQ 0 1
+jdpfw 0 3544386028377026898
+jdpfw 8 1
+jdpfw 16 get FJSEQ 0
+jdpfw 24 get RFP 1
+jdpfw 32 get RFN 0
+jdpfw 40 get RFR 0
+jdpfw 48 get RFR 1
+jdpfw 56 get FJSEQ 0
+jdpfw 72 jdsval 13
+jdpfw 96 0
+jdpfw 104 1
+rfpdig
+for i ulong 4
+jdpfw mul add 52 i 8 get RFPD i
+end
+for i ulong 64
+jdpfw mul add 64 i 8 get RFP i
+end
+z = jdwrf 12 1024 1089
+end
+
+fn fjresp mode ulong to void
+st = get RFRS 0
+q = get RFRS 1
+jdpiw 0 st
+jdpiw 8 q
+if eq q 3
+r0 = get RFRS 2
+r1 = get RFRS 3
+if eq mode 1
+r0 = add r0 1
+end
+if eq mode 2
+r0 = 0
+r1 = 0
+end
+jdpiw 16 r0
+jdpiw 24 r1
+jdpiw 32 1
+if eq mode 2
+jdpiw 32 0
+end
+end
+if eq get RFRQ 0 9
+jdpiw 8 2
+jdpiw 16 17
+jdpiw 24 23
+q = 2
+end
+n = write 1 JDIO 0 mul add q 2 8
+end
+
+fn main to int
+if ne argcnt 7
+ret 2
+end
+b = jdsarg 8 1
+b = jdsarg 12 5
+b = jdsarg 13 6
+m = jdspack 8
+rfreset
+while true bound 999999
+if not fjread 16
+ret 3
+end
+op = jdgiw 0
+p = jdgiw 8
+put RFRQ 0 op
+put RFRQ 1 p
+if gt p 7234
+ret 4
+end
+if not fjread mul p 8
+ret 3
+end
+for i ulong p
+put RFRQ add i 2 jdgiw mul i 8
+end
+if eq m 465674794099
+r = sleepns 10100000000
+end
+if eq m 500136110195
+jdpiw 0 0
+r = write 1 JDIO 0 8
+ret 0
+end
+if eq m 1902403938
+jdpiw 0 0
+jdpiw 8 33
+r = write 1 JDIO 0 16
+ret 0
+end
+st = rfreq
+mode = ulong 0
+if eq m 444234429047
+mode = 1
+end
+if eq m 1869112165
+mode = 2
+end
+if and eq m 7364980 eq op 2
+fjexp
+end
+fjresp mode
+if eq op 10
+ret 0
+end
+end
+ret 0
+end
