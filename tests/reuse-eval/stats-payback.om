@@ -1,0 +1,82 @@
+note units: stats
+note SPDX-License-Identifier: Apache-2.0
+note stats-payback: payback with END round trips (K17), on globals stpay reads. Two groups, each
+note BEGIN, QUERY, SET, QUERY; full and delta (arm 4) have equal start-to-ready and request round
+note trips, so every pre-END (full - arm) difference is 0. acq(delta) = 150 ns.
+note  p1 (integrator counterexample): full END 100 ns per rep in group 0, arm END 0, so END
+note     savings 300 after group 0: payback is 2 QUERYs (after the group's last QUERY), never 0.
+note  p2 the same savings only in group 1: payback 4.
+note  p3 savings 150 (not above acq): never (2^64 - 1).
+note  p4 a request saving at group 0's first QUERY (full 900 instead of 500 ns, 3 reps): 1.
+note Exit 0 = pass; otherwise the failing check's code.
+
+note two groups of 4 requests, equal costs for arms 1 and 4, END 0, acq(4) = 150
+fn tpbase to void
+streset
+put STNG 0 2
+for g ulong 2
+put STGO g mul g 4
+put STGN g 4
+end
+for i ulong 8
+k = rem i 4
+if eq k 0
+put STRO i 1
+end
+if eq k 2
+put STRO i 3
+end
+if or eq k 1 eq k 3
+put STRO i 2
+end
+end
+for r ulong 3
+for g ulong 2
+for a ulong 2
+x = add mul add mul add mul a 3 1 3 r 128 g
+put STPR x 1000
+put STPE x 0
+end
+end
+for i ulong 8
+for a ulong 2
+put STRT add mul add mul add mul a 3 1 3 r 65536 i 500
+end
+end
+end
+put STAA 4 150
+end
+
+note full's END for group g, every rep, = e
+fn tpend g ulong e ulong to void
+for r ulong 3
+put STPE add mul add 3 r 128 g e
+end
+end
+
+fn main to int
+tpbase
+tpend 0 100
+if ne stpay 4 2
+ret 1
+end
+tpbase
+tpend 1 100
+if ne stpay 4 4
+ret 2
+end
+tpbase
+tpend 0 50
+if ne stpay 4 18446744073709551615
+ret 3
+end
+tpbase
+tpend 0 100
+for r ulong 3
+put STRT add mul add 3 r 65536 1 900
+end
+if ne stpay 4 1
+ret 4
+end
+ret 0
+end

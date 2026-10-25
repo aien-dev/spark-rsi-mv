@@ -51,8 +51,10 @@ note    the recomputation says 0; disagreements are counted as log_inconsistent.
 note  - transfer coverage: delta-arm QUERYs (all reps) in sessions of novelty class 2 with route 3
 note    or 4, over all such QUERYs. Fallback = route 5 among an arm's QUERYs.
 note  - payback(a): FINAL request order (group 0.., request 0..), per request the rep-summed
-note    (full - arm) cost (request 0 = start-to-ready + END); the number of QUERYs seen when the
-note    cumulative sum first exceeds acq(a); none if it never does.
+note    (full - arm) cost (request 0 = start-to-ready only), then after each group's last request
+note    the rep-summed (full - arm) END round trip; the number of QUERYs seen when the cumulative
+note    sum first exceeds acq(a) (tested after every request and after every END term); none if
+note    it never does. rho totals include END as before.
 note  - Cbar (contract 6, #744), per arm, ppm of one full QUERY: F = floor(full QUERY round-trip
 note    sum / count); r = echo mean QUERY / F; q = QUERYs not served by routes 2..4 / QUERYs;
 note    e = mean of the route 2..4 QUERYs / F - r; K = acq(a) / F (full-QUERY units); N = the arm's
@@ -1473,8 +1475,7 @@ i = add get STGO g j
 for r ulong 3
 k = add mul a 3 r
 if eq j 0
-x = add mul k 128 g
-v = add v add get STPR x get STPE x
+v = add v get STPR add mul k 128 g
 else
 v = add v get STRT add mul k 65536 i
 end
@@ -1482,8 +1483,18 @@ end
 ret v
 end
 
+note rep-summed END round trip of arm a's processes for group g
+fn stendc a ulong g ulong to ulong
+v = ulong 0
+for r ulong 3
+v = add v get STPE add mul add mul a 3 r 128 g
+end
+ret v
+end
+
 note one group of the payback walk; state in STPYC (cumulative) and STPYQ (QUERYs seen);
-note true when the cumulative sum exceeds lim
+note true when the cumulative sum exceeds lim. The END difference is added after the group's
+note last request, so END savings never count before that group's QUERYs.
 fn stpayg a ulong g ulong lim long to bool
 o = get STGO g
 for j ulong get STGN g
@@ -1497,7 +1508,10 @@ if gt cum lim
 ret true
 end
 end
-ret false
+d = sub long stendc 1 g long stendc a g
+cum = add get STPYC 0 d
+put STPYC 0 cum
+ret gt cum lim
 end
 
 note QUERYs until the cumulative (full - arm) cost exceeds acq(a); 2^64 - 1 = never
