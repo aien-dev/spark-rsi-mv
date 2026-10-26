@@ -1,0 +1,21 @@
+# spark-rsi aef09a6ff0927d2a3b5105865f2352dcbcaf120d with ../aien-protocols f7b3271d093e10883da168e6ced4426d05783cc7
+# CARGO_TARGET_DIR=/tmp/rsi-cut/target-old cargo test --locked --test test_canary_contract_golden
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running tests/test_canary_contract_golden.rs (/tmp/rsi-cut/target-old/debug/deps/test_canary_contract_golden-4fde602e2ef308d1)
+
+running 11 tests
+test candidate_identity_binding_digest_is_frozen ... ok
+test print_pins ... ignored
+test evaluation_receipt_v1_digest_is_frozen ... ok
+test adapter_manifest_digest_is_frozen ... ok
+test ledger_block_encoding_hash_and_validation_are_frozen ... ok
+test execute_protocol_wire_format_is_frozen ... ok
+test workload_canonical_bytes_and_digests_are_frozen ... ok
+test observation_encoding_id_and_digest_are_frozen ... ok
+test protocol_signed_evaluation_receipt_digest_and_signature_are_frozen ... ok
+test sealed_log_bytes_and_digest_are_frozen ... ok
+test evaluation_receipt_v2_digest_signature_and_verification_are_frozen ... ok
+
+test result: ok. 10 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+# exit=0
