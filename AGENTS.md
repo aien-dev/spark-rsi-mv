@@ -83,5 +83,5 @@ Commits made by AI agents must credit both the agent model and the supervising h
 
 ```
 Author: AIEN Atlas <aien@aienos.com>
-Co-authored-by: Drake Stapleton <drake@aien.org>
+Co-authored-by: Drake Stapleton <drake@aienos.com>
 ```

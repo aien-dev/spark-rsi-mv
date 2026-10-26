@@ -61,7 +61,7 @@ impl CortexExperienceClient {
             }
         }
 
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/home/drakestapleton".to_string());
+        let home = std::env::var("HOME").ok()?;
         let token_path = PathBuf::from(home).join(".config/cortex/token");
         if token_path.exists() {
             if let Ok(content) = fs::read_to_string(&token_path) {

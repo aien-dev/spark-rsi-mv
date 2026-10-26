@@ -1152,9 +1152,9 @@ mod tests {
         if cand2.is_file() {
             return cand2.to_path_buf();
         }
-        let cand3 = Path::new("/home/drakestapleton/workspace/spark-rsi/target/release/spark-rsi");
+        let cand3 = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/release/spark-rsi");
         if cand3.is_file() {
-            return cand3.to_path_buf();
+            return cand3;
         }
         panic!("Test executable not found");
     }

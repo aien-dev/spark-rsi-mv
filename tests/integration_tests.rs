@@ -256,7 +256,7 @@ async fn test_production_loop_end_to_end_with_candidate() {
         .current_dir(&test_repo)
         .output();
     let _ = std::process::Command::new("git")
-        .args(&["config", "user.email", "aien@dgx-spark.local"])
+        .args(&["config", "user.email", "aien@spark.invalid"])
         .current_dir(&test_repo)
         .output();
 
