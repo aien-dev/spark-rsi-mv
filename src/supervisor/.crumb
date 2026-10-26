@@ -15,6 +15,11 @@
     }
   },
   "layer": "src/supervisor",
+  "invariants": [
+    "Canary workers run only inside bubblewrap and a transient resource-limited user cgroup.",
+    "Expected outputs and supervisor state are never mounted into the worker jail.",
+    "Dropping a canary executor tears down the worker tree and its socket guard."
+  ],
   "name": "src/supervisor",
   "purpose": "Directory src/supervisor. Purpose not yet described by a human.",
   "schema_version": "1.0.0"

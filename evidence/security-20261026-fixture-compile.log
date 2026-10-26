@@ -1,0 +1,9 @@
+$ nice -n 19 cargo test --offline --locked -j2 --test integration_tests --no-run
+   Compiling spark-rsi v0.1.0 (/tmp/secfix/spark-rsi-mv)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.44s
+  Executable tests/integration_tests.rs (/tmp/secfix/spark-rsi-before/target/debug/deps/integration_tests-ffc464eb34878711)
+
+exit=0
+$ bash -n tests/gates/run.sh
+
+exit=0

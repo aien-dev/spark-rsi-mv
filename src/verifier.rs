@@ -1,7 +1,7 @@
+use crate::isolation::sandboxed_cargo;
 use crate::models::InvariantReport;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 pub const FORBIDDEN_BUZZWORDS: &[&str] = &[
     "delve",
@@ -130,11 +130,25 @@ impl InvariantVerifier {
             );
         }
 
-        let check_res = Command::new("cargo")
-            .arg("check")
-            .arg("--manifest-path")
-            .arg(&cargo_toml)
-            .output();
+        let (source_dir, build_dir) = match fs::canonicalize(target_dir)
+            .and_then(|source| tempfile::tempdir().map(|build_dir| (source, build_dir)))
+        {
+            Ok(paths) => paths,
+            Err(e) => {
+                return (
+                    false,
+                    Some(format!("Failed to spawn cargo check: {}", e)),
+                    false,
+                    None,
+                );
+            }
+        };
+        let check_res = sandboxed_cargo(
+            &source_dir,
+            build_dir.path(),
+            &["check", "--offline", "--locked", "-j2"],
+        )
+        .output();
 
         let (compile_passed, compile_err) = match check_res {
             Ok(out) => {
@@ -152,14 +166,20 @@ impl InvariantVerifier {
             return (false, compile_err, false, None);
         }
 
-        let test_res = Command::new("cargo")
-            .arg("test")
-            .arg("--manifest-path")
-            .arg(&cargo_toml)
-            .arg("--")
-            .arg("--test-threads=1")
-            .arg("--nocapture")
-            .output();
+        let test_res = sandboxed_cargo(
+            &source_dir,
+            build_dir.path(),
+            &[
+                "test",
+                "--offline",
+                "--locked",
+                "-j2",
+                "--",
+                "--test-threads=1",
+                "--nocapture",
+            ],
+        )
+        .output();
 
         let (test_passed, test_summary) = match test_res {
             Ok(out) => {

@@ -101,14 +101,42 @@ impl Toolchain {
     }
 }
 
-/// `cargo <args>` for `tree` inside bubblewrap: no network, a cleared environment, no view of the
-/// judge's home (where its signing key lives), the tree read-only at `/src`, only `target`
-/// writable (at `/target`, which must exist), and the toolchain read-only. Build scripts, proc
-/// macros, `include_bytes!` and the candidate's own tests run or read here, so they cannot reach
-/// the key. There is no fallback: if the sandbox cannot start, the command fails.
+/// The common fail-closed host launcher for untrusted code. The user scope charges
+/// the whole process tree, including tmpfs/memfd, rather than sampled process RSS.
+pub(crate) fn bounded_bwrap(
+    limits: &super::container::SandboxLimits,
+    timeout: Option<u64>,
+) -> Command {
+    let mut cmd = Command::new("/usr/bin/systemd-run");
+    cmd.env_clear();
+    // This is launcher-only: bubblewrap clears it before starting candidate code.
+    cmd.env(
+        "XDG_RUNTIME_DIR",
+        std::env::var_os("XDG_RUNTIME_DIR")
+            .unwrap_or_else(|| format!("/run/user/{}", unsafe { libc::getuid() }).into()),
+    );
+    cmd.args(["--user", "--scope", "--quiet", "--collect"]);
+    cmd.arg(format!("--property=MemoryMax={}M", limits.max_memory_mb));
+    cmd.arg("--property=MemorySwapMax=0");
+    cmd.arg(format!("--property=TasksMax={}", limits.max_pids));
+    cmd.arg(format!("--property=CPUQuota={}%", limits.max_cpu_percent));
+    if let Some(seconds) = timeout {
+        cmd.arg(format!("--property=RuntimeMaxSec={}s", seconds));
+    }
+    cmd.arg("/usr/bin/bwrap");
+    cmd
+}
+
+/// `cargo <args>` for `tree` inside bubblewrap: no network, cleared launcher and jail
+/// environments, no view of the judge's home (where its signing key lives), the tree read-only
+/// at `/src`, only `target` writable (at `/target`, which must exist), and the toolchain read-only.
+/// Cargo compilation is limited to two jobs. Build scripts, proc macros, `include_bytes!` and
+/// the candidate's own tests run or read here, so they cannot reach the key. There is no
+/// fallback: if the sandbox cannot start, the command fails.
 pub fn sandboxed_cargo(tree: &Path, target: &Path, args: &[&str]) -> Command {
     let toolchain = Toolchain::from_env();
-    let mut cmd = Command::new("bwrap");
+    let limits = super::container::SandboxLimits::default();
+    let mut cmd = bounded_bwrap(&limits, Some(limits.timeout_seconds));
     cmd.args([
         "--unshare-user",
         "--unshare-ipc",
@@ -149,6 +177,9 @@ pub fn sandboxed_cargo(tree: &Path, target: &Path, args: &[&str]) -> Command {
         "--setenv",
         "CARGO_TARGET_DIR",
         "/target",
+        "--setenv",
+        "CARGO_BUILD_JOBS",
+        "2",
     ]);
     cmd.args(["--chdir", "/src", "cargo"]);
     cmd.args(args);
@@ -158,6 +189,49 @@ pub fn sandboxed_cargo(tree: &Path, target: &Path, args: &[&str]) -> Command {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sandbox_cargo_clears_environment_and_uses_only_isolated_output() {
+        let cmd = sandboxed_cargo(
+            Path::new("/tmp/candidate-source"),
+            Path::new("/tmp/candidate-target"),
+            &["check", "--offline", "--locked"],
+        );
+        let args: Vec<_> = cmd
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        let clear = args.iter().position(|arg| arg == "--clearenv").unwrap();
+        let set = args.iter().position(|arg| arg == "--setenv").unwrap();
+        assert!(clear < set);
+        assert!(args.windows(3).any(|w| w == ["--setenv", "HOME", "/tmp"]));
+        assert!(args
+            .windows(3)
+            .any(|w| w == ["--setenv", "CARGO_TARGET_DIR", "/target"]));
+        assert!(args
+            .windows(3)
+            .any(|w| w == ["--setenv", "CARGO_BUILD_JOBS", "2"]));
+        assert!(args
+            .windows(3)
+            .any(|w| w == ["--ro-bind", "/tmp/candidate-source", "/src"]));
+        assert!(args
+            .windows(3)
+            .any(|w| w == ["--bind", "/tmp/candidate-target", "/target"]));
+        assert!(args.ends_with(&["cargo", "check", "--offline", "--locked"].map(str::to_string)));
+        let toolchain = Toolchain::from_env();
+        for d in toolchain.bind_dirs() {
+            let d = d.display().to_string();
+            assert!(args
+                .windows(3)
+                .any(|w| w[0] == "--ro-bind" && w[1] == d && w[2] == d));
+        }
+        for (key, path) in toolchain.env() {
+            let path = path.display().to_string();
+            assert!(args
+                .windows(3)
+                .any(|w| w[0] == "--setenv" && w[1] == key && w[2] == path));
+        }
+    }
 
     /// The Spark judge sandbox keeps the toolchain beside HOME, not under it: HOME is
     /// `/var/lib/aien-run`, the toolchain `/var/lib/aien-run/{cargo,rustup}`. The jails must

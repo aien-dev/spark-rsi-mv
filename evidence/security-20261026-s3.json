@@ -1,0 +1,50 @@
+[
+  {
+    "repo": "spark-rsi-mv",
+    "job": "checks",
+    "case": "before",
+    "rc": 101,
+    "wrapper_ran": true,
+    "output": null
+  },
+  {
+    "repo": "spark-rsi-mv",
+    "job": "checks",
+    "case": "after",
+    "rc": 0,
+    "wrapper_ran": false,
+    "output": "TRUSTED-FIXTURE"
+  },
+  {
+    "repo": "spark-rsi-mv",
+    "job": "checks",
+    "case": "negative",
+    "rc": 101,
+    "wrapper_ran": true,
+    "output": null
+  },
+  {
+    "repo": "spark-rsi-mv",
+    "job": "alpha",
+    "case": "before",
+    "rc": 101,
+    "wrapper_ran": true,
+    "output": null
+  },
+  {
+    "repo": "spark-rsi-mv",
+    "job": "alpha",
+    "case": "after",
+    "rc": 0,
+    "wrapper_ran": false,
+    "output": "TRUSTED-FIXTURE"
+  },
+  {
+    "repo": "spark-rsi-mv",
+    "job": "alpha",
+    "case": "negative",
+    "rc": 101,
+    "wrapper_ran": true,
+    "output": null
+  }
+]

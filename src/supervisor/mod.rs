@@ -4,10 +4,10 @@ pub mod daemon;
 pub mod ipc;
 
 use crate::evaluator::metrics::system_page_size_kb;
+use crate::isolation::{cargo_sandbox::bounded_bwrap, SandboxLimits};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -125,10 +125,9 @@ impl HostSupervisor {
             .map(|child| child.id())
     }
 
-    /// Launches the worker with `--socket <socket_path>` appended to `args` and `env` added to
-    /// its environment, and returns the child handle so the supervisor can stop and reap it.
-    /// Readiness is not decided here: a spawned process is `Starting` until it completes the
-    /// authenticated versioned handshake (`daemon::authenticate_worker_connection`).
+    /// Launches the worker inside a fail-closed user, mount, PID and network namespace.
+    /// Only its executable, system runtime, private scratch and this one IPC socket are visible.
+    /// Readiness still requires the authenticated versioned handshake.
     pub fn spawn_worker_process(
         &self,
         gen_info: &mut GenerationInfo,
@@ -137,15 +136,68 @@ impl HostSupervisor {
         socket_path: &Path,
         env: &[(&str, &str)],
     ) -> Result<std::process::Child, String> {
-        let mut cmd = Command::new(executable);
-        cmd.args(args).arg("--socket").arg(socket_path);
-        cmd.stdin(std::process::Stdio::null());
-        // The candidate never inherits the daemon's environment: no service credentials, no
-        // operator secrets. It gets the passthrough allowlist, the canary namespace and `env`.
-        cmd.env_clear();
-        for (key, value) in worker_environment(env) {
-            cmd.env(key, value);
+        let executable = executable
+            .canonicalize()
+            .map_err(|e| format!("Cannot resolve worker executable: {}", e))?;
+        let socket = socket_path
+            .canonicalize()
+            .map_err(|e| format!("Cannot resolve worker socket: {}", e))?;
+        let worker_socket = Path::new("/ipc").join(
+            socket
+                .file_name()
+                .ok_or_else(|| "Worker socket has no filename".to_string())?,
+        );
+        let limits = SandboxLimits {
+            max_memory_mb: self.memory_limit_mb,
+            ..SandboxLimits::default()
+        };
+        let mut cmd = bounded_bwrap(&limits, None);
+        cmd.args([
+            "--unshare-user",
+            "--disable-userns",
+            "--assert-userns-disabled",
+            "--unshare-ipc",
+            "--unshare-pid",
+            "--unshare-net",
+            "--unshare-uts",
+            "--uid",
+            "65534",
+            "--gid",
+            "65534",
+            "--cap-drop",
+            "ALL",
+            "--new-session",
+            "--die-with-parent",
+            "--clearenv",
+            "--proc",
+            "/proc",
+            "--dev",
+            "/dev",
+            "--tmpfs",
+            "/tmp",
+            "--tmpfs",
+            "/scratch",
+            "--chdir",
+            "/scratch",
+        ]);
+        for runtime in ["/usr", "/lib", "/lib64", "/bin"] {
+            if Path::new(runtime).exists() {
+                cmd.args(["--ro-bind", runtime, runtime]);
+            }
         }
+        cmd.arg("--ro-bind").arg(&executable).arg("/worker");
+        // Bind the endpoint, never its parent directory containing other supervisor sockets.
+        cmd.arg("--ro-bind").arg(&socket).arg(&worker_socket);
+        cmd.args(["--remount-ro", "/"]);
+        for (key, value) in worker_environment(env) {
+            cmd.args(["--setenv", &key, &value]);
+        }
+        cmd.arg("--")
+            .arg("/worker")
+            .args(args)
+            .arg("--socket")
+            .arg(&worker_socket);
+        cmd.stdin(std::process::Stdio::null());
 
         let child = cmd
             .spawn()
@@ -319,15 +371,39 @@ impl HostSupervisor {
     }
 
     pub fn is_memory_within_budget(&self, pid: u32) -> Result<bool, String> {
-        let current_mb = Self::check_unified_memory_mb(pid)?;
-        Ok(current_mb <= self.memory_limit_mb)
+        // The tracked pid is the bubblewrap monitor. Account for the entire worker tree,
+        // including children forked by non-main threads, not just that small monitor.
+        let mut pending = vec![pid];
+        let mut total_mb = 0u64;
+        while let Some(current) = pending.pop() {
+            total_mb = total_mb
+                .checked_add(Self::check_unified_memory_mb(current)?)
+                .ok_or_else(|| "Worker memory accounting overflow".to_string())?;
+            if total_mb > self.memory_limit_mb {
+                return Ok(false);
+            }
+            let tasks = fs::read_dir(format!("/proc/{}/task", current))
+                .map_err(|e| format!("Cannot read worker tasks: {}", e))?;
+            for task in tasks {
+                let task = task.map_err(|e| e.to_string())?;
+                let children = fs::read_to_string(task.path().join("children"))
+                    .map_err(|e| format!("Cannot read worker descendants: {}", e))?;
+                for child in children.split_whitespace() {
+                    pending.push(
+                        child
+                            .parse::<u32>()
+                            .map_err(|e| format!("Invalid worker child pid: {}", e))?,
+                    );
+                }
+            }
+        }
+        Ok(true)
     }
 }
 
-/// Environment variables a canary worker inherits from the supervisor process: the minimum a
-/// program needs to run. Everything else stays with the daemon.
-pub const WORKER_ENV_PASSTHROUGH: &[&str] =
-    &["PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "RUST_BACKTRACE"];
+/// Locale and diagnostic variables a worker may inherit. Home and executable search paths
+/// are private sandbox values, never operator-controlled host directories.
+pub const WORKER_ENV_PASSTHROUGH: &[&str] = &["LANG", "LC_ALL", "RUST_BACKTRACE"];
 /// The variable namespace reserved for canary workers (fixture behaviour switches live here).
 pub const WORKER_ENV_PREFIX: &str = "RSI_CANARY_";
 
@@ -340,6 +416,13 @@ pub fn worker_environment(extra: &[(&str, &str)]) -> Vec<(String, String)> {
         })
         .collect();
     for (key, value) in extra {
+        env.push((key.to_string(), value.to_string()));
+    }
+    for (key, value) in [
+        ("PATH", "/usr/bin:/bin"),
+        ("HOME", "/tmp"),
+        ("TMPDIR", "/tmp"),
+    ] {
         env.push((key.to_string(), value.to_string()));
     }
     env
@@ -475,7 +558,7 @@ mod tests {
         assert!(env.iter().all(|(k, _)| {
             WORKER_ENV_PASSTHROUGH.contains(&k.as_str())
                 || k.starts_with(WORKER_ENV_PREFIX)
-                || k == "SUPERVISOR_SECRET"
+                || ["SUPERVISOR_SECRET", "PATH", "HOME", "TMPDIR"].contains(&k.as_str())
         }));
     }
 
