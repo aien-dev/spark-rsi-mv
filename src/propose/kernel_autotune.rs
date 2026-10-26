@@ -1225,7 +1225,14 @@ prefetch_global_l2(next_k);
 
     #[tokio::test]
     async fn test_kernel_autotune_against_physical_sovereign_core_cuda_source() {
-        let physical_cuda = PathBuf::from("/home/drakestapleton/workspace/aien-sovereign-core/crates/aien-inference-abi/cuda/paged_attention_bf16.cu");
+        let core_dir = std::env::var("AIEN_SOVEREIGN_CORE_DIR").unwrap_or_else(|_| {
+            format!(
+                "{}/workspace/aien-sovereign-core",
+                std::env::var("HOME").unwrap_or_default()
+            )
+        });
+        let physical_cuda =
+            PathBuf::from(core_dir).join("crates/aien-inference-abi/cuda/paged_attention_bf16.cu");
         if !physical_cuda.exists() {
             eprintln!(
                 "Skipping physical CUDA test: file does not exist at {:?}",
