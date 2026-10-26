@@ -1,6 +1,6 @@
 # tests/gates/rsi-test.gate
-# Mirrors hosted: ci.yml 'Pre-populate Build Jail Target Cache' + 'Run Tests': release build into /tmp/spark-rsi-target, then cargo test --locked --verbose -- --test-threads=1 (hosted job 223 s total)
-# The hosted runner relaxes AppArmor user namespaces and makes bwrap setuid first (root steps); the local state is recorded as observations.
+# Host fixture build in the repository's target directory, followed by the host test suite.
+# Requires bubblewrap, a systemd user manager and cgroup v2 controllers; no root setup is performed.
 gate: RSI-TEST
 manifest_version: 2
 owner: spark-rsi

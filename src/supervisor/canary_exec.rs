@@ -149,6 +149,15 @@ impl Drop for WorkerProcess {
     }
 }
 
+/// A dropped executor future or a failed log append must not leave the socket guard alive.
+struct AbortOnDrop(tokio::task::AbortHandle);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
 fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -425,6 +434,7 @@ impl<'a> CanaryExecutor<'a> {
 
         let strays = Arc::new(StdMutex::new(Vec::new()));
         let guard = spawn_stray_connection_guard(server, strays.clone());
+        let _guard_lifetime = AbortOnDrop(guard.abort_handle());
 
         let mut answered: BTreeSet<String> = BTreeSet::new();
         let mut issued: BTreeSet<String> = BTreeSet::new();
@@ -713,5 +723,18 @@ impl<'a> CanaryExecutor<'a> {
         }
         let sealed = writer.seal(now_ms())?;
         Ok(ExecutionOutcome::Sealed { sealed, summary })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AbortOnDrop;
+
+    #[tokio::test]
+    async fn dropping_executor_guard_cancels_its_socket_task() {
+        let task = tokio::spawn(std::future::pending::<()>());
+        let guard = AbortOnDrop(task.abort_handle());
+        drop(guard);
+        assert!(task.await.unwrap_err().is_cancelled());
     }
 }

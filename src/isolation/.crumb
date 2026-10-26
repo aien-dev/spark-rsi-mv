@@ -17,6 +17,10 @@
     }
   },
   "layer": "src/isolation",
+  "invariants": [
+    "BuildJail clears launcher and candidate environments; writable output never aliases source.",
+    "Candidate Cargo verification uses sandboxed_cargo without an unjailed fallback."
+  ],
   "name": "src/isolation",
   "purpose": "Directory src/isolation. Purpose not yet described by a human.",
   "schema_version": "1.0.0"

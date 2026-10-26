@@ -1,0 +1,29 @@
+Observed baseline transcript excerpt, not a synthetic or rerun result.
+Source: aien-dev/spark-rsi-mv origin/main f72209e6da318f4ed36d772cea89f332c68fb9cf, detached pristine worktree plus the first five security regression tests.
+Command: nice -n 19 cargo test --offline --locked -j2 --test test_security_isolation -- --test-threads=1 --nocapture
+The original tool run was bg_108. Dependency compilation and individual panic location lines are omitted below.
+
+running 5 tests
+test build_jail_does_not_inherit_service_environment ...
+environment crossed build boundary: "" ""
+FAILED
+test canary_cannot_read_or_write_supervisor_files ...
+canary read or overwrote supervisor-owned files
+FAILED
+test failing_candidate_tests_are_not_accepted ... ok
+test invariant_tests_cannot_write_host_files ...
+candidate test wrote a host-only file
+FAILED
+test observation_build_scripts_cannot_write_host_files ...
+observation ran a build script on the host
+FAILED
+
+failures:
+    build_jail_does_not_inherit_service_environment
+    canary_cannot_read_or_write_supervisor_files
+    invariant_tests_cannot_write_host_files
+    observation_build_scripts_cannot_write_host_files
+
+test result: FAILED. 1 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
+error: test failed, to rerun pass `--test test_security_isolation`
+Command exited with code 101

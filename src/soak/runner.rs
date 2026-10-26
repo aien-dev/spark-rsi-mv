@@ -375,13 +375,25 @@ impl SoakRunner {
                         continue;
                     }
                 };
+                let build_output = tempfile::tempdir()
+                    .map_err(|e| format!("Cannot create private build output: {}", e))?;
 
                 // Compile inside Jail 1
                 let mut comp_passed = true;
                 if sandbox_dir.join("Cargo.toml").exists() {
-                    let build_jail =
-                        BuildJail::new("spark-rsi-builder:latest", &sandbox_dir, &sandbox_dir);
-                    match build_jail.execute_bwrap(&["cargo", "build", "--release", "--offline"]) {
+                    let build_jail = BuildJail::new(
+                        "spark-rsi-builder:latest",
+                        &sandbox_dir,
+                        build_output.path(),
+                    );
+                    match build_jail.execute_bwrap(&[
+                        "cargo",
+                        "build",
+                        "--release",
+                        "--offline",
+                        "--locked",
+                        "-j2",
+                    ]) {
                         Ok((success, _stdout, stderr)) => {
                             if !success {
                                 comp_passed = false;
