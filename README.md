@@ -1,8 +1,8 @@
-# Spark RSI: Recursive Self-Improvement Engine
+# Spark RSI: patch-candidate generator and judge
 
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](LICENSE)
 
-Spark RSI is a native Rust engine that tries to improve a code repository on its own. It observes the target, asks a model for small improvement proposals, tests each one in a sandbox copy, and hands a human a review branch. It never commits to the target's default branch. The model is any OpenAI-style chat completions endpoint (the local model seat), given with `--model-url` and `--model-id`. Some defaults are specific to the DGX Spark: the model endpoint `http://127.0.0.1:18006/v1`, the model name `atlas-lightning-omni` and the Cortex memory service `http://127.0.0.1:18080` (defaults in `src/main.rs`).
+Spark RSI is a native Rust patch-candidate generator and judge. It observes a target repository, asks a model for small change proposals, tests each one in a sandbox copy, judges the result, and hands a human a review branch. It never commits to the target's default branch and promotes nothing on its own. "RSI" (recursive self-improvement) is the project's research goal, not a demonstrated result: the two recorded cycles qualify the canary mechanism only, not self-improvement (see [evidence/rsi-cut-2026-10-12/REPORT.md](evidence/rsi-cut-2026-10-12/REPORT.md)). The model is any OpenAI-style chat completions endpoint (the local model seat), given with `--model-url` and `--model-id`. Some defaults are specific to the DGX Spark: the model endpoint `http://127.0.0.1:18006/v1`, the model name `atlas-lightning-omni` and the Cortex memory service `http://127.0.0.1:18080` (defaults in `src/main.rs`).
 
 ## Where it fits in AIEN
 
