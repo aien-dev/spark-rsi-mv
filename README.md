@@ -125,3 +125,15 @@ The saved engine settings (`mode`, `api_base_url`, `model_id`) are shown by `spa
 Licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). See [LICENSE](LICENSE). Project values live in the nonbinding [COVENANT.md](COVENANT.md), which grants and restricts no legal rights.
 
 All downstream distributions, derivative works and commercial deployments are governed only by the terms of [LICENSE](LICENSE). [CONSTITUTION.md](CONSTITUTION.md) is the internal architecture charter and development doctrine for upstream engineering.
+
+## Human-Directed Agentic Engineering
+
+Development follows Human-Directed Agentic Engineering (HDAE): humans define goals,
+architecture, constraints, acceptance criteria, and stopping points; agents implement,
+execute checks, diagnose failures, and revise within those boundaries. Human review
+retains responsibility for claims, acceptance, and release decisions. This describes
+how the project is developed, not a change to the engine's runtime proposal loop.
+
+For the documented method and a systems-software case study, see Gregory M. Kurtzer,
+[*Ginux: Building an Independent Kernel That Runs Linux Userspace through
+Human-Directed Agentic Engineering* (2026)](https://doi.org/10.5281/zenodo.23682548).
