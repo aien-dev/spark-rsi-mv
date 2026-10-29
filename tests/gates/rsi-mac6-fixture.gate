@@ -1,0 +1,22 @@
+# tests/gates/rsi-mac6-fixture.gate
+# Host-only pin and safety-flag check for experiments/allen-mac6.
+# The fixtures are records of an unrun development suite. This gate does not
+# load a model, open a GPU, or promote a route.
+gate: RSI-MAC6-FIXTURE
+manifest_version: 2
+owner: spark-rsi
+requires:
+  - portable
+inputs:
+  - experiments/allen-mac6/
+  - tests/gates/mac6-fixture.sh
+  - tests/gates/run.sh
+run:
+  exec: tests/gates/run.sh
+  args: ["mac6-fixture"]
+expects:
+  exit: 0
+  verdict: PASS
+timeout: 2m
+exactness: EXACT
+cache_scope: portable

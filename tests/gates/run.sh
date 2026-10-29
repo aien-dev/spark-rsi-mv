@@ -58,6 +58,9 @@ case "$step" in
     obs env_files_found false
     echo "Zero plaintext .env files verified."
     ;;
+  mac6-fixture)
+    bash tests/gates/mac6-fixture.sh
+    ;;
   *)
     echo "run.sh: unknown step '$step'" >&2
     exit 2
