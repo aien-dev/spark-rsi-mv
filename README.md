@@ -6,7 +6,7 @@ Spark RSI is a native Rust patch-candidate generator and judge. It observes a ta
 
 ## Where it fits in AIEN
 
-Spark RSI is an attachment of [AienOS](https://github.com/aien-dev/aienix), the core tree of AIEN. It lives in its own repository and plugs into the core at a boundary. Related repositories:
+Spark RSI is a repository in [Sovereign Intelligence (SI)](https://github.com/aien-dev/sovereign-intelligence). SI is the whole system, and that repository is the integration, release and install center. This code stays in its own repository and meets the rest of SI at a boundary. The SI index lists it in the section "The engine: Sovereign Core" ([ADR 0045](https://github.com/aien-dev/aien-architecture-mv/blob/f13c6238e585b284a87e7f5b227f7f8a1bc6bef7/docs/adr/0045-aienix-retired-sovereign-intelligence-center.md)). Related repositories:
 
 - [aien-dev/aien-protocols-mv](https://github.com/aien-dev/aien-protocols-mv): the protocol crates this repository builds against (`aien-protocol-types`, `aien-evaluation-protocol`, `aien-probe`).
 - [aien-dev/aien-architecture-mv](https://github.com/aien-dev/aien-architecture-mv): the AIEN plans and decisions, including the release ruling quoted below.
