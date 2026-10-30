@@ -1,10 +1,10 @@
 {
-  "name": "experiments/allen-mac6",
-  "purpose": "Public-safe offline development fixtures for the Allen MAC-6/7 four-arm experiment adapter.",
+  "name": "experiments/aien-mac6",
+  "purpose": "Public-safe offline development fixtures for the Aien MAC-6/7 four-arm experiment adapter.",
   "schema_version": "1.0.0",
   "extensions": {
     "owner_lane": "spark-rsi-67-adapter",
-    "source": "Allen Harness Evolution issue #12, MAC-6/7",
+    "source": "Aien Harness Evolution issue #12, MAC-6/7",
     "limitations": [
       "Development fixtures only, never final qualification holdouts.",
       "No runner, judge, signature, or promotion implementation is defined here."

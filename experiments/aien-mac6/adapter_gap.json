@@ -1,5 +1,5 @@
 {
-  "schema": "aien.spark-rsi.allen-rsi-adapter-gap.v1",
+  "schema": "aien.spark-rsi.aien-rsi-adapter-gap.v1",
   "status": "blocked_on_existing_runtime_adapter",
   "existing_interfaces": {
     "judge": "spark-rsi::actor::judge::BlindJudge::evaluate_cycle",
@@ -34,8 +34,8 @@
   "verification": {
     "fixture_suite_loader": {
       "status": "pass",
-      "command": "target/debug/spark-rsi-judge --holdouts-dir <fresh-temp-dir-containing-only-ALLEN-MAC6-DEV-30.json> --print-holdout-digest",
-      "digest": "acdc7735789bf397770e5ec620b9b88381d59344df9b9dc595cbaf59c2658bd2"
+      "command": "target/debug/spark-rsi-judge --holdouts-dir <fresh-temp-dir-containing-only-AIEN-MAC6-DEV-30.json> --print-holdout-digest",
+      "digest": "4b83804e94172ebdd719b4f604407b372ffdcadfaba004bb6fb91a3c2bbcad6e"
     },
     "direct_fixture_directory_load": {
       "status": "rejected_as_designed",

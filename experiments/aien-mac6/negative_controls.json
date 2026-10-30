@@ -1,5 +1,5 @@
 {
-  "schema": "aien.spark-rsi.allen-negative-controls.v1",
+  "schema": "aien.spark-rsi.aien-negative-controls.v1",
   "status": "fixtures_only_not_executed",
   "must_run_against_independent_runtime": true,
   "controls": [

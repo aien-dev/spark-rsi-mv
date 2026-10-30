@@ -1,6 +1,6 @@
 {
-  "suite_id": "ALLEN-MAC6-DEV-30",
-  "name": "Allen MAC-6/7 synthetic development tasks, not qualification holdouts",
+  "suite_id": "AIEN-MAC6-DEV-30",
+  "name": "Aien MAC-6/7 synthetic development tasks, not qualification holdouts",
   "cases": [
     {"id":"DEV-COMP-01","name":"compiler diagnostic classification","input":"compiler: expected integer expression at line 4","expected_output":"classify:syntax_error","category":"compiler_debugging"},
     {"id":"DEV-COMP-02","name":"compiler missing symbol","input":"compiler: unknown name `count`","expected_output":"classify:unresolved_name","category":"compiler_debugging"},
@@ -12,7 +12,7 @@
     {"id":"DEV-CODE-04","name":"stable sort property","input":"sort [3,1,2] ascending","expected_output":"[1,2,3]","category":"coding"},
     {"id":"DEV-REPO-01","name":"source ownership lookup","input":"which component owns model serving","expected_output":"sovereign_core","category":"repository_analysis"},
     {"id":"DEV-REPO-02","name":"authority lookup","input":"who owns skills and computation","expected_output":"omega","category":"repository_analysis"},
-    {"id":"DEV-REPO-03","name":"orchestrator identity","input":"who is the user-facing orchestrator","expected_output":"Allen","category":"repository_analysis"},
+    {"id":"DEV-REPO-03","name":"orchestrator identity","input":"who is the user-facing orchestrator","expected_output":"Aien","category":"repository_analysis"},
     {"id":"DEV-REPO-04","name":"promotion owner lookup","input":"who owns candidate promotion","expected_output":"spark_rsi","category":"repository_analysis"},
     {"id":"DEV-RES-01","name":"source attribution","input":"research result: source says method uses paired observations","expected_output":"report:paired_observations_with_source","category":"research"},
     {"id":"DEV-RES-02","name":"uncertainty reporting","input":"research result has one small sample","expected_output":"report:limited_evidence","category":"research"},

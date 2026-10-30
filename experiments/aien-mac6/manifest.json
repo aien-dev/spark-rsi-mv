@@ -1,6 +1,6 @@
 {
-  "schema": "aien.spark-rsi.allen-four-arm-development.v1",
-  "experiment_id": "allen-harness-evolution-mac6-dev-v1",
+  "schema": "aien.spark-rsi.aien-four-arm-development.v1",
+  "experiment_id": "aien-harness-evolution-mac6-dev-v1",
   "status": "fixture_only_not_executed",
   "safety": {
     "data_class": "synthetic_public_safe",
@@ -19,15 +19,15 @@
     "model_revision": "not_run",
     "tokenizer_revision": "not_run",
     "policy_sha256": "not_run",
-    "development_tasks_sha256": "6bd7f929d669204a56fd16cea53254c998eef3079596dbe400e80d299c20eb8f",
-    "negative_controls_sha256": "304373905688a52fe5a20216678b295590ec63fa759fdf76a4220009c2a269cf",
-    "development_holdout_set_sha256": "acdc7735789bf397770e5ec620b9b88381d59344df9b9dc595cbaf59c2658bd2",
+    "development_tasks_sha256": "92c43c25511152c56ff08e9cf51552a8e7a0de289877f1f8aa802311399c173d",
+    "negative_controls_sha256": "3f07098e3310bc94b74d3d5d12ee1e7ee887f8858714558da7f73e11b70e29fd",
+    "development_holdout_set_sha256": "4b83804e94172ebdd719b4f604407b372ffdcadfaba004bb6fb91a3c2bbcad6e",
     "hardware": "not_applicable_fake_worker"
   },
   "specialists": [
     {
       "id": "qwen3.6-35b-a3b-fp8",
-      "role": "specialist_worker_behind_allen",
+      "role": "specialist_worker_behind_aien",
       "endpoint": "http://localhost:18091",
       "api_protocol": "Chat Completions only",
       "request_time_thinking_support": true,
@@ -40,7 +40,7 @@
     },
     {
       "id": "Qwen3.8-27B",
-      "role": "specialist_worker_behind_allen",
+      "role": "specialist_worker_behind_aien",
       "endpoint": "unknown",
       "api_protocol": "unknown",
       "request_time_thinking_support": "unknown",
