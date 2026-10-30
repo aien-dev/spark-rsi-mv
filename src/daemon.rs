@@ -339,6 +339,9 @@ impl RsiEngine {
                     continue;
                 }
             };
+            // Output must not alias the read-only candidate tree or another candidate's cache.
+            let build_output = tempfile::tempdir()
+                .map_err(|e| format!("Cannot create private build output: {}", e))?;
 
             // Canary applicability. An executable change always goes through canary admission;
             // only a kind the operator listed in `canary_exempt_kinds` can skip it, and only
@@ -411,16 +414,7 @@ impl RsiEngine {
                     }
                     let built = adapter
                         .manifest
-                        .executable_path(Path::new(BUILD_OUTPUT_ROOT));
-                    // A file left by an earlier build is never the executable under evaluation.
-                    if built.symlink_metadata().is_ok() {
-                        if let Err(e) = std::fs::remove_file(&built) {
-                            let e = format!("cannot clear stale executable {:?}: {}", built, e);
-                            let _ = ledger.append_block(BlockType::Evaluation, e.clone(), vec![]);
-                            cand_summary.refusal = Some(e);
-                            break 'eligibility;
-                        }
-                    }
+                        .executable_path(&build_output.path().join("target"));
                     cand_summary.eligible = true;
                     canary_target_build = Some((adapter, built));
                 }
@@ -432,25 +426,34 @@ impl RsiEngine {
             let needs_build = heuristic_build || canary_target_build.is_some();
             if needs_build {
                 let build_started = Instant::now();
-                let build_jail =
-                    BuildJail::new("spark-rsi-builder:latest", &sandbox_dir, &sandbox_dir);
-                let (build_success, build_stdout, build_stderr) =
-                    match build_jail.execute_bwrap(&["cargo", "build", "--release", "--offline"]) {
-                        Ok(res) => res,
-                        Err(e) => {
-                            clock.record(
-                                Stage::BuildJail,
-                                build_started.elapsed(),
-                                StageOutcome::Failed,
-                            );
-                            let _ = ledger.append_block(
-                                BlockType::Evaluation,
-                                format!("Build Jail exec error: {}", e),
-                                vec![],
-                            );
-                            continue;
-                        }
-                    };
+                let build_jail = BuildJail::new(
+                    "spark-rsi-builder:latest",
+                    &sandbox_dir,
+                    build_output.path(),
+                );
+                let (build_success, build_stdout, build_stderr) = match build_jail.execute_bwrap(&[
+                    "cargo",
+                    "build",
+                    "--release",
+                    "--offline",
+                    "--locked",
+                    "-j2",
+                ]) {
+                    Ok(res) => res,
+                    Err(e) => {
+                        clock.record(
+                            Stage::BuildJail,
+                            build_started.elapsed(),
+                            StageOutcome::Failed,
+                        );
+                        let _ = ledger.append_block(
+                            BlockType::Evaluation,
+                            format!("Build Jail exec error: {}", e),
+                            vec![],
+                        );
+                        continue;
+                    }
+                };
 
                 clock.record(
                     Stage::BuildJail,
@@ -1082,10 +1085,6 @@ impl RsiEngine {
         }
     }
 }
-
-/// The root the build jail passes to cargo as CARGO_TARGET_DIR. The adapter's executable path
-/// is relative to it.
-const BUILD_OUTPUT_ROOT: &str = "/tmp/spark-rsi-target";
 
 /// Loads the operator's canary workload. The digest pin is mandatory: an unpinned workload fails
 /// closed, and a workload that does not hash to the pin is refused.

@@ -1,0 +1,222 @@
+note units: sha256 ref judge
+note needs: eval arm
+note SPDX-License-Identifier: Apache-2.0
+text JCW "run0125-1004tap1calib134"
+fn jcw r ulong o ulong n ulong to void
+jdsclr r
+for i ulong n
+jdsc r get JCW add o i
+end
+end
+fn jcexec to ulong
+jdpkfin
+pid = fork
+if lt pid 0
+ret 1023
+end
+if eq pid 0
+e = execprog JDPK 0 get JDPKN 0
+exit 127
+end
+r = waitpid int pid JDWS 0 4 0
+ret jdwstat
+end
+fn jcfixture to bool
+r = jdmkdir 3 448
+jdctsyn 16 1
+nr = get JDK 0
+jdgpath 0 3 0 JWREQ
+x = jdstw 0 JMRQ get JDK 1 705
+if ne x 0
+ret false
+end
+jdgpath 0 3 0 JWEXP
+x = jdstw 0 JMEX mul nr 8 705
+if ne x 0
+ret false
+end
+for i ulong 17
+put JDM add JMIX i 0
+end
+put JDM JMIX 3544386032354079058
+put JDM add JMIX 1 1
+put JDM add JMIX 2 2
+put JDM add JMIX 3 1
+put JDM add JMIX 4 1
+put JDM add JMIX 5 nr
+put JDM add JMIX 6 10
+put JDM add JMIX 16 nr
+jdspath 0 3 JWINDEX 5
+x = jdstw 0 JMIX 17 705
+for i ulong 16
+put JDM add JMSE i 0
+end
+put JDM add JMSE 2 1
+put JDM add JMSE 3 2
+put JDM add JMSE 6 4
+put JDM add JMSE 12 nr
+put JDM add JMSE 13 10
+jdspath 0 3 JWSESS 8
+x = jdstw 0 JMSE 16 705
+ret eq x 0
+end
+fn jcrun arms ulong to ulong
+jdpk0
+jdpkr 21
+jcw 0 0 3
+jdpkr 0
+jdpkr 3
+jdpkr 4
+jdsclr 0
+jdsc 0 50
+jdpkr 0
+jcw 0 8 4
+jdpkr 0
+if eq arms 0
+jcw 0 3 4
+else
+jcw 0 21 3
+end
+jdpkr 0
+jdpkr 5
+jdsdsh 0
+jdpkr 0
+if eq arms 0
+jdpkr 0
+jdpkr 0
+else
+jdpkr 14
+jdpkr 15
+end
+jdsdsh 0
+jdpkr 0
+jdpkr 0
+jdpkr 0
+ret jcexec
+end
+fn jctap to ulong
+jdpk0
+jdpkr 21
+jcw 0 12 3
+jdpkr 0
+jdpkr 3
+jdpkr 5
+jdpkr 12
+jcw 0 15 1
+jdpkr 0
+jdsdsh 0
+jdpkr 0
+ret jcexec
+end
+fn main to int
+if ne argcnt 4
+ret 2
+end
+b = jdsarg 22 1
+b = jdsarg 21 2
+b = jdsarg 5 3
+jdscp 3 22
+jdsc 3 47
+jdsc 3 115
+if not jcfixture
+ret 1
+end
+jdscp 4 22
+jdsc 4 47
+jdsc 4 114
+if ne jcrun 0 0
+ret 3
+end
+jdspath 0 4 JWPLOG 8
+n = jdldw 0 JDLOGW 128
+if ne n 128
+ret 4
+end
+for i ulong 8
+if ne get JDM add add JDLOGW mul i 16 10 0
+ret 5
+end
+end
+x = jdcload 1 0 0
+if ne x mul get JDK 0 16
+ret 6
+end
+if ne get JDM add JDLOGW 31 1
+ret 7
+end
+x = jdcload 0 0 0
+if ne get JDM add JDLOGW 31 2
+ret 8
+end
+jdscp 12 22
+jdsc 12 47
+jdsc 12 116
+if ne jctap 0
+ret 9
+end
+if ne jdfsize 12 10240
+ret 10
+end
+if ne jctap 3
+ret 11
+end
+note Calibration run uses fresh library copies even though the fake arm ignores the library.
+jdscp 14 22
+jdsc 14 47
+jdsc 14 108
+r = jdmkdir 14 448
+jdspath 0 14 JWGEN 4
+jdsnum 0 1 1
+jdsw 0 JWELF 4
+put JDF 0 99
+z = jdwrf 0 1 705
+jdsclr 15
+for i ulong 64
+jdsc 15 97
+end
+jdscp 4 22
+jdsc 4 47
+jdsc 4 99
+if ne jcrun 1 0
+ret 12
+end
+jdpk0
+jdpkr 21
+jcw 0 16 5
+jdpkr 0
+jdpkr 3
+jdpkr 4
+jdsclr 0
+jdsc 0 50
+jdpkr 0
+jdscp 1 22
+jdsc 1 47
+jdsc 1 102
+jdpkr 1
+if ne jcexec 0
+ret 13
+end
+if ne jdfsize 1 1600
+ret 14
+end
+n = jdldw 1 JDLOGW 200
+if ne n 200
+ret 15
+end
+if ne get JDM JDLOGW 3544386010811150674
+ret 16
+end
+if ne get JDM add JDLOGW 2 10000
+ret 17
+end
+if eq get JDM add JDLOGW 8 0
+ret 18
+end
+if eq get JDM add JDLOGW 32 0
+ret 19
+end
+if eq get JDM add JDLOGW 56 0
+ret 20
+end
+ret 0
+end

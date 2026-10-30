@@ -134,7 +134,7 @@ impl Ratifier {
         cortex_url: &str,
         cortex_space: &str,
     ) -> (Option<String>, bool) {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/home/drakestapleton".to_string());
+        let home = std::env::var("HOME").unwrap_or_default();
         let token_path = format!("{}/.config/cortex/token", home);
         let token = std::env::var("CORTEX_TOKEN")
             .unwrap_or_else(|_| fs::read_to_string(&token_path).unwrap_or_default())

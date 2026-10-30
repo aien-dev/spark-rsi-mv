@@ -1,3 +1,4 @@
+use crate::isolation::sandboxed_cargo;
 use crate::models::{SoulTension, TelemetrySnapshot};
 use std::fs;
 use std::path::Path;
@@ -167,12 +168,17 @@ pub fn observe_codebase(repo_dir: &Path) -> Result<TelemetrySnapshot, String> {
 
     let soul_tension = calculate_soul_tension(&corpus);
 
-    // Check test status (fast check)
-    let tests_passing = Command::new("cargo")
-        .arg("check")
-        .arg("--manifest-path")
-        .arg(repo_dir.join("Cargo.toml"))
-        .output()
+    // Check test status without executing candidate build scripts on the host.
+    let tests_passing = fs::canonicalize(repo_dir)
+        .and_then(|source_dir| {
+            let build_dir = tempfile::tempdir()?;
+            sandboxed_cargo(
+                &source_dir,
+                build_dir.path(),
+                &["check", "--offline", "--locked", "-j2"],
+            )
+            .output()
+        })
         .map(|out| out.status.success())
         .unwrap_or(false);
 

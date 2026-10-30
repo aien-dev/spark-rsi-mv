@@ -1,0 +1,479 @@
+note units: sha256 stats turing
+note SPDX-License-Identifier: Apache-2.0
+note turing-tps: CODER_SPEC section 8 ub values; SHA-256 "abc"; then a tiny FINAL-shaped split (one
+note group, one session: BEGIN, QUERY r0 3, SET, QUERY r0 31, QUERY r0 16, so D = 3 15 0), a
+note profile file, two libraries (TRAIN: G 7, K 2, calibration named; TRAINP: G 3, K 1, none) and
+note base.om, run through turun2. Checked: n, every TPS1 header and record byte of B.tps (written
+note out by hand below from CODER_SPEC sections 2 and 3), the TSY1 bytes, both trailers against
+note an independent SHA-256 (Python hashlib, development only) of the same bytes, the P1 and P2
+note charges, and T_real NOT_RUN without a coder. With argv[2] = a turing-coder binary, the run
+note is repeated with the coder: every encode and verify must exit 0, H1 must pass, and B, M1, M2
+note must code to the same length (so T_real = T_ideal = -charge).
+note argv[1] = temporary directory (default /tmp/reuse-test-evalstats-tu-<pid>).
+note Exit 0 = pass; otherwise the failing check's code.
+
+text TTK "/tmp/reuse-test-evalstats-tu-\nsplit\nlib1\nlib2\nout\nprofile.toml\nbase.om\n-\nindex\nsessions\ng00.exp\nCURRENT\ngen-7.man\ngen-7.om\ngen-3.man\ngen-3.om\nB.tps\nD.tsy\nM1.tps\n"
+text TTPROF "profile_id = \"test\"\n"
+text TTABC "abc"
+
+global TTRB uchar 4096
+global TTRL ulong 1
+
+fn ttoff k ulong to ulong
+i = ulong 0
+c = ulong 0
+while lt c k bound 100000
+if eq get TTK i 10
+c = add c 1
+end
+i = add i 1
+end
+ret i
+end
+
+fn ttkp k ulong to void
+i = ttoff k
+while ne get TTK i 10 bound 4096
+stpc get TTK i
+i = add i 1
+end
+end
+
+fn ttroot to void
+put STPL 0 0
+for i ulong get TTRL 0
+stpc get TTRB i
+end
+end
+
+note root/k (k = 1..7), or root/k/f when f > 0
+fn ttpath k ulong f ulong to void
+ttroot
+stpc 47
+ttkp k
+if gt f 0
+stpc 47
+ttkp f
+end
+end
+
+fn ttinit to int
+put TTRL 0 0
+if ge argcnt 2
+n = argread 1 TTRB 0 4000
+if gt n 0
+put TTRL 0 ulong n
+end
+end
+if eq get TTRL 0 0
+put STPL 0 0
+ttkp 0
+stpu ulong getpid
+for i ulong get STPL 0
+put TTRB i get STPB i
+end
+put TTRL 0 get STPL 0
+end
+ttroot
+r = makedir STPB 0 get STPL 0 448
+if and ne r 0 ne r -17
+ret 1
+end
+for k ulong 4
+ttpath add k 1 0
+r = makedir STPB 0 get STPL 0 448
+if and ne r 0 ne r -17
+ret 2
+end
+end
+ret 0
+end
+
+fn ttub to int
+if ne tuub 1 16000000
+ret 3
+end
+if ne tuub 32768 1000000
+ret 4
+end
+if ne tuub 65536 0
+ret 5
+end
+if ne tuub 43481 591903
+ret 6
+end
+if ne tuub 46819 485194
+ret 7
+end
+if ne tuub 65521 330
+ret 8
+end
+for i ulong 3
+put STFB i get TTABC i
+end
+tusha 1000 1 0 3
+if ne get TUD 0 16919744041952114874
+ret 9
+end
+ret 0
+end
+
+note STOB of n zero-filled bytes after a header word list
+fn ttzero n ulong to void
+for i ulong n
+stoc 0
+end
+end
+
+note writes the split, the profile, the libraries and base.om
+fn ttfiles to int
+put STOP 0 0
+stow 3544386032354079058
+stow 1
+stow 4
+stow 1
+stow 1
+stow 5
+stow 3
+stow 72623859790382856
+stow 651345242494996240
+stow 1229782938247303441
+stow 1808220633999610642
+for k ulong 5
+stow 0
+end
+stow 5
+ttpath 1 8
+if ne stwfile 0
+ret 20
+end
+put STOP 0 0
+stow 0
+stow 0
+stow 1
+stow 2
+stow 2
+stow 0
+stow 64
+for k ulong 5
+stow 0
+end
+stow 5
+stow 3
+stow 0
+stow 0
+ttpath 1 9
+if ne stwfile 0
+ret 21
+end
+put STOP 0 0
+ttexp 1 0 0
+ttexp 2 3 1
+ttexp 3 0 0
+ttexp 2 31 0
+ttexp 2 16 0
+ttpath 1 10
+if ne stwfile 0
+ret 22
+end
+put STOP 0 0
+for i ulong len TTPROF
+stoc get TTPROF i
+end
+ttpath 5 0
+if ne stwfile 0
+ret 23
+end
+put STOP 0 0
+ttzero 4000
+ttpath 6 0
+if ne stwfile 0
+ret 24
+end
+r = ttlib 2 7 2 1 5000
+if ne r 0
+ret r
+end
+ret ttlib 3 3 1 0 4500
+end
+
+fn ttexp op ulong r0 ulong cold ulong to void
+stow 0
+if eq op 2
+stow 3
+else
+stow 0
+end
+stow r0
+stow 0
+stow op
+stow 0
+stow cold
+stow 0
+end
+
+note library directory k: gen-G.man (magic, K, calibration word 52), gen-G.om of ob bytes, CURRENT
+fn ttlib k ulong g ulong kt ulong cal ulong ob ulong to int
+put STOP 0 0
+stow 3544386019401740626
+stow 1
+stow g
+stow 0
+stow kt
+for i ulong 47
+stow 0
+end
+stow cal
+for i ulong 203
+stow 0
+end
+mf = ulong 12
+om = ulong 13
+if eq g 3
+mf = 14
+om = 15
+end
+ttpath k mf
+if ne stwfile 0
+ret 25
+end
+for i ulong 2048
+put STFB i get STOB i
+end
+tusha 1000 1 0 2048
+put STOP 0 0
+stow g
+for j ulong 4
+stow get TUD j
+end
+ttpath k 11
+if ne stwfile 0
+ret 26
+end
+put STOP 0 0
+ttzero ob
+ttpath k om
+if ne stwfile 0
+ret 27
+end
+ret 0
+end
+
+note slots: 0 split, 1 profile, 2 lib1, 3 lib2, 4 base.om, 5 coder, 6 out
+fn ttslots to void
+ttpath 1 0
+stbfromp 0
+ttpath 5 0
+stbfromp 1
+ttpath 2 0
+stbfromp 2
+ttpath 3 0
+stbfromp 3
+ttpath 6 0
+stbfromp 4
+ttpath 4 0
+stbfromp 6
+end
+
+note STFB byte i equals v
+fn ttbe i ulong v ulong to bool
+ret eq ulong get STFB i v
+end
+
+note little-endian value of nb bytes at i
+fn ttle i ulong nb ulong to ulong
+v = ulong 0
+for k ulong nb
+v = or v shl ulong get STFB add i k mul k 8
+end
+ret v
+end
+
+note record t at byte o: index, key, crumb, norm, q row for symbol s
+fn ttrec o ulong t ulong s ulong to bool
+if or ne ttle o 8 t ne ttle add o 8 8 0
+ret false
+end
+if or ne ttle add o 16 4 t ne ttle add o 20 4 65536
+ret false
+end
+for x ulong 16
+q = ttle add o add 24 mul x 2 2
+if eq x s
+if ne q 65521
+ret false
+end
+else
+if ne q 1
+ret false
+end
+end
+end
+ret true
+end
+
+fn tttps to int
+ttpath 4 16
+n = stload
+if ne n 328
+ret 40
+end
+if or or not ttbe 0 84 not ttbe 1 80 or not ttbe 2 83 not ttbe 3 49
+ret 41
+end
+if or or ne ttle 4 2 1 not ttbe 6 16 or not ttbe 7 16 ne ttle 8 4 0
+ret 42
+end
+if or or ne ttle 12 8 3 ne ttle 20 4 56 ne ttle 24 4 0
+ret 43
+end
+if or ne ttle 92 8 578437695752307201 ne ttle 124 4 0
+ret 44
+end
+if ne ttle 60 8 7868888298173157867
+ret 45
+end
+if ne ttle 28 8 9653805820826529274
+ret 46
+end
+if not ttrec 128 0 3
+ret 47
+end
+if not ttrec 184 1 15
+ret 48
+end
+if not ttrec 240 2 0
+ret 49
+end
+if ne ttle 296 8 654459385414177191
+ret 50
+end
+ret 0
+end
+
+fn tttsy to int
+ttpath 4 17
+n = stload
+if ne n 91
+ret 51
+end
+if or or not ttbe 0 84 not ttbe 1 83 or not ttbe 2 89 not ttbe 3 49
+ret 52
+end
+if or or ne ttle 4 2 1 not ttbe 6 16 or not ttbe 7 0 ne ttle 8 8 3
+ret 53
+end
+if or ne ttle 16 8 0 ne ttle 24 8 578437695752307201
+ret 54
+end
+if or or not ttbe 56 3 not ttbe 57 15 not ttbe 58 0
+ret 55
+end
+if ne ttle 59 8 7538279629438521139
+ret 56
+end
+ret 0
+end
+
+fn ttcharges to int
+if or ne tup1 3 1024 ne tup1 4 1024
+ret 60
+end
+if or ne tup1 7 13376 ne tup1 6 512
+ret 61
+end
+if or ne tup1 5 0 ne tup1 2 0
+ret 62
+end
+if or ne tup2 3 24384 ne tup2 6 20384
+ret 63
+end
+if ne tup2 5 0
+ret 64
+end
+ret 0
+end
+
+note coded sizes x and y differ
+fn ttcsne x ulong y ulong to bool
+ret ne get TUCS x get TUCS y
+end
+
+note the run with the coder from argv[2]
+fn ttcoder to int
+n = argread 2 STPB 0 4000
+put STPL 0 ulong n
+stbfromp 5
+r = turun2
+if ne r 0
+ret 70
+end
+for x ulong 6
+if ne get TUCX x 0
+ret 71
+end
+if ne tuh1 x 1
+ret 72
+end
+end
+if or ttcsne 0 2 ttcsne 0 4
+ret 73
+end
+if or ttcsne 1 3 ttcsne 1 5
+ret 74
+end
+if ne tureal 13376 1 0 -13376
+ret 75
+end
+if ne tureal 13376 1 1 -13376
+ret 76
+end
+ret 0
+end
+
+fn main to int
+r = ttinit
+if ne r 0
+ret r
+end
+r = ttub
+if ne r 0
+ret r
+end
+r = ttfiles
+if ne r 0
+ret r
+end
+ttslots
+put STPL 0 0
+ttkp 7
+stbfromp 5
+put STQT 0 1
+r = turun2
+if ne r 0
+ret 30
+end
+if ne get TUN 0 3
+ret 31
+end
+r = tttps
+if ne r 0
+ret r
+end
+r = tttsy
+if ne r 0
+ret r
+end
+r = ttcharges
+if ne r 0
+ret r
+end
+v = tureal 1024 1 0
+if ne get TURF 0 1
+ret 65
+end
+if lt argcnt 3
+ret 0
+end
+ret ttcoder
+end

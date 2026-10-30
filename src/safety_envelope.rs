@@ -123,6 +123,8 @@ impl CanarySafetyEnvelope {
     }
 
     /// Evaluates a candidate patch against safety envelope gates and enforces automatic rollback on failure.
+    /// The signed receipt is `protocol_version` 3 with framed plan and receipt digests
+    /// (aien-protocols#59); the protocol refuses to sign or verify any older receipt version.
     pub async fn evaluate_and_enforce<R, Fut>(
         &self,
         subject: &ArtifactRef,

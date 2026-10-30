@@ -1,0 +1,14 @@
+receipt=REUSE-1 format_version=2 kind=evaluation status=UNSIGNED
+signature=UNSIGNED reason=no_om_p256_signer (REUSE-1 7.5, spark-rsi #67 signer is Rust)
+subject_commit=6ad09bff0c544bf73ceb3c63b349ba0cd6998e52
+subject_mansha=05f163f8301ecaa40f43a30a6bebcdc253b65688aa384e209c83eba9dfaa7cf6
+holdout_set_sha256=1ce74aa2f9057af27fb66513d11ad7b5af0326093526198c1b69c10cd6f78f04
+policy_sha256=71a6da1338116a88ccdcf37bece933105bbed4653d9a766d30d7ecd7225e5deb
+evaluator_binary_sha256=b550ad7e5fed2a91381c7a11599979860eff5f10859de44020e5d65d42ec46cf
+stats_summary_sha256=b8b13625864efb5e123e6d4aa532eb089b529dee44820966c10281225abec41a
+holdouts_total=189504 holdouts_passed=189504
+counts groups=24 sessions=192 requests=17952 queries=9024 reps=3 arms=8 wrong_refusals=0
+decision=STOP reason_bits=176
+budget split=FINAL runs_allowed=1 runs_used=1 seed=burned
+independence=UNISOLATED
+receipt_identity_sha256=ff32e5e11d268e0ecbf7a30abbcd338041e3d84c7ef3fa322c229c895153c44f

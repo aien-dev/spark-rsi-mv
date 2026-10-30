@@ -1,0 +1,464 @@
+note units: sha256 stats turing receipt
+note SPDX-License-Identifier: Apache-2.0
+note receipt-fields: the receipt layout. Inputs: an index with known holdout words, three
+note acq-1-R.mansha files, a stats.sum with known words, a contract file. The receipt must equal
+note RTEXP byte for byte except the two 64-hex values marked ?: the evaluator binary digest
+note (checked against SHA-256 of /proc/self/exe computed here) and the receipt identity digest
+note (recomputed here from the documented length-prefixed field list). policy_sha256 and
+note stats_summary_sha256 are SHA-256 values computed independently (Python hashlib, development
+note only). Then the refusals: MANSHA differing from a rebuild (9), a missing rebuild file (8),
+note an uppercase commit (2), a stats.sum with a wrong magic (7), a summary whose holdout digest
+note differs from the index (11), a DEV summary (11), a DEV index (10), a summary with another
+note request count (11).
+note argv[1] = temporary directory (default /tmp/reuse-test-evalstats-rc-<pid>).
+note Exit 0 = pass; otherwise the failing check's code.
+
+text RTK "/tmp/reuse-test-evalstats-rc-\nsplit\nrun\nstats\ncontract.md\nreceipt.txt\nindex\nacq-1-0.mansha\nacq-1-1.mansha\nacq-1-2.mansha\nstats.sum\n/proc/self/exe\n"
+text RTCON "REUSE-1 test contract v1.0\n"
+text RTC "0123456789abcdef0123456789abcdef01234567"
+text RTCU "0123456789ABCDEF0123456789abcdef01234567"
+text RTM "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+text RTM2 "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5b"
+text RTH "0102030405060708090a0b0c0d0e0f1011111111111111111918171615141312"
+text RTP "0e6940071a1f189c69a3faa6d9ca6dc78f92f8520c4548f2c6a878c89e4e9e98"
+text RTS "dd51cbe03f9a9c7e61a4d471f9312ee703b2910541daf12bbd7c9b5790dfe192"
+text RTD "spark-rsi.reuse1-receipt.v2-unsigned"
+text RTEXP "receipt=REUSE-1 format_version=2 kind=evaluation status=UNSIGNED\nsignature=UNSIGNED reason=no_om_p256_signer (REUSE-1 7.5, spark-rsi #67 signer is Rust)\nsubject_commit=0123456789abcdef0123456789abcdef01234567\nsubject_mansha=5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a\nholdout_set_sha256=0102030405060708090a0b0c0d0e0f1011111111111111111918171615141312\npolicy_sha256=0e6940071a1f189c69a3faa6d9ca6dc78f92f8520c4548f2c6a878c89e4e9e98\nevaluator_binary_sha256=????????????????????????????????????????????????????????????????\nstats_summary_sha256=dd51cbe03f9a9c7e61a4d471f9312ee703b2910541daf12bbd7c9b5790dfe192\nholdouts_total=189504 holdouts_passed=189500\ncounts groups=24 sessions=192 requests=18000 queries=9024 reps=3 arms=8 wrong_refusals=1\ndecision=INVESTIGATE reason_bits=512\nbudget split=FINAL runs_allowed=1 runs_used=1 seed=burned\nindependence=UNISOLATED\nreceipt_identity_sha256=????????????????????????????????????????????????????????????????\n"
+
+global RTRB uchar 4096
+global RTRL ulong 1
+global RTEV uchar 64
+global RTID uchar 64
+
+fn rtoff k ulong to ulong
+i = ulong 0
+c = ulong 0
+while lt c k bound 100000
+if eq get RTK i 10
+c = add c 1
+end
+i = add i 1
+end
+ret i
+end
+
+fn rtkp k ulong to void
+i = rtoff k
+while ne get RTK i 10 bound 4096
+stpc get RTK i
+i = add i 1
+end
+end
+
+fn rtroot to void
+put STPL 0 0
+for i ulong get RTRL 0
+stpc get RTRB i
+end
+end
+
+fn rtpath k ulong f ulong to void
+rtroot
+stpc 47
+rtkp k
+if gt f 0
+stpc 47
+rtkp f
+end
+end
+
+fn rtinit to int
+put RTRL 0 0
+if ge argcnt 2
+n = argread 1 RTRB 0 4000
+if gt n 0
+put RTRL 0 ulong n
+end
+end
+if eq get RTRL 0 0
+put STPL 0 0
+rtkp 0
+stpu ulong getpid
+for i ulong get STPL 0
+put RTRB i get STPB i
+end
+put RTRL 0 get STPL 0
+end
+rtroot
+r = makedir STPB 0 get STPL 0 448
+if and ne r 0 ne r -17
+ret 1
+end
+for k ulong 3
+rtpath add k 1 0
+r = makedir STPB 0 get STPL 0 448
+if and ne r 0 ne r -17
+ret 2
+end
+end
+ret 0
+end
+
+note the mansha text (m 0 = RTM, 1 = RTM2) and a newline into STOB
+fn rtmsh m ulong to void
+put STOP 0 0
+for i ulong 64
+if eq m 0
+stoc get RTM i
+else
+stoc get RTM2 i
+end
+end
+stoc 10
+end
+
+note the split index: split id sp, 24 groups of 750 requests, 192 sessions, 9024 QUERYs
+fn rtindex sp ulong to int
+put STOP 0 0
+stow 3544386032354079058
+stow 1
+stow sp
+stow 24
+stow 192
+stow 18000
+stow 9024
+stow 72623859790382856
+stow 651345242494996240
+stow 1229782938247303441
+stow 1808220633999610642
+for k ulong 5
+stow 0
+end
+for g ulong 24
+stow 750
+end
+rtpath 1 6
+if ne stwfile 0
+ret 3
+end
+ret 0
+end
+
+fn rtfiles to int
+r = rtindex 4
+if ne r 0
+ret r
+end
+for k ulong 3
+rtmsh 0
+rtpath 2 add 7 k
+if ne stwfile 0
+ret 4
+end
+end
+r = rtsum 3544386041195737426 4 0
+if ne r 0
+ret r
+end
+put STOP 0 0
+for i ulong len RTCON
+stoc get RTCON i
+end
+rtpath 4 0
+ret stwfile
+end
+
+note stats.sum with split id sp; hx is added to holdout word 7 (0 = the index's digest)
+fn rtsum magic ulong sp ulong hx ulong to int
+put STOP 0 0
+stow magic
+stow 1
+stow 2
+stow 512
+stow 24
+stow 192
+stow 18000
+stow 9024
+stow 3
+stow sp
+stow 0
+stow 10000
+stow 189504
+stow 189500
+stow 4
+stow 1
+stow 0
+stow 0
+stow add 72623859790382856 hx
+stow 651345242494996240
+stow 1229782938247303441
+stow 1808220633999610642
+for k ulong 234
+stow 0
+end
+rtpath 3 10
+if ne stwfile 0
+ret 5
+end
+ret 0
+end
+
+note slots for rcrun; commit from RTC (u = 0) or RTCU (u = 1)
+fn rtslots u ulong to void
+rtpath 1 0
+stbfromp 0
+rtpath 2 0
+stbfromp 1
+rtpath 3 0
+stbfromp 2
+rtpath 4 0
+stbfromp 3
+put STPL 0 0
+for i ulong 40
+if eq u 0
+stpc get RTC i
+else
+stpc get RTCU i
+end
+end
+stbfromp 4
+put STPL 0 0
+for i ulong 64
+stpc get RTM i
+end
+stbfromp 5
+rtpath 5 0
+stbfromp 6
+end
+
+note 64 hex of TUD into RTEV (e = 0) or RTID (e = 1)
+fn rthex e ulong to void
+h = stkoff SKDIG
+for j ulong 4
+v = get TUD j
+for k ulong 8
+b = and shr v mul k 8 255
+p = add mul j 16 mul k 2
+c1 = get STK add h shr b 4
+c2 = get STK add h and b 15
+if eq e 0
+put RTEV p c1
+put RTEV add p 1 c2
+else
+put RTID p c1
+put RTID add p 1 c2
+end
+end
+end
+end
+
+note appends u64 LE length n then the bytes of text t (0 RTD, 1 RTC, 2 RTM, 3 RTH, 4 RTP, 5 RTEV, 6 RTS)
+fn rtlp t ulong to void
+n = ulong 64
+if eq t 0
+n = len RTD
+end
+if eq t 1
+n = 40
+end
+tule n 8
+for i ulong n
+if eq t 0
+tub ulong get RTD i
+end
+if eq t 1
+tub ulong get RTC i
+end
+if eq t 2
+tub ulong get RTM i
+end
+if eq t 3
+tub ulong get RTH i
+end
+if eq t 4
+tub ulong get RTP i
+end
+if eq t 5
+tub ulong get RTEV i
+end
+if eq t 6
+tub ulong get RTS i
+end
+end
+end
+
+note the identity digest recomputed from the documented field list
+fn rtident to void
+put TUFL 0 0
+for t ulong 7
+rtlp t
+end
+tule 8 8
+tule 189504 8
+tule 8 8
+tule 189500 8
+tule 8 8
+tule 2 8
+tule 8 8
+tule 512 8
+tusha 1000 0 0 get TUFL 0
+rthex 1
+end
+
+note the receipt file equals RTEXP, with RTEV and RTID at the two ? runs
+fn rtcmp to int
+rtpath 5 0
+n = stload
+if ne n long len RTEXP
+ret 20
+end
+q = ulong 0
+for i ulong len RTEXP
+e = get RTEXP i
+g = get STFB i
+if eq e 63
+if lt q 64
+e = get RTEV q
+else
+e = get RTID sub q 64
+end
+q = add q 1
+end
+if ne e g
+ret 21
+end
+end
+if ne q 128
+ret 22
+end
+ret 0
+end
+
+fn rtrefuse to int
+rtmsh 1
+rtpath 2 8
+if ne stwfile 0
+ret 30
+end
+if ne rcrun 2
+ret 31
+end
+if ne get STOB 20 57
+ret 32
+end
+rtmsh 0
+rtpath 2 8
+r = stwfile
+rtpath 2 9
+u = unlink STPB 0 get STPL 0
+if ne rcrun 2
+ret 33
+end
+if ne get STOB 20 56
+ret 34
+end
+rtmsh 0
+rtpath 2 9
+r = stwfile
+rtslots 1
+if ne rcrun 2
+ret 35
+end
+if ne get STOB 20 50
+ret 36
+end
+rtslots 0
+r = rtsum 3544386041195737427 4 0
+if ne rcrun 2
+ret 37
+end
+if ne get STOB 20 55
+ret 38
+end
+ret rtfinal
+end
+
+note the refusal code printed by the last rcrun
+fn rtcode to ulong
+if ne get STOB 0 115
+ret 999
+end
+v = ulong 0
+for k ulong 4
+c = get STOB add 20 k
+if or lt c 48 gt c 57
+break
+end
+v = add mul v 10 ulong sub c 48
+end
+ret v
+end
+
+note split and summary identity: a mismatched holdout digest, a DEV summary, DEV index, and
+note a summary with another request count are refused (11, 11, 10, 11); restored = accepted
+fn rtfinal to int
+r = rtsum 3544386041195737426 4 1
+if or ne rcrun 2 ne rtcode 11
+ret 39
+end
+r = rtsum 3544386041195737426 3 0
+if or ne rcrun 2 ne rtcode 11
+ret 40
+end
+r = rtsum 3544386041195737426 4 0
+r = rtindex 3
+if or ne rcrun 2 ne rtcode 10
+ret 41
+end
+r = rtindex 4
+if ne rcrun 0
+ret 42
+end
+r = rtsumreq
+if or ne rcrun 2 ne rtcode 11
+ret 43
+end
+ret 0
+end
+
+note stats.sum as written by rtsum but with request count 17999 (word 6)
+fn rtsumreq to int
+r = rtsum 3544386041195737426 4 0
+rtpath 3 10
+n = stload
+put STOP 0 0
+for k ulong 256
+if eq k 6
+stow 17999
+else
+stow stw mul k 8
+end
+end
+rtpath 3 10
+ret stwfile
+end
+
+fn main to int
+r = rtinit
+if ne r 0
+ret r
+end
+r = rtfiles
+if ne r 0
+ret r
+end
+put STPL 0 0
+rtkp 11
+n = stload
+if lt n 0
+ret 10
+end
+tusha 1000 1 0 ulong n
+rthex 0
+rtident
+rtslots 0
+put STQT 0 1
+if ne rcrun 0
+ret 11
+end
+r = rtcmp
+if ne r 0
+ret r
+end
+ret rtrefuse
+end

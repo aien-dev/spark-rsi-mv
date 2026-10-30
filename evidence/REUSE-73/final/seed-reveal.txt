@@ -1,0 +1,7 @@
+REUSE-1 FINAL seed reveal (after the single FINAL run; the seed is burned)
+secret_hex=427dae3c806a340914c80b4dafe03b4a3392936f2bf5d410b043da78f26a31b3
+secret_commitment_sha256=cc6cbc60cc5417c8de406a11261738805d7e4d99490794b566893a2fc8a99878 (equals evidence/REUSE-73/final-commitment.txt, pushed 2026-10-25T15:10:36Z)
+evaluator_freeze_commit=4345eda9e58fe625a4d9b8e9175305160369f760 (pushed 2026-10-25T16:20:47Z)
+candidate_freeze_commit=6ad09bff0c544bf73ceb3c63b349ba0cd6998e52 (omega-mv, pushed 2026-10-25T16:21:52Z)
+final_seed=ef613f1636bda74dc828f6f2a5e28fe291960197afa321b3625735d28738d72c = SHA-256(secret bytes || candidate commit ASCII || evaluator commit ASCII)
+check: printf %s SECRET_HEX | xxd -r -p | sha256sum ; { printf %s SECRET_HEX | xxd -r -p; printf %s CAND EVAL; } | sha256sum

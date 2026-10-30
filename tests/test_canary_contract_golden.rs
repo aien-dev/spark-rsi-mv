@@ -5,6 +5,10 @@
 //! new version 2 records, (2) the existing signed evaluation receipt bytes, digest and
 //! verification, (3) the existing ledger record encoding, hash and validation. A change to any
 //! pinned value is a format change and needs a new version, never an edit of the pin.
+//!
+//! 2026-10-26: family (2) gained the aien-protocols#59 framed digest contract (plan digest v2,
+//! receipt protocol_version 3). The protocol_version 1 receipt pins it replaced are retained,
+//! unedited and superseded, in evidence/protocol-receipt-v1-superseded-2026-10-26/.
 
 use p256::ecdsa::SigningKey;
 use sha2::{Digest, Sha256};
@@ -49,9 +53,15 @@ const EXPECTED_RECEIPT_V1_DIGEST: &str =
     "2f89a865a7cd6ea329b9df0f31ced5629e4cba6e629e91834737b8caa22cd817";
 const EXPECTED_PROTOCOL_KEY_FINGERPRINT: &str =
     "8cbc48b78519c7a8a48f92d6e9e60f06645e872e6d148b660a5aef6afc990905";
-const EXPECTED_PROTOCOL_RECEIPT_DIGEST: &str =
-    "a7f3ac2e08162a5f2f49805d8cf4f6c8a7f38fe6bb0f2e74437d9bbfce1cdccf";
-const EXPECTED_PROTOCOL_RECEIPT_SIGNATURE: &str = "41b9f0735b4ecceb3e390eeb1eca82f09173ce393ab0bbb8f03d4b5c55a216027d1d0df88d5ac064ac70d7ecd63d29af8e3de04c3ff09dada42a6fa8e09c7240";
+// The protocol receipt pins below are the strict framed digest contract of aien-protocols#59
+// (`AIEN_EVALUATION_PLAN_V2`, `AIEN_EVALUATION_RECEIPT_V3`, receipt protocol_version 3). They
+// supersede the protocol_version 1 pins frozen on 2026-10-12, which are retained byte for byte in
+// evidence/protocol-receipt-v1-superseded-2026-10-26/ and are no longer accepted by the protocol.
+const EXPECTED_PROTOCOL_PLAN_V2_DIGEST: &str =
+    "a995483e6e843885dddf918c5124e74dd4872f7cc95e1078a685eea4abe2ddf0";
+const EXPECTED_PROTOCOL_RECEIPT_V3_DIGEST: &str =
+    "799211286a2842de68b08b806a6b2287beef4703edc5f8f0341efbcf91cd4658";
+const EXPECTED_PROTOCOL_RECEIPT_V3_SIGNATURE: &str = "03ccc524ad237d1936b8ad3efc00e8258ef3dbbe6421384c99c9448b1112bc27423e2e5dabfba27e8e9e73e1b12db07d332fbd160fc4d272c10ede52fe42dd72";
 const EXPECTED_LEDGER_PAYLOAD_DIGEST: &str =
     "7b8e7b835fe25b68a1acf315430c15febccecb74f2ec198c4adf83ded8ba6c5d";
 const EXPECTED_LEDGER_BLOCK_HASH: &str =
@@ -383,21 +393,61 @@ fn evaluation_receipt_v1_digest_is_frozen() {
     assert_eq!(digest, EXPECTED_RECEIPT_V1_DIGEST);
 }
 
-#[test]
-fn protocol_signed_evaluation_receipt_digest_and_signature_are_frozen() {
+// ------------------------------------------------------- protocol plan and receipt (framed v3)
+
+fn protocol_signer() -> aien_evaluation_protocol::SoftwareP256Signer {
+    aien_evaluation_protocol::SoftwareP256Signer::new(
+        SigningKey::from_slice(&[0x42u8; 32]).unwrap(),
+    )
+}
+
+/// A fixed plan in the shape `CanarySafetyEnvelope::build_plan` produces, with the probe
+/// evaluator's descriptor and a second descriptor that shares its id, so the pin covers the
+/// contract's total evaluator ordering.
+fn protocol_plan() -> aien_evaluation_protocol::EvaluationPlan {
+    use aien_evaluation_protocol::{EvaluationPlan, EvaluatorDescriptor};
+    use aien_protocol_types::{ArtifactRef, Digest32, EvaluationId};
+    let mut plan = EvaluationPlan {
+        evaluation_id: EvaluationId(uuid::Uuid::from_u128(
+            0x0123_4567_89ab_cdef_0123_4567_89ab_cdef,
+        )),
+        subject: ArtifactRef {
+            artifact_id: uuid::Uuid::from_u128(0x2222_2222_2222_4222_8222_2222_2222_2222),
+            digest: Digest32([0x22; 32]),
+            media_type: "application/rust-patch".to_string(),
+            byte_size: 4096,
+        },
+        profile: "rsi-production".to_string(),
+        evaluators: vec![
+            EvaluatorDescriptor {
+                evaluator_id: "aien-sovereign-probe".to_string(),
+                version: "0.1.0".to_string(),
+                required: true,
+            },
+            EvaluatorDescriptor {
+                evaluator_id: "aien-sovereign-probe".to_string(),
+                version: "0.1.0".to_string(),
+                required: false,
+            },
+        ],
+        baseline: None,
+        sandbox_profile: "rsi-canary-isolated".to_string(),
+        policy_digest: Digest32([0x77; 32]),
+        evaluator_manifest_digest: Digest32([0x88; 32]),
+        plan_digest: Digest32::ZERO,
+    };
+    plan.plan_digest = plan.compute_plan_digest();
+    plan
+}
+
+/// The 2026-10-12 receipt fixture with only `protocol_version` changed (1 there, `version` here).
+fn protocol_receipt(version: u32, key_id: String) -> aien_evaluation_protocol::EvaluationReceipt {
     use aien_evaluation_protocol::{
-        CryptographicTier, EvaluationReceipt as ProtocolReceipt, SoftwareP256Signer, Verdict,
-        VerifierIdentity, VerifierSigner,
+        EvaluationReceipt as ProtocolReceipt, Verdict, VerifierIdentity,
     };
     use aien_protocol_types::{Digest32, EvaluationId, Timestamp};
-    use std::sync::Arc;
-
-    let signer = Arc::new(SoftwareP256Signer::new(
-        SigningKey::from_slice(&[0x42u8; 32]).unwrap(),
-    ));
-    assert_eq!(signer.key_fingerprint(), EXPECTED_PROTOCOL_KEY_FINGERPRINT);
-    let receipt = ProtocolReceipt {
-        protocol_version: 1,
+    ProtocolReceipt {
+        protocol_version: version,
         evaluation_id: EvaluationId(uuid::Uuid::from_u128(
             0x0123_4567_89ab_cdef_0123_4567_89ab_cdef,
         )),
@@ -409,22 +459,57 @@ fn protocol_signed_evaluation_receipt_digest_and_signature_are_frozen() {
         verdict: Verdict::Pass,
         verifier: VerifierIdentity {
             principal_id: "rsi-golden".to_string(),
-            key_id: signer.key_fingerprint(),
+            key_id,
             trust_epoch: 1,
             trusted_build_digest: Digest32([0x66; 32]),
             policy_bundle_digest: Digest32([0x77; 32]),
         },
         started_at: Timestamp(1_700_000_000_000),
         completed_at: Timestamp(1_700_000_000_500),
+    }
+}
+
+#[test]
+fn protocol_evaluation_plan_v2_digest_is_frozen() {
+    let plan = protocol_plan();
+    assert_eq!(
+        hex::encode(plan.plan_digest.0),
+        EXPECTED_PROTOCOL_PLAN_V2_DIGEST
+    );
+    assert!(plan.verify_plan_digest());
+    let mut reordered = plan.clone();
+    reordered.evaluators.reverse();
+    assert_eq!(reordered.compute_plan_digest(), plan.plan_digest);
+    // Moving one byte from version into evaluator_id left the unframed concatenation, and so
+    // the old digest, unchanged. The framed digest must differ.
+    let mut shifted = plan.clone();
+    for e in &mut shifted.evaluators {
+        e.evaluator_id.push('0');
+        e.version = ".1.0".to_string();
+    }
+    assert_ne!(shifted.compute_plan_digest(), plan.plan_digest);
+    assert!(!shifted.verify_plan_digest());
+}
+
+#[test]
+fn protocol_signed_evaluation_receipt_v3_digest_and_signature_are_frozen() {
+    use aien_evaluation_protocol::{
+        CryptographicTier, EvaluationError, Verdict, VerifierSigner,
+        FRAMED_RECEIPT_PROTOCOL_VERSION,
     };
+
+    assert_eq!(FRAMED_RECEIPT_PROTOCOL_VERSION, 3);
+    let signer = protocol_signer();
+    assert_eq!(signer.key_fingerprint(), EXPECTED_PROTOCOL_KEY_FINGERPRINT);
+    let receipt = protocol_receipt(3, signer.key_fingerprint());
     assert_eq!(
         hex::encode(receipt.compute_receipt_digest().0),
-        EXPECTED_PROTOCOL_RECEIPT_DIGEST
+        EXPECTED_PROTOCOL_RECEIPT_V3_DIGEST
     );
-    let signed = receipt.sign_with_signer(signer.as_ref()).unwrap();
+    let signed = receipt.sign_with_signer(&signer).unwrap();
     assert_eq!(
         hex::encode(&signed.signature),
-        EXPECTED_PROTOCOL_RECEIPT_SIGNATURE
+        EXPECTED_PROTOCOL_RECEIPT_V3_SIGNATURE
     );
     assert!(signed
         .verify_with(&signer.verifying_key(), CryptographicTier::Tier2SoftwareKey)
@@ -444,6 +529,21 @@ fn protocol_signed_evaluation_receipt_digest_and_signature_are_frozen() {
         signed.verify_with(&signer.verifying_key(), CryptographicTier::Tier4HardwareTpm),
         Ok(true)
     ));
+
+    // Strict cutover: a receipt below version 3 is neither signed nor verified, so no unframed
+    // digest is accepted through a fallback.
+    for old in [1u32, 2] {
+        assert!(matches!(
+            protocol_receipt(old, signer.key_fingerprint()).sign_with_signer(&signer),
+            Err(EvaluationError::UnsupportedProtocolVersion(v)) if v == old
+        ));
+        let mut downgraded = signed.clone();
+        downgraded.receipt.protocol_version = old;
+        assert!(matches!(
+            downgraded.verify_with(&signer.verifying_key(), CryptographicTier::Tier2SoftwareKey),
+            Err(EvaluationError::UnsupportedProtocolVersion(v)) if v == old
+        ));
+    }
 }
 
 // ------------------------------------------------------------------ (3) ledger records
@@ -537,41 +637,21 @@ fn print_pins() {
         )
     );
     {
-        use aien_evaluation_protocol::{
-            EvaluationReceipt as ProtocolReceipt, SoftwareP256Signer, Verdict, VerifierIdentity,
-            VerifierSigner,
-        };
-        use aien_protocol_types::{Digest32, EvaluationId, Timestamp};
-        let signer = SoftwareP256Signer::new(SigningKey::from_slice(&[0x42u8; 32]).unwrap());
-        let receipt = ProtocolReceipt {
-            protocol_version: 1,
-            evaluation_id: EvaluationId(uuid::Uuid::from_u128(
-                0x0123_4567_89ab_cdef_0123_4567_89ab_cdef,
-            )),
-            request_digest: Digest32([0x11; 32]),
-            subject_digest: Digest32([0x22; 32]),
-            plan_digest: Digest32([0x33; 32]),
-            evidence_root: Digest32([0x44; 32]),
-            outcomes_root: Digest32([0x55; 32]),
-            verdict: Verdict::Pass,
-            verifier: VerifierIdentity {
-                principal_id: "rsi-golden".to_string(),
-                key_id: signer.key_fingerprint(),
-                trust_epoch: 1,
-                trusted_build_digest: Digest32([0x66; 32]),
-                policy_bundle_digest: Digest32([0x77; 32]),
-            },
-            started_at: Timestamp(1_700_000_000_000),
-            completed_at: Timestamp(1_700_000_000_500),
-        };
+        use aien_evaluation_protocol::VerifierSigner;
+        let signer = protocol_signer();
+        let receipt = protocol_receipt(3, signer.key_fingerprint());
         let signed = receipt.sign_with_signer(&signer).unwrap();
         println!("PIN protocol_key_fingerprint={}", signer.key_fingerprint());
         println!(
-            "PIN protocol_receipt_digest={}",
+            "PIN protocol_plan_v2_digest={}",
+            hex::encode(protocol_plan().plan_digest.0)
+        );
+        println!(
+            "PIN protocol_receipt_v3_digest={}",
             hex::encode(receipt.compute_receipt_digest().0)
         );
         println!(
-            "PIN protocol_receipt_signature={}",
+            "PIN protocol_receipt_v3_signature={}",
             hex::encode(&signed.signature)
         );
     }

@@ -1,0 +1,88 @@
+$ nice -n 19 cargo test --offline --locked -j2 --test test_security_isolation --test test_canary_execution -- --test-threads=1 --nocapture
+   Compiling spark-rsi v0.1.0 (/tmp/secfix/spark-rsi-mv)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.58s
+     Running tests/test_canary_execution.rs (/tmp/secfix/spark-rsi-before/target/debug/deps/test_canary_execution-0bca4a3c430320f1)
+
+running 15 tests
+test a_failure_recorded_before_a_restart_stays_a_failure ... ok
+test a_mismatched_executable_digest_refuses_to_launch ... ok
+test a_workload_that_does_not_match_its_pin_is_refused ... ok
+test a_wrong_secret_is_rejected_and_closed_without_rollback ... ok
+test an_answer_to_the_wrong_request_is_a_rejection_then_a_timeout ... ok
+test correct_run_yields_ten_qualifying_observations_and_passes_the_quota ... ok
+test duplicate_results_yield_one_observation_per_request_and_rejections ... ok
+test fabricated_success_cannot_qualify ... ok
+test old_wrong_generation_and_silent_workers_are_never_ready ... ok
+test premature_promotion_attempts_never_reach_durable_or_switch_active_sock ... ok
+test replay_on_a_new_connection_creates_no_observations_even_across_a_restart ... ok
+test the_fixture_ships_a_valid_adapter_manifest ... ok
+test the_log_survives_a_kill_and_reopen_with_no_double_counting ... ok
+test timeout_is_recorded_as_a_timeout_and_reverts ... ok
+test wrong_answer_is_recorded_reverts_early_and_fails_admission ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.52s
+
+     Running tests/test_security_isolation.rs (/tmp/secfix/spark-rsi-before/target/debug/deps/test_security_isolation-672d72eec4b23d82)
+
+running 8 tests
+test build_jail_does_not_inherit_service_environment ... ok
+test build_jail_tmpfs_is_charged_to_a_hard_memory_limit ... ok
+test canary_cannot_read_or_write_supervisor_files ... /worker: line 2: /tmp/.tmp6nUMTo/canary-host-marker: No such file or directory
+/worker: line 3: /tmp/.tmp6nUMTo/canary-host-marker: No such file or directory
+ok
+test canary_tmpfs_is_charged_to_a_hard_memory_limit ... tmpfs pressure canary status: signal: 15 (SIGTERM)
+ok
+test failing_candidate_tests_are_not_accepted ... ok
+test invariant_tests_cannot_write_host_files ... ok
+test observation_build_scripts_cannot_write_host_files ... ok
+test stopping_canary_reaps_forked_descendants ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s
+
+
+exit=0
+
+$ nice -n 19 cargo test --offline --locked -j2 --lib -- isolation:: supervisor:: --test-threads=1
+   Compiling spark-rsi v0.1.0 (/tmp/secfix/spark-rsi-mv)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.87s
+     Running unittests src/lib.rs (/tmp/secfix/spark-rsi-before/target/debug/deps/spark_rsi-2b4c688111276e21)
+
+running 33 tests
+test isolation::cargo_sandbox::tests::a_directory_holding_the_judge_home_is_never_exposed ... ok
+test isolation::cargo_sandbox::tests::sandbox_cargo_clears_environment_and_uses_only_isolated_output ... ok
+test isolation::cargo_sandbox::tests::toolchain_outside_home_dotdirs_is_found_through_its_variables ... ok
+test isolation::container::tests::test_build_jail_bwrap_args ... ok
+test isolation::container::tests::test_build_jail_docker_args ... ok
+test isolation::container::tests::test_build_jail_refuses_writable_source_alias ... ok
+test isolation::container::tests::test_gpu_eval_jail_args_network_none_and_no_holdouts ... ok
+test isolation::manifest::tests::test_artifact_manifest_generation_and_integrity ... ok
+test isolation::manifest::tests::test_artifact_manifest_rejects_unmanifested_extra_file ... ok
+test isolation::manifest::tests::test_candidate_manifest_creation ... ok
+test isolation::rollback::tests::test_rollback_checkpoint_lifecycle ... ok
+test isolation::root_of_trust::tests::test_dotdot_and_escape_forms_cannot_bypass_protection ... ok
+test isolation::root_of_trust::tests::test_protected_paths_detected ... ok
+test isolation::root_of_trust::tests::test_tier_enforcement ... ok
+test isolation::root_of_trust::tests::test_unprotected_target_paths_allowed ... ok
+test isolation::root_of_trust::tests::test_validate_declared_files_batch ... ok
+test supervisor::canary_exec::tests::dropping_executor_guard_cancels_its_socket_task ... ok
+test supervisor::daemon::tests::authenticate_worker_connection_fails_closed_on_silence_close_and_bad_frames ... ok
+test supervisor::daemon::tests::old_protocol_other_generation_and_forged_hmac_are_never_ready ... ok
+test supervisor::daemon::tests::ready_needs_versioned_hmac_and_never_switches_active_sock ... ok
+test supervisor::daemon::tests::reported_failure_triggers_instant_rollback_to_the_parent ... ok
+test supervisor::daemon::tests::reported_latency_violation_still_triggers_the_early_revert ... ok
+test supervisor::daemon::tests::self_reports_never_reach_durable_however_many_arrive ... ok
+test supervisor::daemon::tests::unauthenticated_and_wrong_generation_messages_are_rejected_without_rollback ... ok
+test supervisor::daemon::tests::unreadable_memory_budget_reverts_the_canary ... ok
+test supervisor::ipc::tests::test_ipc_roundtrip_message_exchange ... ok
+test supervisor::ipc::tests::test_session_auth_verification ... ok
+test supervisor::tests::test_memory_budget_check_own_pid ... ok
+test supervisor::tests::test_memory_over_limit_reverts ... ok
+test supervisor::tests::test_socket_switch_and_self_reports_never_promote ... ok
+test supervisor::tests::test_stage_and_atomic_symlink_swap ... ok
+test supervisor::tests::test_unreadable_memory_budget_reverts_instead_of_passing ... ok
+test supervisor::tests::worker_environment_passes_only_the_allowlist_and_the_canary_namespace ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 115 filtered out; finished in 0.27s
+
+
+exit=0

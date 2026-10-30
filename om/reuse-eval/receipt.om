@@ -1,0 +1,413 @@
+note SPDX-License-Identifier: Apache-2.0
+note receipt.om (lane EvalStats, spark-rsi-mv #73): the REUSE-1 receipt of contract section 7.5 with
+note the identity fields of spark-rsi docs/RECEIPT-V2.md, an evaluation-budget record and an
+note explicit UNSIGNED status (no .om P-256 signer exists; the #67 signer is Rust). Needs the units
+note sha256, stats and turing (st* files and output, tusha, tub/tule). Names: rc*, RC*.
+note
+note CLI (argv[1] is the dispatcher's subcommand):
+note   receipt SPLITDIR RUNDIR STATSDIR CONTRACT CANDCOMMIT MANSHA OUTFILE
+note SPLITDIR = the FINAL split (index); RUNDIR = the FINAL run (acq-1-R.mansha, R = 0..2, the
+note evaluator's rebuilds of the TRAIN library); STATSDIR holds stats.sum; CONTRACT = the REUSE-1
+note contract file (policy digest = SHA-256 of its bytes); CANDCOMMIT = the candidate-freeze commit
+note (40 lowercase hex); MANSHA = the frozen manifest SHA-256 (64 lowercase hex), which must equal
+note every acq-1-R.mansha (section 7.4: otherwise BLOCKED, not reproducible). OUTFILE receives
+note the receipt (also on stdout).
+note
+note Receipt lines, in this order (key=value):
+note   receipt=REUSE-1 format_version=2 kind=evaluation status=UNSIGNED
+note   signature=UNSIGNED reason=no_om_p256_signer (REUSE-1 7.5, spark-rsi #67 signer is Rust)
+note   subject_commit=<40 hex>            the candidate-freeze commit
+note   subject_mansha=<64 hex>            MANSHA (binding.subject_sha256 of RECEIPT-V2)
+note   holdout_set_sha256=<64 hex>        FINAL index words 7..10 (each word's bytes big endian)
+note   policy_sha256=<64 hex>             SHA-256 of the contract bytes
+note   evaluator_binary_sha256=<64 hex>   SHA-256 of /proc/self/exe (the running evaluator)
+note   stats_summary_sha256=<64 hex>      SHA-256 of stats.sum (the results this receipt states)
+note   holdouts_total=<n> holdouts_passed=<n>  scored QUERY responses of arms 1..7 over every
+note                                      repetition, and the correct ones (stats.sum 12, 13)
+note   counts groups= sessions= requests= queries= reps= arms=8 wrong_refusals=
+note   decision=<GO|INVESTIGATE|STOP> reason_bits=<stats.sum word 3>
+note   budget split=FINAL runs_allowed=1 runs_used=1 seed=burned (a void run burns the seed)
+note   independence=UNISOLATED
+note   receipt_identity_sha256=<64 hex>
+note receipt_identity_sha256 = SHA-256 over length-prefixed fields as RECEIPT-V2's digest writes
+note them (u64 LE byte length, then the bytes; numbers as 8-byte LE): the string
+note "spark-rsi.reuse1-receipt.v2-unsigned", the hex strings of subject_commit, subject_mansha,
+note holdout_set_sha256, policy_sha256, evaluator_binary_sha256, stats_summary_sha256, then
+note holdouts_total, holdouts_passed, decision (1 GO, 2 INVESTIGATE, 3 STOP), reason bits. It is
+note not a RECEIPT-V2 receipt_digest (that one covers fields R1 has no value for) and it is not a
+note signature.
+note Exit 0 = written; 2 = refused (status=REFUSED code=N): 1 usage, 2 commit not 40 lowercase
+note hex, 3 MANSHA not 64 lowercase hex, 4 index unreadable or invalid, 5 contract unreadable,
+note 6 evaluator binary unreadable, 7 stats.sum missing or invalid, 8 an acq-1-R.mansha missing,
+note 9 MANSHA differs from a rebuild (BLOCKED: not reproducible), 10 the index is not FINAL
+note (split id 4), 11 stats.sum is not the summary of this split (its split id is not 4, its
+note words 18..21 differ from index words 7..10, or its group, session, request or QUERY count
+note differs from the index); 15 output failure.
+
+text RCK "receipt=REUSE-1 format_version=2 kind=evaluation status=UNSIGNED\nsignature=UNSIGNED reason=no_om_p256_signer (REUSE-1 7.5, spark-rsi #67 signer is Rust)\nsubject_commit=\nsubject_mansha=\nholdout_set_sha256=\npolicy_sha256=\nevaluator_binary_sha256=\nstats_summary_sha256=\nholdouts_total=\n holdouts_passed=\ncounts groups=\n sessions=\n requests=\n queries=\n reps=\n arms=8 wrong_refusals=\ndecision=\n reason_bits=\nbudget split=FINAL runs_allowed=1 runs_used=1 seed=burned\nindependence=UNISOLATED\nreceipt_identity_sha256=\nspark-rsi.reuse1-receipt.v2-unsigned\n/proc/self/exe\nacq-1-\n.mansha\nstatus=REFUSED code=\nGO\nINVESTIGATE\nSTOP\n"
+
+const RKHEAD ulong 0
+const RKSIG ulong 1
+const RKCOMM ulong 2
+const RKMANS ulong 3
+const RKHOLD ulong 4
+const RKPOL ulong 5
+const RKEVAL ulong 6
+const RKSTAT ulong 7
+const RKTOT ulong 8
+const RKPASS ulong 9
+const RKCNT ulong 10
+const RKSESS ulong 11
+const RKREQS ulong 12
+const RKQRYS ulong 13
+const RKREPS ulong 14
+const RKARMS ulong 15
+const RKDECI ulong 16
+const RKBITS ulong 17
+const RKBUDG ulong 18
+const RKINDEP ulong 19
+const RKIDENT ulong 20
+const RKDOM ulong 21
+const RKEXE ulong 22
+const RKACQ ulong 23
+const RKMSH ulong 24
+const RKREFU ulong 25
+const RKGO ulong 26
+
+global RCH ulong 24
+global RCS ulong 32
+
+fn rckoff k ulong to ulong
+i = ulong 0
+c = ulong 0
+while lt c k bound 999999
+if eq get RCK i 10
+c = add c 1
+end
+i = add i 1
+end
+ret i
+end
+
+fn rcks k ulong to void
+i = rckoff k
+while ne get RCK i 10 bound 4096
+stoc get RCK i
+i = add i 1
+end
+end
+
+fn rckp k ulong to void
+i = rckoff k
+while ne get RCK i 10 bound 4096
+stpc get RCK i
+i = add i 1
+end
+end
+
+note slot b holds exactly n lowercase hex characters
+fn rchex b ulong n ulong to bool
+if ne get STBL b n
+ret false
+end
+o = mul b 4096
+for i ulong n
+c = get STBD add o i
+if not or and ge c 48 le c 57 and ge c 97 le c 102
+ret false
+end
+end
+ret true
+end
+
+note TUD saved as digest d (0 holdout, 1 policy, 2 evaluator, 3 stats) in RCH
+fn rcsave d ulong to void
+for j ulong 4
+put RCH add mul d 4 j get TUD j
+end
+end
+
+note digest d as 64 hex (word j little-endian bytes, the TUD convention)
+fn rcohd d ulong to void
+for j ulong 4
+v = get RCH add mul d 4 j
+for k ulong 8
+stohb and shr v mul k 8 255
+end
+end
+end
+
+note the holdout digest words (big-endian bytes per word) into RCH 0..3 in the TUD convention
+fn rchold to void
+for j ulong 4
+v = get STHD j
+x = ulong 0
+for k ulong 8
+x = or x shl and shr v mul sub 7 k 8 255 mul k 8
+end
+put RCH j x
+end
+end
+
+note SHA-256 of the file at STPB into RCH d; false when unreadable
+fn rcfile d ulong to bool
+n = stload
+if lt n 0
+ret false
+end
+tusha 1000 1 0 ulong n
+rcsave d
+ret true
+end
+
+note every acq-1-R.mansha equals slot 5 (64 hex then a newline); 0 ok, 8 missing, 9 differs
+fn rcmansha to int
+for r ulong 3
+stpbase 1
+rckp RKACQ
+stpc uchar add r 48
+rckp RKMSH
+n = stload
+if lt n 64
+ret 8
+end
+for i ulong 64
+if ne get STFB i get STBD add 20480 i
+ret 9
+end
+end
+if gt n 64
+if or gt n 65 ne get STFB 64 10
+ret 9
+end
+end
+end
+ret 0
+end
+
+note stats.sum into RCS (words 0..31); false when missing or not R1STS001 version 1
+fn rcsum to bool
+stpbase 2
+stpk SKSUM
+n = stload
+if ne n 2048
+ret false
+end
+tusha 1000 1 0 2048
+rcsave 3
+for k ulong 32
+put RCS k stw mul k 8
+end
+if ne get RCS 0 3544386041195737426
+ret false
+end
+ret eq get RCS 1 1
+end
+
+note one length-prefixed field from slot b (its bytes) into TUFB
+fn rcfslot b ulong to void
+n = get STBL b
+tule n 8
+o = mul b 4096
+for i ulong n
+tub ulong get STBD add o i
+end
+end
+
+note one length-prefixed 64-hex field from digest d
+fn rcfdig d ulong to void
+tule 64 8
+h = stkoff SKDIG
+for j ulong 4
+v = get RCH add mul d 4 j
+for k ulong 8
+b = and shr v mul k 8 255
+tub ulong get STK add h shr b 4
+tub ulong get STK add h and b 15
+end
+end
+end
+
+fn rcfnum v ulong to void
+tule 8 8
+tule v 8
+end
+
+note receipt identity digest into RCH 16..19
+fn rcident to void
+put TUFL 0 0
+i = rckoff RKDOM
+n = sub rckoff add RKDOM 1 add i 1
+tule n 8
+for j ulong n
+tub ulong get RCK add i j
+end
+rcfslot 4
+rcfslot 5
+for d ulong 4
+rcfdig d
+end
+rcfnum get RCS 12
+rcfnum get RCS 13
+rcfnum get RCS 2
+rcfnum get RCS 3
+tusha 1000 0 0 get TUFL 0
+rcsave 4
+end
+
+note slot b's bytes to the output
+fn rcoslot b ulong to void
+o = mul b 4096
+for i ulong get STBL b
+stoc get STBD add o i
+end
+end
+
+fn rcreport to void
+rcks RKHEAD
+stnl
+rcks RKSIG
+stnl
+rcks RKCOMM
+rcoslot 4
+stnl
+rcks RKMANS
+rcoslot 5
+stnl
+rcks RKHOLD
+rcohd 0
+stnl
+rcks RKPOL
+rcohd 1
+stnl
+rcks RKEVAL
+rcohd 2
+stnl
+rcks RKSTAT
+rcohd 3
+stnl
+rcks RKTOT
+stou get RCS 12
+rcks RKPASS
+stou get RCS 13
+stnl
+rcks RKCNT
+stou get RCS 4
+rcks RKSESS
+stou get RCS 5
+rcks RKREQS
+stou get RCS 6
+rcks RKQRYS
+stou get RCS 7
+rcks RKREPS
+stou get RCS 8
+rcks RKARMS
+stou get RCS 15
+stnl
+rcks RKDECI
+d = get RCS 2
+if and ge d 1 le d 3
+rcks add RKGO sub d 1
+else
+stou d
+end
+rcks RKBITS
+stou get RCS 3
+stnl
+rcks RKBUDG
+stnl
+rcks RKINDEP
+stnl
+rcks RKIDENT
+rcohd 4
+stnl
+end
+
+fn rcfail code ulong to int
+put STOP 0 0
+rcks RKREFU
+stou code
+stnl
+if ne get STQT 0 1
+r = stflush 1
+end
+ret 2
+end
+
+note stats.sum describes this split: split id 4, words 18..21 = the index holdout words 7..10
+note (both as stored), and the group, session, request and QUERY counts equal the index's
+fn rcsame to bool
+if ne get RCS 9 4
+ret false
+end
+for j ulong 4
+if ne get RCS add 18 j get STHD j
+ret false
+end
+end
+if or ne get RCS 4 get STNG 0 ne get RCS 5 get STNS 0
+ret false
+end
+ret and eq get RCS 6 get STNR 0 eq get RCS 7 get STNQ 0
+end
+
+note the receipt on slots 0 split, 1 run, 2 stats dir, 3 contract, 4 commit, 5 MANSHA, 6 out
+note file; stdout unless STQT is 1
+fn rcrun to int
+streset
+if not rchex 4 40
+ret rcfail 2
+end
+if not rchex 5 64
+ret rcfail 3
+end
+if ne stidx 0
+ret rcfail 4
+end
+if ne get STSPL 0 4
+ret rcfail 10
+end
+rchold
+stpexact 3
+if not rcfile 1
+ret rcfail 5
+end
+put STPL 0 0
+rckp RKEXE
+if not rcfile 2
+ret rcfail 6
+end
+if not rcsum
+ret rcfail 7
+end
+if not rcsame
+ret rcfail 11
+end
+e = rcmansha
+if ne e 0
+ret rcfail ulong e
+end
+rcident
+put STOP 0 0
+rcreport
+if ne get STQT 0 1
+r = stflush 1
+end
+stpexact 6
+if ne stwfile 0
+ret 15
+end
+ret 0
+end
+
+fn rcmain to int
+if lt argcnt 9
+ret rcfail 1
+end
+for k ulong 7
+if eq stargb add k 2 k 0
+ret rcfail 1
+end
+end
+ret rcrun
+end

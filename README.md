@@ -1,8 +1,8 @@
-# Spark RSI: Recursive Self-Improvement Engine
+# Spark RSI: patch-candidate generator and judge
 
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](LICENSE)
 
-Spark RSI is a native Rust engine that tries to improve a code repository on its own. It observes the target, asks a model for small improvement proposals, tests each one in a sandbox copy, and hands a human a review branch. It never commits to the target's default branch. The model is any OpenAI-style chat completions endpoint (the local model seat), given with `--model-url` and `--model-id`. Some defaults are specific to the DGX Spark: the model endpoint `http://127.0.0.1:18006/v1`, the model name `atlas-lightning-omni` and the Cortex memory service `http://127.0.0.1:18080` (defaults in `src/main.rs`).
+Spark RSI is a native Rust patch-candidate generator and judge. It observes a target repository, asks a model for small change proposals, tests each one in a sandbox copy, judges the result, and hands a human a review branch. It never commits to the target's default branch and promotes nothing on its own. "RSI" (recursive self-improvement) is the project's research goal, not a demonstrated result: the two recorded cycles qualify the canary mechanism only, not self-improvement (see [evidence/rsi-cut-2026-10-12/REPORT.md](evidence/rsi-cut-2026-10-12/REPORT.md)). The model is any OpenAI-style chat completions endpoint (the local model seat), given with `--model-url` and `--model-id`. Some defaults are specific to the DGX Spark: the model endpoint `http://127.0.0.1:18006/v1`, the model name `atlas-lightning-omni` and the Cortex memory service `http://127.0.0.1:18080` (defaults in `src/main.rs`).
 
 ## Where it fits in AIEN
 
@@ -43,6 +43,12 @@ cargo test --locked -- --test-threads=1
 This builds three programs: `spark-rsi` (the main command line), `spark-rsi-supervisor` (the host supervisor that runs candidate workers) and `spark-rsi-judge` (the separate judge that writes evaluation receipts). Run any of them with `--help` to see its options.
 
 The build jail runs `bwrap` (bubblewrap), which must be installed on the machine that runs the tests. Every jail that runs cargo finds the Rust toolchain the way cargo and rustup do: `CARGO_HOME` and `RUSTUP_HOME` when set (else `$HOME/.cargo` and `$HOME/.rustup`), plus the `PATH` directory holding `cargo`. It binds those directories read-only inside the jail and sets the same variables there, so a host whose toolchain lives outside the home directory (the Spark judge keeps it in `/var/lib/aien-run/cargo` and `/var/lib/aien-run/rustup`) still builds candidates. A directory that is or holds the judge's home is never exposed (`src/isolation/cargo_sandbox.rs`). The balance kernel is native Rust (`src/balance.rs`); it needs no extra toolchain.
+
+### Protocol digest cutover (aien-protocols#59)
+
+Since 2026-10-26 this repository requires the strict framed digest contract of [aien-protocols-mv#59](https://github.com/aien-dev/aien-protocols-mv/pull/59): `EvaluationPlan` digests use the `AIEN_EVALUATION_PLAN_V2` transcript and signed `EvaluationReceipt`s are `protocol_version` 3 with the `AIEN_EVALUATION_RECEIPT_V3` transcript. The protocol signs and verifies no other receipt version and has no fallback to the old unframed digests, so a receipt or plan digest produced before the cutover does not verify and must be produced again by a new evaluation.
+
+The `aien-protocols` sibling must contain that change. Until #59 is merged, check the sibling out at the reviewed candidate `28bc49ec57a89398fcb463cf71c0add7fcd2ef6c` (`git -C aien-protocols checkout 28bc49ec57a89398fcb463cf71c0add7fcd2ef6c`); after the merge, `main` carries it. Against a sibling from before #59, `tests/test_canary_contract_golden.rs` and `tests/safety_envelope_tests.rs` do not compile, because they name the version 3 constant and its refusal error. The protocol_version 1 receipt pins this repository froze on 2026-10-12 are kept unedited, and marked superseded, in [evidence/protocol-receipt-v1-superseded-2026-10-26/](evidence/protocol-receipt-v1-superseded-2026-10-26/).
 
 ### How pull requests are tested
 
@@ -119,3 +125,15 @@ The saved engine settings (`mode`, `api_base_url`, `model_id`) are shown by `spa
 Licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). See [LICENSE](LICENSE). Project values live in the nonbinding [COVENANT.md](COVENANT.md), which grants and restricts no legal rights.
 
 All downstream distributions, derivative works and commercial deployments are governed only by the terms of [LICENSE](LICENSE). [CONSTITUTION.md](CONSTITUTION.md) is the internal architecture charter and development doctrine for upstream engineering.
+
+## Human-Directed Agentic Engineering
+
+Development follows Human-Directed Agentic Engineering (HDAE): humans define goals,
+architecture, constraints, acceptance criteria, and stopping points; agents implement,
+execute checks, diagnose failures, and revise within those boundaries. Human review
+retains responsibility for claims, acceptance, and release decisions. This describes
+how the project is developed, not a change to the engine's runtime proposal loop.
+
+For the documented method and a systems-software case study, see Gregory M. Kurtzer,
+[*Ginux: Building an Independent Kernel That Runs Linux Userspace through
+Human-Directed Agentic Engineering* (2026)](https://doi.org/10.5281/zenodo.23682548).

@@ -1,0 +1,1503 @@
+note SPDX-License-Identifier: Apache-2.0
+note gen.om: the REUSE-1 workload generator of the evaluator (docs/reuse/REUSE-1.md v1.0 section 7,
+note /tmp/reuse/EVAL-FORMATS.md layout, integrator clarifications K2, K6, K8).
+note Units before it: sha256, ref. Prefix gn / GN. Holds fn main.
+note
+note   gen SPLIT OUTDIR [SEEDHEX]
+note SPLIT: TRAIN (id 1), CALIB (2), DEV (3), FINAL (4), TRAINP (5). SEEDHEX (64 hex characters, the
+note 32-byte FINAL seed) is required for FINAL and refused otherwise; the FINAL generator seed is its
+note bytes 8..15 read little endian. Public seeds: TRAIN 1001, TRAINP 1002, CALIB 1003, DEV 1004.
+note Writes OUTDIR/index, OUTDIR/sessions, OUTDIR/gNN.req, OUTDIR/gNN.exp (OUTDIR is created when
+note missing), prints one summary line. Exit 0 ok, 2 usage, 3 file error, 4 generation failure
+note (a reference status other than 0, or an impossible draw such as no MIN/MAX shape for type A).
+note
+note Randomness: splitmix64 only. Each purpose has its own stream, seeded with
+note sub(seed, tag) = mix(seed + tag * 0x9E3779B97F4A7C15) (mix = the splitmix64 finalizer):
+note tag 1 shape pool, 2 TRAIN list (machines, session programs, n), 3 composition (programs and the
+note dealing permutation of FINAL, DEV and CALIB), 4 data (states and changes, in request order).
+note A draw below m is the next output mod m (bias below m / 2^64, at most 2^-51 here).
+note
+note Splits (contract 7; K8 a..h):
+note - shape pool: 24 distinct AGG shapes (wl 8 or 16, f 1..6, k 1..6, ops 1..8) drawn from the
+note   TRAIN seed; TRAINP's 24 are drawn from 1002 and exclude TRAIN's. Pool rank r has weight
+note   L / (r + 1), L = lcm(1..24) = 5354228880, so the weights are exactly 1 / (rank + 1).
+note - TRAIN / TRAINP: 240 sessions in generation order, session s is FSM iff s mod 6 = 5; 10 machines
+note   (0..4 general, 5..9 permutation machines), FSM session number f uses machine f mod 10; AGG
+note   session number j reuses a uniformly chosen earlier AGG program exactly iff j mod 4 = 3, else a
+note   pool shape by weight with new constants; n uniform in {64, 512, 4096}; BEGIN + 8 x (SET, QUERY).
+note - FINAL / DEV: 2 families x 8 types x 3 n x 4 = 192 sessions, dealt into 24 groups of 8 by a
+note   seeded permutation. AGG types Z..P: 1 recall (a TRAIN AGG program), 2 transfer (a TRAIN pool
+note   shape by weight, new constants, not equal to any TRAIN program), 1 novel (a shape outside both
+note   pools); C: 4 novel; type A only uses f MIN or MAX (fails when TRAIN has none). FSM: 2 recall
+note   (TRAIN machines), 2 new; type C 4 new; type A permutation machines (recall from machines 5..9).
+note   Bodies: Z 32 QUERY; S and C 64 (SET, QUERY); D 8 (BATCH of 1024 SET, QUERY); R 64 (SWAP,
+note   QUERY); I 64 (DEL, INS alternating from DEL, QUERY); A AGG 64 (DEL of the first index whose
+note   mapped value is the current fold result, INS of a random value at a random index, QUERY);
+note   A FSM 64 (SET at index 0 to a symbol whose transition from s0 differs from the current one,
+note   QUERY); P 16 QUERY with a PROGRAM before QUERY 4, 8, 12, 16 (AGG same shape new constants,
+note   FSM same S and A new s0, lambda and rules).
+note - CALIB: 2 families x 3 n x 4 change classes x 4 = 96 sessions, dealt into 12 groups of 8; each
+note   BEGIN + 16 x (change, QUERY), change = none (type Z), one SET (S), BATCH of 2..64 SET (D) or
+note   BATCH of 1024 SET (D); AGG programs = pool shapes by weight with new constants, FSM general.
+note Every expected response is ref.om's (rfreq); any status other than 0 fails the run (exit 4).
+note Permutation machines: S 4..8, A 4..16, the alphabet cut into 2 or 3 intervals; interval 0 is a
+note rotation by 1..S-1, the others random permutations; one rule (s, lo, hi, pi(s)) per moved
+note state, so every symbol's transition is a permutation of the states; s0 must have two
+note different successors (redrawn otherwise), so a SET at index 0 can always change q_1.
+
+global GNRS ulong 4
+global GNTP ulong 24
+global GNPP ulong 24
+global GNLM ulong 640
+global GNLP ulong 15360
+global GNLF ulong 240
+global GNLN ulong 240
+global GNLA ulong 240
+global GNPG ulong 64
+global GNSP ulong 15360
+global GNSM ulong 1920
+global GNSO ulong 240
+global GNSS ulong 3840
+global GNOB uchar 16777216
+global GNEB uchar 4194304
+global GNWB uchar 65536
+global GNPA uchar 4096
+global GNAR uchar 4096
+global GNCT ulong 32
+global GNGR ulong 100
+global GNFD long 4
+text gntsess "/sessions"
+text gntidx "/index"
+text gnemm "gen: type A needs a MIN or MAX program and the TRAIN pool or list has none\n"
+text gneus "usage: gen TRAIN|TRAINP|CALIB|DEV|FINAL OUTDIR [SEEDHEX (FINAL only)]\n"
+text gneio "gen: file error\n"
+text gnegen "gen: generation failure\n"
+
+note GNCT: 0 exit code, 1 split id, 2 session count, 3 group count, 4 OUTDIR length, 5 GNOB fill,
+note 6 GNEB fill, 7 requests, 8 QUERYs, 9 request index in group, 10 session requests,
+note 11 session QUERYs, 12 cold pending, 13 session ordinal, 14 seed, 15 GNWB fill,
+note 16 TRAIN pool MIN/MAX shapes
+
+note ---- splitmix64 ----
+
+fn gnmix z ulong to ulong
+a = mul xor z shr z 30 13787848793156543929
+b = mul xor a shr a 27 10723151780598845931
+ret xor b shr b 31
+end
+
+fn gnsub seed ulong tag ulong to ulong
+ret gnmix add seed mul tag 11400714819323198485
+end
+
+fn gnrnd k ulong to ulong
+s = add get GNRS k 11400714819323198485
+put GNRS k s
+ret gnmix s
+end
+
+fn gnbelow k ulong m ulong to ulong
+ret rem gnrnd k m
+end
+
+fn gnfail code ulong to void
+if eq get GNCT 0 0
+put GNCT 0 code
+end
+end
+
+note ---- shapes and programs ----
+
+fn gnshape k ulong fsel ulong to ulong
+wl = ulong 8
+if eq gnbelow k 2 1
+wl = 16
+end
+f = ulong 0
+if eq fsel 1
+f = add 3 gnbelow k 2
+else
+f = add 1 gnbelow k 6
+end
+kk = add 1 gnbelow k 6
+s = add add wl mul 256 f mul 4096 kk
+m = ulong 65536
+for j ulong kk
+s = add s mul m add 1 gnbelow k 8
+m = mul m 16
+end
+ret s
+end
+
+fn gnfok s ulong fsel ulong to bool
+if eq fsel 0
+ret true
+end
+f = and shr s 8 15
+ret or eq f 3 eq f 4
+end
+
+fn gnclrpg fam ulong to void
+for i ulong 64
+put GNPG i 0
+end
+put GNPG 0 3544411312749556050
+put GNPG 1 fam
+end
+
+fn gnconst k ulong wl ulong op ulong to ulong
+if ge op 7
+ret gnbelow k wl
+end
+ret gnbelow k shl ulong 1 wl
+end
+
+note an AGG program of shape s with random constants into GNPG
+fn gnprog s ulong k ulong to void
+gnclrpg 1
+wl = and s 255
+put GNPG 2 wl
+put GNPG 3 and shr s 8 15
+kk = and shr s 12 15
+put GNPG 4 kk
+for j ulong kk
+op = and shr s add 16 mul j 4 15
+c = gnconst k wl op
+put GNPG add 5 mul j 2 op
+put GNPG add 6 mul j 2 c
+end
+end
+
+fn gnrule k ulong s ulong a ulong to ulong
+rs = gnbelow k s
+x = gnbelow k a
+y = gnbelow k a
+t = gnbelow k s
+if gt x y
+z = x
+x = y
+y = z
+end
+ret add add rs shl x 8 add shl y 16 shl t 24
+end
+
+note a general FSM into GNPG; sa, aa = 0 draw S, A, otherwise keep them
+fn gnmach k ulong sa ulong aa ulong to void
+gnclrpg 2
+s = sa
+if eq s 0
+s = add 2 gnbelow k 15
+end
+a = aa
+if eq a 0
+a = add 2 gnbelow k 15
+end
+put GNPG 2 s
+put GNPG 3 a
+put GNPG 4 gnbelow k s
+r = add 1 gnbelow k 24
+put GNPG 5 r
+for i ulong s
+put GNPG add 6 i gnbelow k 256
+end
+for j ulong r
+put GNPG add 22 j gnrule k s a
+end
+end
+
+fn gnaddr r ulong st ulong lo ulong hi ulong t ulong to ulong
+w = add add st shl lo 8 add shl hi 16 shl t 24
+put GNPG add 22 r w
+ret add r 1
+end
+
+note symbols lo..hi: a random permutation of the S states, one rule per moved state
+fn gnpint k ulong s ulong lo ulong hi ulong r ulong to ulong
+p = new ulong 16 0
+for i ulong s
+put p i i
+end
+j = s
+while gt j 1 bound 16
+u = gnbelow k j
+j = sub j 1
+t = get p j
+put p j get p u
+put p u t
+end
+rr = r
+for st ulong s
+if ne get p st st
+rr = gnaddr rr st lo hi get p st
+end
+end
+ret rr
+end
+
+note FSM transition of the machine in GNPG (the rule order of contract 1.2)
+fn gndel s ulong a ulong to ulong
+r = get GNPG 5
+for i ulong r
+w = get GNPG add 22 i
+if eq and w 255 s
+lo = and shr w 8 255
+hi = and shr w 16 255
+if and le lo a le a hi
+ret shr w 24
+end
+end
+end
+ret s
+end
+
+fn gnpermok to bool
+s0 = get GNPG 4
+a = get GNPG 3
+i0 = gndel s0 0
+for x ulong a
+if ne gndel s0 x i0
+ret true
+end
+end
+ret false
+end
+
+fn gnperm1 k ulong to void
+gnclrpg 2
+s = add 4 gnbelow k 5
+a = add 4 gnbelow k 13
+put GNPG 2 s
+put GNPG 3 a
+put GNPG 4 gnbelow k s
+for i ulong s
+put GNPG add 6 i gnbelow k 256
+end
+b1 = add 1 gnbelow k sub a 1
+b2 = a
+if eq gnbelow k 2 1
+c = add 1 gnbelow k sub a 1
+while eq c b1 bound 999
+c = add 1 gnbelow k sub a 1
+end
+if lt c b1
+b2 = b1
+b1 = c
+else
+b2 = c
+end
+end
+rot = add 1 gnbelow k sub s 1
+r = ulong 0
+for st ulong s
+r = gnaddr r st 0 sub b1 1 rem add st rot s
+end
+r = gnpint k s b1 sub b2 1 r
+if lt b2 a
+r = gnpint k s b2 sub a 1 r
+end
+put GNPG 5 r
+end
+
+note a permutation machine into GNPG: 0 ok, 1 none found
+fn gnperm k ulong to ulong
+for t ulong 64
+gnperm1 k
+if gnpermok
+ret 0
+end
+end
+ret 1
+end
+
+note ---- pools and the TRAIN / TRAINP list ----
+
+fn gnpget which ulong r ulong to ulong
+if eq which 1
+ret get GNTP r
+end
+ret get GNPP r
+end
+
+fn gnphas which ulong s ulong cnt ulong to bool
+for i ulong cnt
+if eq gnpget which i s
+ret true
+end
+end
+ret false
+end
+
+fn gnpool which ulong to void
+seed = ulong 1001
+if eq which 5
+seed = 1002
+end
+put GNRS 0 gnsub seed 1
+i = ulong 0
+while lt i 24 bound 99999
+s = gnshape 0 0
+ok = not gnphas which s i
+if eq which 5
+if gnphas 1 s 24
+ok = false
+end
+end
+if ok
+if eq which 1
+put GNTP i s
+else
+put GNPP i s
+end
+i = add i 1
+end
+end
+end
+
+note a pool shape by weight 1 / (rank + 1), restricted by fsel; 0 when none qualifies
+fn gnpick which ulong fsel ulong k ulong to ulong
+tot = ulong 0
+for r ulong 24
+if gnfok gnpget which r fsel
+tot = add tot div 5354228880 add r 1
+end
+end
+if eq tot 0
+ret 0
+end
+u = gnbelow k tot
+for q ulong 24
+s = gnpget which q
+if gnfok s fsel
+w = div 5354228880 add q 1
+if lt u w
+ret s
+end
+u = sub u w
+end
+end
+ret 0
+end
+
+fn gncplm i ulong to void
+for j ulong 64
+put GNLM add mul i 64 j get GNPG j
+end
+end
+
+fn gncplp s ulong to void
+for j ulong 64
+put GNLP add mul s 64 j get GNPG j
+end
+end
+
+fn gnlpto d ulong s ulong to void
+for j ulong 64
+put GNLP add mul d 64 j get GNLP add mul s 64 j
+end
+end
+
+fn gnlmto d ulong i ulong to void
+for j ulong 64
+put GNLP add mul d 64 j get GNLM add mul i 64 j
+end
+end
+
+fn gnnsize k ulong to ulong
+u = gnbelow k 3
+if eq u 0
+ret 64
+end
+if eq u 1
+ret 512
+end
+ret 4096
+end
+
+note the 240 sessions of TRAIN (which 1) or TRAINP (5) into GNLP, GNLF, GNLN; machines into GNLM
+fn gnlist which ulong to void
+seed = ulong 1001
+if eq which 5
+seed = 1002
+end
+put GNRS 0 gnsub seed 2
+for i ulong 10
+if lt i 5
+gnmach 0 0 0
+else
+if ne gnperm 0 0
+gnfail 4
+ret
+end
+end
+gncplm i
+end
+na = ulong 0
+for s ulong 240
+put GNLN s gnnsize 0
+if eq rem s 6 5
+put GNLF s 2
+gnlmto s rem div s 6 10
+else
+put GNLF s 1
+if eq rem na 4 3
+e = gnbelow 0 na
+gnlpto s get GNLA e
+else
+gnprog gnpick which 0 0 0
+gncplp s
+end
+put GNLA na s
+na = add na 1
+end
+end
+end
+
+note ---- FINAL / DEV composition ----
+
+fn gnlpeq s ulong to bool
+for j ulong 64
+if ne get GNPG j get GNLP add mul s 64 j
+ret false
+end
+end
+ret true
+end
+
+fn gnlmeq i ulong to bool
+for j ulong 64
+if ne get GNPG j get GNLM add mul i 64 j
+ret false
+end
+end
+ret true
+end
+
+fn gnintr to bool
+for s ulong 240
+if eq get GNLF s 1
+if gnlpeq s
+ret true
+end
+end
+end
+ret false
+end
+
+fn gninmach to bool
+for i ulong 10
+if gnlmeq i
+ret true
+end
+end
+ret false
+end
+
+note recall: a uniformly chosen TRAIN AGG session program (f filtered) into GNPG; 1 if none
+fn gnrecall fsel ulong to ulong
+cnt = ulong 0
+for s ulong 240
+if eq get GNLF s 1
+if gnfokf get GNLP add mul s 64 3 fsel
+cnt = add cnt 1
+end
+end
+end
+if eq cnt 0
+ret 1
+end
+u = gnbelow 0 cnt
+for t ulong 240
+if eq get GNLF t 1
+if gnfokf get GNLP add mul t 64 3 fsel
+if eq u 0
+for j ulong 64
+put GNPG j get GNLP add mul t 64 j
+end
+ret 0
+end
+u = sub u 1
+end
+end
+end
+ret 1
+end
+
+note note: gnfok reads f from bits 8..11 of a shape id; for a PROG word 3 (f itself) use gnfokf
+fn gnfokf f ulong fsel ulong to bool
+if eq fsel 0
+ret true
+end
+ret or eq f 3 eq f 4
+end
+
+note shape id of the AGG program in GNLP row s (contract 1.1)
+fn gnrowsh s ulong to ulong
+b = mul s 64
+k = get GNLP add b 4
+v = add get GNLP add b 2 mul 256 get GNLP add b 3
+v = add v mul 4096 k
+m = ulong 65536
+for j ulong k
+v = add v mul m get GNLP add b add 5 mul j 2
+m = mul m 16
+end
+ret v
+end
+
+note a shape is seen when some TRAIN AGG session program has it
+fn gnseen sh ulong to bool
+for s ulong 240
+if eq get GNLF s 1
+if eq gnrowsh s sh
+ret true
+end
+end
+end
+ret false
+end
+
+note transfer: a TRAIN pool shape by weight that TRAIN sessions used, new constants that equal
+note no TRAIN program; 1 when none is found
+fn gntransf fsel ulong to ulong
+for a ulong 64
+s = gnpick 1 fsel 0
+if eq s 0
+ret 1
+end
+if gnseen s
+for b ulong 64
+gnprog s 0
+if not gnintr
+ret 0
+end
+end
+end
+end
+ret 1
+end
+
+fn gnnovel fsel ulong to ulong
+for a ulong 99999
+s = gnshape 0 fsel
+if not or gnphas 1 s 24 gnphas 5 s 24
+gnprog s 0
+ret 0
+end
+end
+ret 1
+end
+
+fn gnfsmnew adv ulong to ulong
+for a ulong 999
+if eq adv 1
+if ne gnperm 0 0
+ret 1
+end
+else
+gnmach 0 0 0
+end
+if not gninmach
+ret 0
+end
+end
+ret 1
+end
+
+fn gnfsmold adv ulong to void
+i = gnbelow 0 10
+if eq adv 1
+i = add 5 gnbelow 0 5
+end
+for j ulong 64
+put GNPG j get GNLM add mul i 64 j
+end
+end
+
+fn gnsetsp c ulong fam ulong typ ulong nov ulong n ulong body ulong to void
+for j ulong 64
+put GNSP add mul c 64 j get GNPG j
+end
+b = mul c 8
+put GNSM b fam
+put GNSM add b 1 typ
+put GNSM add b 2 nov
+put GNSM add b 3 n
+put GNSM add b 4 body
+end
+
+fn gnnof i ulong to ulong
+if eq i 0
+ret 64
+end
+if eq i 1
+ret 512
+end
+ret 4096
+end
+
+note one FINAL / DEV session of the composition: 0 ok, else failure
+fn gncsess c ulong fam ulong typ ulong n ulong j ulong to ulong
+adv = ulong 0
+if eq typ 6
+adv = 1
+end
+nov = ulong 0
+st = ulong 0
+if eq fam 1
+nov = 2
+if eq j 0
+nov = 1
+end
+if or eq j 3 eq typ 8
+nov = 3
+end
+if eq nov 1
+st = gnrecall adv
+end
+if eq nov 2
+st = gntransf adv
+end
+if eq nov 3
+st = gnnovel adv
+end
+else
+nov = 4
+if or ge j 2 eq typ 8
+nov = 5
+end
+if eq nov 4
+gnfsmold adv
+else
+st = gnfsmnew adv
+end
+end
+gnsetsp c fam typ nov n typ
+ret st
+end
+
+fn gndeal cnt ulong to void
+for i ulong cnt
+put GNSO i i
+end
+j = cnt
+while gt j 1 bound 240
+u = gnbelow 0 j
+j = sub j 1
+t = get GNSO j
+put GNSO j get GNSO u
+put GNSO u t
+end
+end
+
+fn gncomp to void
+put GNRS 0 gnsub get GNCT 14 3
+for c ulong 192
+fam = add 1 div c 96
+typ = add 1 rem div c 12 8
+n = gnnof rem div c 4 3
+st = gncsess c fam typ n rem c 4
+if ne st 0
+x = write 2 gnemm 0 len gnemm
+gnfail 4
+ret
+end
+end
+gndeal 192
+put GNCT 2 192
+end
+
+fn gncalib to void
+put GNRS 0 gnsub get GNCT 14 3
+for c ulong 96
+fam = add 1 div c 48
+n = gnnof rem div c 16 3
+cc = rem div c 4 4
+if eq fam 1
+gnprog gnpick 1 0 0 0
+else
+gnmach 0 0 0
+end
+typ = ulong 3
+if eq cc 0
+typ = 1
+end
+if eq cc 1
+typ = 2
+end
+gnsetsp c fam typ 0 n add 10 cc
+end
+gndeal 96
+put GNCT 2 96
+end
+
+fn gnfromls to void
+for s ulong 240
+for j ulong 64
+put GNPG j get GNLP add mul s 64 j
+end
+gnsetsp s get GNLF s 2 0 get GNLN s 9
+put GNSO s s
+end
+put GNCT 2 240
+end
+
+note ---- output buffers and files ----
+
+fn gnpb x ulong to void
+o = get GNCT 5
+v = x
+for i ulong 8
+put GNOB add o i uchar and v 255
+v = shr v 8
+end
+put GNCT 5 add o 8
+end
+
+fn gnpe x ulong to void
+o = get GNCT 6
+v = x
+for i ulong 8
+put GNEB add o i uchar and v 255
+v = shr v 8
+end
+put GNCT 6 add o 8
+end
+
+fn gnpw x ulong to void
+o = get GNCT 15
+v = x
+for i ulong 8
+put GNWB add o i uchar and v 255
+v = shr v 8
+end
+put GNCT 15 add o 8
+end
+
+fn gnwrob n ulong to void
+fd = int get GNFD 0
+off = ulong 0
+while lt off n bound 99999
+r = write fd GNOB off sub n off
+if le r 0
+gnfail 3
+ret
+end
+off = add off ulong r
+end
+end
+
+fn gnwreb n ulong to void
+fd = int get GNFD 1
+off = ulong 0
+while lt off n bound 99999
+r = write fd GNEB off sub n off
+if le r 0
+gnfail 3
+ret
+end
+off = add off ulong r
+end
+end
+
+fn gnwrwb n ulong to void
+fd = int get GNFD 2
+off = ulong 0
+while lt off n bound 99999
+r = write fd GNWB off sub n off
+if le r 0
+gnfail 3
+ret
+end
+off = add off ulong r
+end
+end
+
+note request bytes: absorbed into the holdout digest (slot 1) in file order, then written
+fn gnflreq to void
+n = get GNCT 5
+off = ulong 0
+while lt off n bound 999
+k = sub n off
+if gt k 65536
+k = 65536
+end
+for i ulong k
+put RFHB i get GNOB add off i
+end
+rfhabs 1 k
+off = add off k
+end
+gnwrob n
+put GNCT 5 0
+end
+
+fn gnflexp to void
+gnwreb get GNCT 6
+put GNCT 6 0
+end
+
+fn gngpath g ulong ext ulong to ulong
+l = get GNCT 4
+put GNPA l 47
+put GNPA add l 1 103
+put GNPA add l 2 uchar add 48 div g 10
+put GNPA add l 3 uchar add 48 rem g 10
+put GNPA add l 4 46
+if eq ext 0
+put GNPA add l 5 114
+put GNPA add l 6 101
+put GNPA add l 7 113
+else
+put GNPA add l 5 101
+put GNPA add l 6 120
+put GNPA add l 7 112
+end
+ret add l 8
+end
+
+fn gnopen slot ulong pl ulong to void
+fd = fopen GNPA 0 pl 577 420
+if lt fd 0
+gnfail 3
+fd = -1
+end
+put GNFD slot fd
+end
+
+fn gnclose slot ulong to void
+fd = int get GNFD slot
+if ge fd 0
+r = fclose fd
+if ne r 0
+gnfail 3
+end
+end
+put GNFD slot -1
+end
+
+note ---- requests ----
+
+note send RFRQ: append the frame, run the reference, append the 8-word expected record
+fn gnemit to void
+op = get RFRQ 0
+w = add get RFRQ 1 2
+for i ulong w
+gnpb get RFRQ i
+end
+st = rfreq
+if ne st 0
+gnfail 4
+end
+cold = ulong 0
+if eq op 2
+if eq get GNCT 12 1
+cold = 1
+put GNCT 12 0
+end
+put GNCT 8 add get GNCT 8 1
+put GNCT 11 add get GNCT 11 1
+end
+if or eq op 1 eq op 8
+put GNCT 12 1
+end
+gnpe ulong st
+gnpe get RFRS 1
+gnpe get RFRS 2
+gnpe get RFRS 3
+gnpe op
+gnpe get GNCT 13
+gnpe cold
+gnpe 0
+put GNCT 7 add get GNCT 7 1
+put GNCT 9 add get GNCT 9 1
+put GNCT 10 add get GNCT 10 1
+if gt get GNCT 5 16646144
+gnflreq
+end
+if gt get GNCT 6 4194240
+gnflexp
+end
+end
+
+fn gnq to void
+put RFRQ 0 2
+put RFRQ 1 0
+gnemit
+end
+
+fn gnc2 op ulong a ulong b ulong to void
+put RFRQ 0 op
+put RFRQ 1 2
+put RFRQ 2 a
+put RFRQ 3 b
+gnemit
+end
+
+fn gnc1 op ulong a ulong to void
+put RFRQ 0 op
+put RFRQ 1 1
+put RFRQ 2 a
+gnemit
+end
+
+fn gnset to void
+n = get RFN 0
+d = rfdom
+i = gnbelow 1 n
+gnc2 3 i gnbelow 1 d
+end
+
+fn gnbset m ulong to void
+put RFRQ 0 7
+put RFRQ 1 add 1 mul 3 m
+put RFRQ 2 m
+n = get RFN 0
+d = rfdom
+for i ulong m
+b = add 3 mul i 3
+put RFRQ b 3
+put RFRQ add b 1 gnbelow 1 n
+put RFRQ add b 2 gnbelow 1 d
+end
+gnemit
+end
+
+note BEGIN with the session's program (GNSP row c) and n random values of its domain
+fn gnbegin c ulong n ulong to void
+put RFRQ 0 1
+put RFRQ 1 add n 65
+for j ulong 64
+put RFRQ add j 2 get GNSP add mul c 64 j
+end
+d = get GNSP add mul c 64 3
+if eq get GNSP add mul c 64 1 1
+d = shl ulong 1 get GNSP add mul c 64 2
+end
+put RFRQ 66 n
+for i ulong n
+put RFRQ add 67 i gnbelow 1 d
+end
+gnemit
+end
+
+fn gnbs to void
+for i ulong 64
+gnset
+gnq
+end
+end
+
+fn gnbr to void
+for i ulong 64
+n = get RFN 0
+a = gnbelow 1 n
+gnc2 6 a gnbelow 1 n
+gnq
+end
+end
+
+fn gnbi to void
+for i ulong 64
+n = get RFN 0
+if eq rem i 2 0
+gnc1 5 gnbelow 1 n
+else
+a = gnbelow 1 add n 1
+gnc2 4 a gnbelow 1 rfdom
+end
+gnq
+end
+end
+
+fn gnextr to ulong
+rffull
+ex = get RFR 0
+n = get RFN 0
+for i ulong n
+if eq rflane get RFX i ex
+ret i
+end
+end
+gnfail 4
+ret 0
+end
+
+fn gnbaagg to void
+for it ulong 64
+gnc1 5 gnextr
+n = get RFN 0
+a = gnbelow 1 add n 1
+gnc2 4 a gnbelow 1 rfdom
+gnq
+end
+end
+
+fn gnbafsm to void
+for it ulong 64
+s0 = get RFP 4
+a = get RFP 3
+cur = rfdelta s0 get RFX 0
+cnt = ulong 0
+for x ulong a
+if ne rfdelta s0 x cur
+cnt = add cnt 1
+end
+end
+if eq cnt 0
+gnfail 4
+ret
+end
+u = gnbelow 1 cnt
+v = ulong 0
+for y ulong a
+if ne rfdelta s0 y cur
+if eq u 0
+v = y
+end
+u = sub u 1
+end
+end
+gnc2 3 0 v
+gnq
+end
+end
+
+fn gnrfpeq to bool
+for j ulong 64
+if ne get GNPG j get RFP j
+ret false
+end
+end
+ret true
+end
+
+note a PROGRAM for rule drift into RFRQ: same shape new constants, or same S and A new rules
+fn gnnewp to void
+for t ulong 64
+if eq get RFP 1 1
+gnprog rfshape 1
+else
+gnmach 1 get RFP 2 get RFP 3
+end
+if not gnrfpeq
+put RFRQ 0 8
+put RFRQ 1 64
+for j ulong 64
+put RFRQ add j 2 get GNPG j
+end
+gnemit
+ret
+end
+end
+gnfail 4
+end
+
+fn gnbp to void
+for i ulong 16
+if eq rem i 4 3
+gnnewp
+end
+gnq
+end
+end
+
+fn gnbody body ulong fam ulong to void
+if eq body 1
+for i ulong 32
+gnq
+end
+ret
+end
+if or eq body 2 eq body 8
+gnbs
+ret
+end
+if eq body 3
+for j ulong 8
+gnbset 1024
+gnq
+end
+ret
+end
+if eq body 4
+gnbr
+ret
+end
+if eq body 5
+gnbi
+ret
+end
+if eq body 6
+if eq fam 1
+gnbaagg
+else
+gnbafsm
+end
+ret
+end
+if eq body 7
+gnbp
+ret
+end
+if eq body 9
+for t ulong 8
+gnset
+gnq
+end
+ret
+end
+for q ulong 16
+if eq body 11
+gnset
+end
+if eq body 12
+gnbset add 2 gnbelow 1 63
+end
+if eq body 13
+gnbset 1024
+end
+gnq
+end
+end
+
+fn gnsess pos ulong to void
+c = get GNSO pos
+b = mul c 8
+fam = get GNSM b
+n = get GNSM add b 3
+put GNCT 13 pos
+put GNCT 10 0
+put GNCT 11 0
+r = mul pos 16
+put GNSS r pos
+put GNSS add r 14 get GNCT 9
+gnbegin c n
+put GNSS add r 1 div pos 8
+put GNSS add r 2 fam
+put GNSS add r 3 get GNSM add b 1
+put GNSS add r 4 get GNSM add b 2
+nc = ulong 2
+if le n 512
+nc = 1
+end
+if le n 64
+nc = 0
+end
+put GNSS add r 5 nc
+put GNSS add r 6 n
+put GNSS add r 7 rfshape
+rfpdig
+for j ulong 4
+put GNSS add r add 8 j get RFPD j
+end
+gnbody get GNSM add b 4 fam
+put GNSS add r 12 get GNCT 10
+put GNSS add r 13 get GNCT 11
+put GNSS add r 15 0
+end
+
+fn gngroup g ulong to void
+put GNCT 9 0
+gnopen 0 gngpath g 0
+gnopen 1 gngpath g 1
+if ne get GNCT 0 0
+ret
+end
+rfreset
+for i ulong 8
+gnsess add mul g 8 i
+end
+gnflreq
+gnflexp
+gnclose 0
+gnclose 1
+put GNGR g get GNCT 9
+end
+
+fn gnsmall tpath ulong n ulong to void
+l = get GNCT 4
+if eq tpath 0
+for i ulong len gntsess
+put GNPA add l i get gntsess i
+end
+gnopen 2 add l len gntsess
+else
+for j ulong len gntidx
+put GNPA add l j get gntidx j
+end
+gnopen 2 add l len gntidx
+end
+if eq get GNCT 0 0
+gnwrwb n
+end
+gnclose 2
+end
+
+fn gnwrite to void
+put GNRS 1 gnsub get GNCT 14 4
+rfhini 1
+cnt = get GNCT 2
+g = div cnt 8
+put GNCT 3 g
+for i ulong g
+gngroup i
+if ne get GNCT 0 0
+ret
+end
+end
+rfhfin 1
+put GNCT 15 0
+for w ulong mul cnt 16
+gnpw get GNSS w
+end
+gnsmall 0 get GNCT 15
+put GNCT 15 0
+gnpw 3544386032354079058
+gnpw 1
+gnpw get GNCT 1
+gnpw g
+gnpw cnt
+gnpw get GNCT 7
+gnpw get GNCT 8
+for d ulong 4
+gnpw get RFHD d
+end
+for z ulong 5
+gnpw 0
+end
+for k ulong g
+gnpw get GNGR k
+end
+gnsmall 1 get GNCT 15
+end
+
+note ---- arguments and the summary line ----
+
+fn gnhexv c ulong to ulong
+if and ge c 48 le c 57
+ret sub c 48
+end
+if and ge c 97 le c 102
+ret sub c 87
+end
+if and ge c 65 le c 70
+ret sub c 55
+end
+ret 16
+end
+
+note FINAL generator seed: bytes 8..15 (LE) of the 64-hex-character seed in GNAR; 16 = bad hex
+fn gnseedhex n ulong to ulong
+if ne n 64
+put GNCT 20 1
+ret 0
+end
+for i ulong 64
+if gt gnhexv ulong get GNAR i 15
+put GNCT 20 1
+end
+end
+v = ulong 0
+for b ulong 8
+hi = gnhexv ulong get GNAR add 16 mul b 2
+lo = gnhexv ulong get GNAR add 17 mul b 2
+v = or v shl add mul hi 16 lo mul b 8
+end
+ret v
+end
+
+fn gnsplit n ulong to ulong
+if or eq n 0 gt n 8
+ret 0
+end
+v = ulong 0
+for i ulong n
+v = or v shl ulong get GNAR i mul i 8
+end
+if eq v 336236466772
+ret 1
+end
+if eq v 284697575747
+ret 2
+end
+if eq v 5653828
+ret 3
+end
+if eq v 327513164102
+ret 4
+end
+if eq v 88297166688852
+ret 5
+end
+ret 0
+end
+
+fn gntxt t ulong to void
+o = get GNCT 15
+put GNWB o uchar t
+put GNCT 15 add o 1
+end
+
+fn gntnum v ulong to void
+d = new uchar 24 0
+k = ulong 0
+x = v
+while true bound 21
+put d k uchar add 48 rem x 10
+k = add k 1
+x = div x 10
+if eq x 0
+break
+end
+end
+while gt k 0 bound 21
+k = sub k 1
+gntxt ulong get d k
+end
+end
+
+fn gntkey a ulong b ulong c ulong to void
+if gt get GNCT 15 0
+gntxt 32
+end
+gntxt a
+gntxt b
+gntxt c
+gntxt 61
+end
+
+fn gnthex w ulong to void
+for i ulong 16
+nib = and shr w mul sub 15 i 4 15
+if lt nib 10
+gntxt add 48 nib
+else
+gntxt add 87 nib
+end
+end
+end
+
+note "spl=ID grp=G ses=S req=R qry=Q mnx=M dgs=HEX": split id, groups, sessions, requests, QUERYs,
+note MIN/MAX shapes in the TRAIN pool, holdout digest (SHA-256 of the .req files in group order)
+fn gnsummary to void
+put GNCT 15 0
+gntkey 115 112 108
+gntnum get GNCT 1
+gntkey 103 114 112
+gntnum get GNCT 3
+gntkey 115 101 115
+gntnum get GNCT 2
+gntkey 114 101 113
+gntnum get GNCT 7
+gntkey 113 114 121
+gntnum get GNCT 8
+gntkey 109 110 120
+gntnum get GNCT 16
+gntkey 100 103 115
+for i ulong 4
+gnthex get RFHD i
+end
+gntxt 10
+x = write 1 GNWB 0 get GNCT 15
+end
+
+fn gnminmax to ulong
+m = ulong 0
+for r ulong 24
+if gnfok get GNTP r 1
+m = add m 1
+end
+end
+ret m
+end
+
+fn main to int
+ac = argcnt
+if or lt ac 3 gt ac 4
+x = write 2 gneus 0 len gneus
+ret 2
+end
+l1 = argread 1 GNAR 0 4096
+if lt l1 0
+ret 2
+end
+sid = gnsplit ulong l1
+if eq sid 0
+x = write 2 gneus 0 len gneus
+ret 2
+end
+put GNCT 1 sid
+seed = ulong 1001
+if eq sid 2
+seed = 1003
+end
+if eq sid 3
+seed = 1004
+end
+if eq sid 5
+seed = 1002
+end
+if eq sid 4
+if ne ac 4
+x = write 2 gneus 0 len gneus
+ret 2
+end
+l3 = argread 3 GNAR 0 4096
+if lt l3 0
+ret 2
+end
+seed = gnseedhex ulong l3
+if ne get GNCT 20 0
+x = write 2 gneus 0 len gneus
+ret 2
+end
+else
+if ne ac 3
+x = write 2 gneus 0 len gneus
+ret 2
+end
+end
+put GNCT 14 seed
+l2 = argread 2 GNPA 0 3900
+if le l2 0
+ret 2
+end
+put GNCT 4 ulong l2
+md = makedir GNPA 0 ulong l2 493
+if and lt md 0 ne md -17
+x = write 2 gneio 0 len gneio
+ret 3
+end
+gnpool 1
+gnpool 5
+put GNCT 16 gnminmax
+if eq sid 1
+gnlist 1
+gnfromls
+end
+if eq sid 5
+gnlist 5
+gnfromls
+end
+if eq sid 2
+gncalib
+end
+if or eq sid 3 eq sid 4
+gnlist 1
+gncomp
+end
+if eq get GNCT 0 0
+gnwrite
+end
+e = get GNCT 0
+if eq e 3
+x = write 2 gneio 0 len gneio
+end
+if eq e 4
+x = write 2 gnegen 0 len gnegen
+end
+if eq e 0
+gnsummary
+end
+ret int e
+end

@@ -64,7 +64,7 @@ Version 1 permits only `exact` nondeterminism: the result bytes must equal the e
 JSON lines over the generation's Unix socket, the existing `IpcConnection` framing.
 
 1. The supervisor binds the generation socket `<rsi_root>/workers/<generation_id>.sock` before
-   it spawns the worker, and passes `--socket <path>` to the declared executable.
+   it spawns the worker, and passes `--socket /ipc/<generation_id>.sock` inside the worker jail.
 2. The worker connects and sends `Ready { generation_id, pid, auth_token, protocol_version: 1 }`.
 3. The supervisor sends `AuthChallenge { nonce }`; the worker answers
    `AuthResponse { response: HMAC-SHA256(secret, "<generation_id>:<nonce>") }`.
@@ -80,11 +80,32 @@ JSON lines over the generation's Unix socket, the existing `IpcConnection` frami
    observation per issued request. `worker_latency_us` and every `CanaryReport` are
    diagnostics; they never become observations.
 
-Worker environment: the supervisor launches the worker with a cleared environment plus `PATH`,
-`HOME`, `LANG`, `LC_ALL`, `TMPDIR`, `RUST_BACKTRACE`, every `RSI_CANARY_*` variable of the
-daemon, and `SUPERVISOR_SECRET` set to a fresh secret minted for that run only. The daemon's
-service credentials and the operator's supervisor secret never reach the candidate. The worker
-is not jailed in this cut; that is a stated limitation, not a property.
+Worker containment requires `/usr/bin/bwrap`, `/usr/bin/systemd-run`, a reachable systemd
+user manager, cgroup v2 memory/pids/CPU controllers, and unprivileged user namespaces. Missing
+support refuses the canary. A transient user scope enforces `MemoryMax` from
+`memory_limit_mb` (systemd `M` units), `MemorySwapMax=0`, `TasksMax=256`, and the default
+`SandboxLimits` CPU quota across the entire worker tree, including tmpfs and memfd pages.
+No persistent unit or service configuration is
+installed. Sampled descendant RSS remains an additional early-revert check, not a hard limit.
+
+The worker runs as uid/gid 65534 in a new user namespace, with no capabilities and separate
+mount, PID, IPC, UTS and network namespaces. Nested user namespaces are disabled and asserted
+disabled. It sees only the read-only executable at `/worker`, read-only system runtime
+directories, private `/tmp` and `/scratch`, and its single bound Unix socket. The root mount
+is read-only. The generation, workload expectations, logs, ledger and operator home are not
+mounted. Killing the tracked launcher tears down the namespace worker and descendants through
+bubblewrap's `--die-with-parent` chain.
+
+The launcher and worker environments are cleared. `PATH=/usr/bin:/bin`, `HOME=/tmp` and
+`TMPDIR=/tmp` are fixed jail values. Only locale/diagnostic variables, the `RSI_CANARY_*`
+namespace and explicitly supplied per-run values are restored. `SUPERVISOR_SECRET` is a fresh
+run secret, never the operator's long-lived supervisor secret. Namespace uid isolation is not
+a separate persistent host account, and this host sandbox is not hardware qualification.
+
+The exercised host dependencies for this containment change are bubblewrap 0.9.0 and systemd
+255 (255.4-1ubuntu8.17); the Rust/Cargo compiler is 1.98.1. These are explicit host dependencies,
+not an Omega implementation. Their Omega replacement must supply checked namespace/mount
+construction, cgroup limits and whole-tree teardown before this path can be replaced.
 
 Rejections (no observation is created, the event is logged as a rejection, no rollback):
 a message on an unauthenticated connection, a message naming another generation, an

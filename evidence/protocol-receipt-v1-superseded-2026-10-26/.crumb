@@ -1,0 +1,6 @@
+{
+  "layer": "evidence/protocol-receipt-v1-superseded-2026-10-26",
+  "name": "protocol-receipt-v1-superseded-2026-10-26",
+  "purpose": "Superseded protocol_version 1 signed evaluation receipt pins (frozen 2026-10-12), retained unedited after the aien-protocols#59 framed digest cutover. Additions only.",
+  "schema_version": "1.0.0"
+}

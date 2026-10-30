@@ -1,0 +1,371 @@
+note units: sha256 ref
+note needs: gen
+note gen-det: gen is deterministic: every split twice gives byte-identical files; FINAL depends on
+note seed bytes 8..15 only (K6: a change in byte 0 gives identical files, in byte 8 another
+note holdout digest); DEV and FINAL differ; usage refusals exit 2. argv[1] scratch dir, argv[2] gen.
+note Exit 0 pass; 1 args; 10 + k a gen run failed (k = run number); 40 files differ;
+note 41 a seed byte 8 change kept the digest; 42 DEV equals FINAL; 43..46 a refusal was not 2.
+text tgnull "/dev/null"
+text tgs1 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+text tgs2 "000102030405060708ff0a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+text tgs3 "aa0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+text tgs4 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1"
+global TGB uchar 16777216
+global TGC uchar 16777216
+global TGP uchar 4096
+global TGK uchar 4096
+global TGA uchar 4096
+global TGS uchar 4096
+global TGT ulong 16
+global TGST uchar 4
+global TGIX ulong 4
+global TGIY ulong 4
+
+note TGT: 0 scratch length, 1 gen path length, 2 path length, 3 packet position, 4 record count,
+note 5 directory path length, 6 TGB length, 7 TGC length, 8 run number
+
+fn tgpput v ulong n ulong to void
+l = get TGT 2
+x = v
+for i ulong n
+put TGP add l i uchar and x 255
+x = shr x 8
+end
+put TGT 2 add l n
+end
+
+note TGP = scratch + "/" + the letter c
+fn tgdir c ulong to void
+l = get TGT 0
+for i ulong l
+put TGP i get TGS i
+end
+put TGT 2 l
+tgpput add 47 mul c 256 2
+put TGT 5 get TGT 2
+end
+
+fn tgfile v ulong n ulong to void
+put TGT 2 get TGT 5
+tgpput 47 1
+tgpput v n
+end
+
+fn tggfile g ulong ext ulong to void
+put TGT 2 get TGT 5
+tgpput 26415 2
+tgpput add 48 div g 10 1
+tgpput add 48 rem g 10 1
+if eq ext 0
+tgpput 1902473774 4
+else
+tgpput 1886938414 4
+end
+end
+
+fn tgkini to void
+put TGT 3 2
+put TGT 4 0
+end
+
+fn tgkhdr n ulong to ulong
+p = get TGT 3
+put TGK p uchar and n 255
+put TGK add p 1 uchar shr n 8
+put TGT 3 add p add n 2
+put TGT 4 add get TGT 4 1
+ret add p 2
+end
+
+fn tgkgen to void
+n = get TGT 1
+p = tgkhdr n
+for i ulong n
+put TGK add p i get TGA i
+end
+end
+
+fn tgkval v ulong n ulong to void
+p = tgkhdr n
+x = v
+for i ulong n
+put TGK add p i uchar and x 255
+x = shr x 8
+end
+end
+
+fn tgkpath to void
+n = get TGT 2
+p = tgkhdr n
+for i ulong n
+put TGK add p i get TGP i
+end
+end
+
+fn tgkseed w ulong to void
+if eq w 4
+p4 = tgkhdr len tgs4
+for i4 ulong len tgs4
+put TGK add p4 i4 get tgs4 i4
+end
+ret
+end
+p = tgkhdr 64
+for i ulong 64
+c = get tgs1 i
+if eq w 2
+c = get tgs2 i
+end
+if eq w 3
+c = get tgs3 i
+end
+put TGK add p i c
+end
+end
+
+note run the packet; the exit status of gen (stdout to /dev/null), 256 when it did not exit
+fn tgexec to ulong
+c = get TGT 4
+put TGK 0 uchar c
+put TGK 1 0
+pid = fork
+if lt pid 0
+ret 256
+end
+if eq pid 0
+fd = fopen tgnull 0 len tgnull 1 0
+if ge fd 0
+d = dupfd int fd 1 0
+end
+r = execprog TGK 0 get TGT 3
+exit 97
+end
+w = waitpid int pid TGST 0 4 0
+if ne w pid
+ret 256
+end
+if ne get TGST 0 0
+ret 256
+end
+ret ulong get TGST 1
+end
+
+note gen NAME (packed v, n bytes) into directory letter c, seed w (0 none)
+fn tggen v ulong n ulong c ulong w ulong to ulong
+tgkini
+tgkgen
+tgkval v n
+tgdir c
+tgkpath
+if ne w 0
+tgkseed w
+end
+ret tgexec
+end
+
+fn tgreadb to ulong
+fd = fopen TGP 0 get TGT 2 0 0
+if lt fd 0
+ret 0
+end
+n = read int fd TGB 0 len TGB
+x = fclose int fd
+if lt n 0
+ret 0
+end
+ret ulong n
+end
+
+fn tgreadc to ulong
+fd = fopen TGP 0 get TGT 2 0 0
+if lt fd 0
+ret 0
+end
+n = read int fd TGC 0 len TGC
+x = fclose int fd
+if lt n 0
+ret 0
+end
+ret ulong n
+end
+
+note TGB[0..n) = TGC[0..n), in 4096-byte rows (one loop stops itself after a million passes)
+fn tgcmp n ulong to bool
+rows = add div n 4096 1
+for r ulong rows
+b = mul r 4096
+k = ulong 4096
+if gt add b k n
+k = sub n b
+end
+for i ulong k
+if ne get TGB add b i get TGC add b i
+ret false
+end
+end
+end
+ret true
+end
+
+note one file of directory a against the same file of directory b (the file name set by caller)
+fn tgsame a ulong b ulong v ulong n ulong to bool
+tgdir a
+tgfile v n
+la = tgreadb
+tgdir b
+tgfile v n
+lb = tgreadc
+if or eq la 0 ne la lb
+ret false
+end
+ret tgcmp la
+end
+
+fn tgsameg a ulong b ulong g ulong ext ulong to bool
+tgdir a
+tggfile g ext
+la = tgreadb
+tgdir b
+tggfile g ext
+lb = tgreadc
+if or eq la 0 ne la lb
+ret false
+end
+ret tgcmp la
+end
+
+fn tgword i ulong to ulong
+v = ulong 0
+for j ulong 8
+v = or v shl ulong get TGB add mul i 8 j mul j 8
+end
+ret v
+end
+
+note every file of a split directory a equals b's
+fn tgsamedir a ulong b ulong to bool
+if not tgsame a b 517097156201 5
+ret false
+end
+g = tgword 3
+if or eq g 0 gt g 100
+ret false
+end
+if not tgsame a b 8317708060499076467 8
+ret false
+end
+for i ulong g
+if not tgsameg a b i 0
+ret false
+end
+if not tgsameg a b i 1
+ret false
+end
+end
+ret true
+end
+
+note the holdout digest (index words 7..10) of directory a into TGIX
+fn tgdig a ulong to void
+tgdir a
+tgfile 517097156201 5
+n = tgreadb
+for j ulong 4
+put TGIX j 0
+if ge n 128
+put TGIX j tgword add 7 j
+end
+end
+end
+
+fn tgrun v ulong n ulong c ulong w ulong to ulong
+put TGT 8 add get TGT 8 1
+r = tggen v n c w
+if ne r 0
+ret add 10 get TGT 8
+end
+ret 0
+end
+
+fn main to int
+if lt argcnt 3
+ret 1
+end
+l = argread 1 TGS 0 3000
+m = argread 2 TGA 0 3000
+if or le l 0 le m 0
+ret 1
+end
+put TGT 0 ulong l
+put TGT 1 ulong m
+r = tgrun 336236466772 5 65 0
+r = or r tgrun 336236466772 5 66 0
+r = or r tgrun 88297166688852 6 67 0
+r = or r tgrun 88297166688852 6 68 0
+r = or r tgrun 284697575747 5 69 0
+r = or r tgrun 284697575747 5 70 0
+r = or r tgrun 5653828 3 71 0
+r = or r tgrun 5653828 3 72 0
+r = or r tgrun 327513164102 5 73 1
+r = or r tgrun 327513164102 5 74 1
+r = or r tgrun 327513164102 5 75 3
+r = or r tgrun 327513164102 5 76 2
+if ne r 0
+ret int r
+end
+if not tgsamedir 65 66
+ret 40
+end
+if not tgsamedir 67 68
+ret 40
+end
+if not tgsamedir 69 70
+ret 40
+end
+if not tgsamedir 71 72
+ret 40
+end
+if not tgsamedir 73 74
+ret 40
+end
+if not tgsamedir 73 75
+ret 40
+end
+tgdig 73
+for i ulong 4
+put TGIY i get TGIX i
+end
+tgdig 76
+same = true
+for j ulong 4
+if ne get TGIX j get TGIY j
+same = false
+end
+end
+if same
+ret 41
+end
+tgdig 71
+same2 = true
+for k ulong 4
+if ne get TGIX k get TGIY k
+same2 = false
+end
+end
+if same2
+ret 42
+end
+if ne tggen 327513164102 5 77 0 2
+ret 43
+end
+if ne tggen 5653828 3 77 1 2
+ret 44
+end
+if ne tggen 357913022274 5 77 0 2
+ret 45
+end
+if ne tggen 327513164102 5 77 4 2
+ret 46
+end
+ret 0
+end

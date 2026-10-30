@@ -4,7 +4,7 @@
 //! hypothesis contract built the way the daemon builds it, diagnostic context,
 //! evaluation receipt, ratification record) and checks the emitted document. The
 //! golden file tests/fixtures/rsi_kv_cycle.evidence.json is shared byte for byte with
-//! aien-dev/aienos crates/aienos-explain, which builds and renders the explanation.
+//! aien-dev/aienux crates/aienos-explain, which builds and renders the explanation.
 //! Regenerate with EXPLAIN_BLESS=1 and copy it to aienos.
 
 use sha2::{Digest, Sha256};

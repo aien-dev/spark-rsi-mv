@@ -532,17 +532,18 @@ impl KernelAutotuneExperiment {
         };
 
         let tmp_jail_dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let tmp_output = tempfile::tempdir().map_err(|e| e.to_string())?;
         let jail = BuildJail::new(
             "spark-rsi-builder:latest",
             tmp_jail_dir.path(),
-            tmp_jail_dir.path(),
+            tmp_output.path(),
         );
 
         // Step 2: Compile baseline kernel in BuildJail containment as shared library
         let baseline_cu_name = "baseline_attention.cu";
         let baseline_so_name = "baseline_attention.so";
         let baseline_cu = tmp_jail_dir.path().join(baseline_cu_name);
-        let baseline_so = tmp_jail_dir.path().join(baseline_so_name);
+        let baseline_so = tmp_output.path().join(baseline_so_name);
         let baseline_mutated = self.baseline_config.apply_to_kernel_source(&base_source);
         fs::write(&baseline_cu, baseline_mutated).map_err(|e| e.to_string())?;
 
@@ -555,7 +556,7 @@ impl KernelAutotuneExperiment {
             "-fPIC",
             baseline_cu_name,
             "-o",
-            baseline_so_name,
+            "/output/baseline_attention.so",
         ]);
 
         let (base_ok, _, base_err) = match base_compile {
@@ -582,7 +583,7 @@ impl KernelAutotuneExperiment {
         let candidate_cu_name = "candidate_attention.cu";
         let candidate_so_name = "candidate_attention.so";
         let candidate_cu = tmp_jail_dir.path().join(candidate_cu_name);
-        let candidate_so = tmp_jail_dir.path().join(candidate_so_name);
+        let candidate_so = tmp_output.path().join(candidate_so_name);
         let candidate_mutated = self.candidate_config.apply_to_kernel_source(&base_source);
         fs::write(&candidate_cu, candidate_mutated).map_err(|e| e.to_string())?;
 
@@ -596,7 +597,7 @@ impl KernelAutotuneExperiment {
             "-fPIC",
             candidate_cu_name,
             "-o",
-            candidate_so_name,
+            "/output/candidate_attention.so",
         ]);
 
         let (cand_ok, cand_stdout, cand_stderr) = match cand_compile {
@@ -1224,7 +1225,14 @@ prefetch_global_l2(next_k);
 
     #[tokio::test]
     async fn test_kernel_autotune_against_physical_sovereign_core_cuda_source() {
-        let physical_cuda = PathBuf::from("/home/drakestapleton/workspace/aien-sovereign-core/crates/aien-inference-abi/cuda/paged_attention_bf16.cu");
+        let core_dir = std::env::var("AIEN_SOVEREIGN_CORE_DIR").unwrap_or_else(|_| {
+            format!(
+                "{}/workspace/aien-sovereign-core",
+                std::env::var("HOME").unwrap_or_default()
+            )
+        });
+        let physical_cuda =
+            PathBuf::from(core_dir).join("crates/aien-inference-abi/cuda/paged_attention_bf16.cu");
         if !physical_cuda.exists() {
             eprintln!(
                 "Skipping physical CUDA test: file does not exist at {:?}",

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use super::cargo_sandbox::Toolchain;
+use super::cargo_sandbox::{bounded_bwrap, Toolchain};
 
 /// The jail PATH after the toolchain bin directories.
 const JAIL_PATH_TAIL: &[&str] = &["/usr/local/cuda/bin", "/usr/local/bin", "/usr/bin", "/bin"];
@@ -177,6 +177,7 @@ impl BuildJail {
             "--unshare-net".to_string(),
             "--unshare-uts".to_string(),
             "--die-with-parent".to_string(),
+            "--clearenv".to_string(),
             "--ro-bind".to_string(),
             "/usr".to_string(),
             "/usr".to_string(),
@@ -196,7 +197,7 @@ impl BuildJail {
             self.host_output_dir.display().to_string(),
             "/output".to_string(),
             "--chdir".to_string(),
-            "/output".to_string(),
+            "/workspace/src".to_string(),
         ];
 
         if Path::new("/lib64").exists() {
@@ -214,27 +215,23 @@ impl BuildJail {
             args.push("/etc".to_string());
             args.push("/etc".to_string());
         }
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        // Resolve the host toolchain before the launcher drops its inherited environment.
+        // The only writable build output is this jail's caller-provided output directory.
         let toolchain = Toolchain::from_env();
         push_toolchain(&mut args, &toolchain);
-
-        let target_dir = Path::new("/tmp/spark-rsi-target");
-        if !target_dir.exists() {
-            let _ = std::fs::create_dir_all(target_dir);
-        }
-        args.push("--bind".to_string());
-        args.push("/tmp/spark-rsi-target".to_string());
-        args.push("/tmp/spark-rsi-target".to_string());
         args.push("--setenv".to_string());
         args.push("CARGO_TARGET_DIR".to_string());
-        args.push("/tmp/spark-rsi-target".to_string());
+        args.push("/output/target".to_string());
 
         args.push("--setenv".to_string());
         args.push("PATH".to_string());
         args.push(toolchain.jail_path(JAIL_PATH_TAIL));
         args.push("--setenv".to_string());
         args.push("HOME".to_string());
-        args.push(home.clone());
+        args.push("/tmp".to_string());
+        args.push("--setenv".to_string());
+        args.push("CARGO_BUILD_JOBS".to_string());
+        args.push("2".to_string());
 
         for c in command {
             args.push(c.to_string());
@@ -251,8 +248,20 @@ impl BuildJail {
     }
 
     pub fn execute_bwrap(&self, command: &[&str]) -> Result<(bool, String, String), String> {
+        // A writable alias of the source would defeat its read-only bind.
+        let source = self
+            .host_source_dir
+            .canonicalize()
+            .map_err(|e| format!("cannot resolve build source: {e}"))?;
+        let output = self
+            .host_output_dir
+            .canonicalize()
+            .map_err(|e| format!("cannot resolve build output: {e}"))?;
+        if source.starts_with(&output) || output.starts_with(&source) {
+            return Err("build source and output must be separate directories".to_string());
+        }
         let args = self.build_bwrap_args(command);
-        let mut cmd = Command::new("bwrap");
+        let mut cmd = bounded_bwrap(&self.limits, Some(self.limits.timeout_seconds));
         cmd.args(&args);
         // No retry without the network namespace: the jailed program controls its own stderr, so
         // an error-string fallback would let it ask for the network.
@@ -483,6 +492,25 @@ mod tests {
         assert!(args.contains(&"--die-with-parent".to_string()));
         assert!(args.contains(&"/output".to_string()));
         assert!(args.contains(&"cargo".to_string()));
+        assert!(args.contains(&"--clearenv".to_string()));
+        let clear = args.iter().position(|arg| arg == "--clearenv").unwrap();
+        let set = args.iter().position(|arg| arg == "--setenv").unwrap();
+        assert!(clear < set);
+        assert!(args
+            .windows(3)
+            .any(|w| w == ["--ro-bind", "/tmp/src", "/workspace/src"]));
+        assert!(args
+            .windows(3)
+            .any(|w| w == ["--bind", "/tmp/out", "/output"]));
+        assert!(args.windows(2).any(|w| w == ["--chdir", "/workspace/src"]));
+        assert!(args.windows(3).any(|w| w == ["--setenv", "HOME", "/tmp"]));
+        assert!(args
+            .windows(3)
+            .any(|w| w == ["--setenv", "CARGO_TARGET_DIR", "/output/target"]));
+        assert!(args
+            .windows(3)
+            .any(|w| w == ["--setenv", "CARGO_BUILD_JOBS", "2"]));
+        assert!(!args.iter().any(|arg| arg.contains("/tmp/spark-rsi-target")));
         // The toolchain the host resolves is bound read-only at its own path and named by its
         // variables, wherever it lives.
         let toolchain = Toolchain::from_env();
@@ -501,6 +529,17 @@ mod tests {
                 .windows(3)
                 .any(|w| w[0] == "--setenv" && w[1] == k && w[2] == d));
         }
+    }
+
+    #[test]
+    fn test_build_jail_refuses_writable_source_alias() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("source");
+        let output = source.join("output");
+        std::fs::create_dir_all(&output).unwrap();
+        let jail = BuildJail::new("unused", &source, &output);
+        let refusal = jail.execute_bwrap(&["cargo", "build"]).unwrap_err();
+        assert!(refusal.contains("separate directories"));
     }
 
     #[test]

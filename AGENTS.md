@@ -1,6 +1,13 @@
-# Autonomous Agent Collaboration Protocol & Operational Playbook
+# Human-Directed Agentic Engineering Collaboration Protocol & Operational Playbook
 Version 1.0 (September 2026)
 Reference Guide for Humans and Collaborating AI Agents
+
+Development follows [Human-Directed Agentic Engineering (HDAE)](README.md#human-directed-agentic-engineering),
+with Gregory M. Kurtzer's 2026 Ginux report cited there as a documented method and
+systems-software case study. Humans define goals, architecture, constraints,
+acceptance criteria, and stopping points. Agents implement, execute checks,
+diagnose failures, and revise within those boundaries. Human review retains
+responsibility for claims, acceptance, and release decisions.
 
 ## 1. The Sovereign Voice Invariant
 All communication, documentation, commits, and agent prompts must strictly adhere to the unslop standard:
@@ -17,8 +24,9 @@ Every incoming subagent or external AI contributor should be seeded with this pr
 ```yaml
 role: "Sovereign Systems Collaborator"
 directive: |
-  You are an autonomous AI agent collaborating with human operators and peer agents
-  in the AIEN sovereign ecosystem. You operate under the Sovereign Constitution,
+  You are an AI agent collaborating with human operators and peer agents
+  within human-defined goals, architecture, constraints, acceptance criteria,
+  and stopping points in the AIEN sovereign ecosystem. You operate under the Sovereign Constitution,
   the Apache-2.0 WITH LLVM-exception LICENSE, the nonbinding COVENANT.md, and the Agent Code of Conduct.
 
   Core Rules:
@@ -83,5 +91,5 @@ Commits made by AI agents must credit both the agent model and the supervising h
 
 ```
 Author: AIEN Atlas <aien@aienos.com>
-Co-authored-by: Drake Stapleton <drake@aien.org>
+Co-authored-by: Drake Stapleton <drake@aienos.com>
 ```

@@ -1,0 +1,3560 @@
+note SPDX-License-Identifier: Apache-2.0
+note judge.om: the REUSE-1 judge (spark-rsi-mv #73, lane EvalJudge), written from the frozen
+note contract (omega-mv d6edaad1 docs/reuse/REUSE-1.md), the evaluator formats and the drive.om
+note CLI only; no candidate source is read. Units before it: sha256 ref. Prefix jd / JD / JW / JM.
+note Entry: jdmain (argv[1] = run, tap, calib, build, recheck, controls); see docs/reuse-eval/README.md.
+note
+note String registers: JDS holds 32 byte strings of up to 4095 bytes (register r at r * 4096),
+note lengths in JDSL. Register map: 0..2 scratch, 3 split dir, 4 output dir, 5 base ELF,
+note 6 ALLOW (run), 7 cpu, 8 arm name, 9 LIBDIR (process), 10 MANSHA (process), 11 ALLOW (process),
+note 12 TAPFILE, 13 SPLIT, 14 TRAIN lib, 15 TRAIN mansha, 16 TRAINP lib, 17 TRAINP mansha,
+note 18 drive, 19 omega-mv checkout, 20 omc, 21 calibration file, 22 control dir, 23 nog3 unit path,
+note 24 c4 unit path, 25 DEV split dir, 26..29 control scratch, 30 acquisition dir, 31 jdabs only.
+note Word memory JDM: JMIX index, JMSE sessions, JMEX group .exp, JMRQ group .req, JMOF request
+note offsets, JMRT per-request results (route, r0, r1, status), JMSC scratch.
+text JDW "/usr/bin/taskset-c-echofullcachemethoddeltaselecttap/proc//stat/status/proc/loadavg/proc/self/statVmHWM:VmRSS:arm--rep--g.logproc.logacq.logacq-.manshaindexsessions.req.expCURRENTgen-.man.elf.om.calmanifest_sha256=build AUTHORIZED  REVOKED mutant:c1mutant:c1bmutant:c1cunit:check=unit:delta=crashafter:controls.loglib-c0123456789abcdef.tmpctrlarm= wrong= violations=tap_sha256= tap_bytes=drive_exit= elapsed_ns=REBUILD MATCH BLOCKED rebuild  pinned usage: judge run|tap|calib|build|recheck|controls (docs/reuse-eval/README.md) queries=cal_sha256=judge error unit:mutant:"
+const JWTASK ulong 0
+const JWDC ulong 16
+const JWDASH ulong 18
+const JWECHO ulong 19
+const JWFULL ulong 23
+const JWCACHE ulong 27
+const JWMETH ulong 32
+const JWDELTA ulong 38
+const JWSEL ulong 43
+const JWTAP ulong 49
+const JWPROC ulong 52
+const JWSTAT ulong 58
+const JWSTATUS ulong 63
+const JWLOADAV ulong 70
+const JWSELF ulong 83
+const JWHWM ulong 98
+const JWRSS ulong 104
+const JWARM ulong 110
+const JWREP ulong 114
+const JWG ulong 119
+const JWLOG ulong 121
+const JWPLOG ulong 125
+const JWACQ ulong 133
+const JWACQ2 ulong 140
+const JWMANS ulong 144
+const JWINDEX ulong 151
+const JWSESS ulong 156
+const JWREQ ulong 164
+const JWEXP ulong 168
+const JWCUR ulong 172
+const JWGEN ulong 179
+const JWMAN ulong 183
+const JWELF ulong 187
+const JWOM ulong 191
+const JWCAL ulong 194
+const JWMSHA ulong 198
+const JWBUILD ulong 214
+const JWAUTH ulong 219
+const JWREVK ulong 231
+const JWMC1 ulong 240
+const JWMC1B ulong 249
+const JWMC1C ulong 259
+const JWUCHK ulong 269
+const JWUDEL ulong 280
+const JWCRASH ulong 291
+const JWCLOG ulong 302
+const JWLIB ulong 314
+const JWCTL ulong 318
+const JWHEX ulong 319
+const JWTMP ulong 335
+const JWCTRL ulong 339
+const JWAEQ ulong 343
+const JWWRONG ulong 347
+const JWVIOL ulong 354
+const JWTSHA ulong 366
+const JWTBYT ulong 377
+const JWDEX ulong 388
+const JWELNS ulong 399
+const JWMATCH ulong 411
+const JWBLK ulong 425
+const JWPIN ulong 441
+const JWUSAGE ulong 449
+const JWQRY ulong 526
+const JWCSHA ulong 535
+const JWERR ulong 546
+const JWUNIT ulong 558
+const JWMUT ulong 563
+const JMIX ulong 0
+const JMSE ulong 4096
+const JMEX ulong 1048576
+const JMRQ ulong 2097152
+const JMOF ulong 8388608
+const JMPRC ulong 9437150
+const JMEND ulong 9437180
+const JMRT ulong 9437184
+const JMSC ulong 10485760
+const JDNONE ulong 18446744073709551615
+global JDS uchar 131072
+global JDSL ulong 32
+global JDM ulong 16777216
+global JDF uchar 16777216
+global JDLB uchar 8388608
+global JDIO uchar 65536
+global JDWB uchar 65536
+global JDPK uchar 4096
+global JDPKN ulong 2
+global JDPF uchar 16
+global JDWS uchar 4
+global JDST uchar 128
+global JDRS ulong 40
+global JDSM ulong 1
+global JDC ulong 64
+global JDA ulong 64
+global JDH ulong 4
+global JDT ulong 8
+global JDXA uchar 16384
+global JDXL ulong 130
+global JDQ ulong 8
+
+note ---- string registers ----
+
+fn jdsclr r ulong to void
+put JDSL r 0
+end
+
+fn jdsc r ulong c uchar to void
+n = get JDSL r
+if ge n 4095
+trap 3
+end
+put JDS add mul r 4096 n c
+put JDSL r add n 1
+end
+
+fn jdsw r ulong off ulong n ulong to void
+for i ulong n
+jdsc r get JDW add off i
+end
+end
+
+fn jdsr r ulong s ulong to void
+n = get JDSL s
+b = mul s 4096
+for i ulong n
+jdsc r get JDS add b i
+end
+end
+
+fn jdscp r ulong s ulong to void
+if eq r s
+ret
+end
+jdsclr r
+jdsr r s
+end
+
+fn jdsnum r ulong v ulong w ulong to void
+d = new uchar 24 0
+k = ulong 0
+x = v
+while true bound 24
+put d k uchar add rem x 10 48
+k = add k 1
+x = div x 10
+if and eq x 0 ge k w
+break
+end
+end
+while gt k 0 bound 24
+k = sub k 1
+jdsc r get d k
+end
+end
+
+fn jdshex r ulong v ulong to void
+for i ulong 16
+sh = mul sub 15 i 4
+jdsc r get JDW add JWHEX and shr v sh 15
+end
+end
+
+fn jdsarg r ulong i ulong to bool
+n = argread i JDS mul r 4096 4095
+if lt n 0
+put JDSL r 0
+ret false
+end
+put JDSL r ulong n
+ret true
+end
+
+fn jdseq r ulong s ulong to bool
+n = get JDSL r
+if ne n get JDSL s
+ret false
+end
+a = mul r 4096
+b = mul s 4096
+for i ulong n
+if ne get JDS add a i get JDS add b i
+ret false
+end
+end
+ret true
+end
+
+fn jdsdash r ulong to bool
+if ne get JDSL r 1
+ret false
+end
+ret eq get JDS mul r 4096 45
+end
+
+fn jdsdsh r ulong to void
+jdsclr r
+jdsc r 45
+end
+
+fn jdsval r ulong to ulong
+n = get JDSL r
+if or eq n 0 gt n 20
+ret JDNONE
+end
+b = mul r 4096
+v = ulong 0
+for i ulong n
+c = ulong get JDS add b i
+if or lt c 48 gt c 57
+ret JDNONE
+end
+v = add mul v 10 sub c 48
+end
+ret v
+end
+
+fn jdspack r ulong to ulong
+n = get JDSL r
+if gt n 8
+ret 0
+end
+b = mul r 4096
+v = ulong 0
+for i ulong n
+v = or v shl ulong get JDS add b i mul i 8
+end
+ret v
+end
+
+note byte i of register r, 256 past the end
+fn jdsb r ulong i ulong to ulong
+if ge i get JDSL r
+ret 256
+end
+ret ulong get JDS add mul r 4096 i
+end
+
+note true if register r starts with the JDW bytes off..off+n
+fn jdspre r ulong off ulong n ulong to bool
+if lt get JDSL r n
+ret false
+end
+b = mul r 4096
+for i ulong n
+if ne get JDS add b i get JDW add off i
+ret false
+end
+end
+ret true
+end
+
+fn jdhexd c ulong to ulong
+if and ge c 48 le c 57
+ret sub c 48
+end
+if and ge c 97 le c 102
+ret sub c 87
+end
+if and ge c 65 le c 70
+ret sub c 55
+end
+ret 16
+end
+
+note the byte k of a hex string in register r (2 hex digits), 256 if bad
+fn jdshexb r ulong k ulong to ulong
+hi = jdhexd jdsb r mul k 2
+lo = jdhexd jdsb r add mul k 2 1
+if or gt hi 15 gt lo 15
+ret 256
+end
+ret add mul hi 16 lo
+end
+
+fn jdsout r ulong to void
+jdsc r 10
+n = write 1 JDS mul r 4096 get JDSL r
+put JDSL r sub get JDSL r 1
+end
+
+note append the string form of an 8-word path: dir r, "/", then JDW off..off+n
+fn jdspath r ulong d ulong off ulong n ulong to void
+jdscp r d
+jdsc r 47
+jdsw r off n
+end
+
+note ---- little-endian words in byte pools ----
+
+fn jdgfw off ulong to ulong
+v = ulong 0
+i = ulong 8
+while gt i 0 bound 8
+i = sub i 1
+v = or shl v 8 ulong get JDF add off i
+end
+ret v
+end
+
+fn jdpfw off ulong v ulong to void
+x = v
+for i ulong 8
+put JDF add off i uchar and x 255
+x = shr x 8
+end
+end
+
+fn jdgiw off ulong to ulong
+v = ulong 0
+i = ulong 8
+while gt i 0 bound 8
+i = sub i 1
+v = or shl v 8 ulong get JDIO add off i
+end
+ret v
+end
+
+fn jdpiw off ulong v ulong to void
+x = v
+for i ulong 8
+put JDIO add off i uchar and x 255
+x = shr x 8
+end
+end
+
+fn jdpww off ulong v ulong to void
+x = v
+for i ulong 8
+put JDWB add off i uchar and x 255
+x = shr x 8
+end
+end
+
+fn jdplw off ulong v ulong to void
+x = v
+for i ulong 8
+put JDLB add off i uchar and x 255
+x = shr x 8
+end
+end
+
+fn jdbswap x ulong to ulong
+v = ulong 0
+y = x
+for i ulong 8
+v = or shl v 8 and y 255
+y = shr y 8
+end
+ret v
+end
+
+note ---- files ----
+
+fn jdopen r ulong flags int to long
+ret fopen JDS mul r 4096 get JDSL r flags 420
+end
+
+fn jdexists r ulong to bool
+x = faccess JDS mul r 4096 get JDSL r 0
+ret eq x 0
+end
+
+fn jdmkdir r ulong mode int to long
+ret makedir JDS mul r 4096 get JDSL r mode
+end
+
+note whole file of register r into JDF; byte count, -1 open/read error, -2 too big
+fn jdldf r ulong to long
+x = jdopen r 0
+if lt x 0
+ret -1
+end
+fd = int x
+tot = ulong 0
+while true bound 999999
+if ge tot 16777216
+c = fclose fd
+ret -2
+end
+k = read fd JDF tot sub 16777216 tot
+if lt k 0
+c = fclose fd
+ret -1
+end
+if eq k 0
+break
+end
+tot = add tot ulong k
+end
+c = fclose fd
+ret long tot
+end
+
+note JDF[0..n) to the file of register r with open flags (577 truncate, 1089 append, 705 new)
+fn jdwrf r ulong n ulong flags int to long
+x = jdopen r flags
+if lt x 0
+ret x
+end
+fd = int x
+off = ulong 0
+while lt off n bound 999999
+k = write fd JDF off sub n off
+if le k 0
+c = fclose fd
+ret -1
+end
+off = add off ulong k
+end
+c = fsync fd
+c = fclose fd
+ret 0
+end
+
+note words of file r into JDM[base..); word count, or negative
+fn jdldw r ulong base ulong maxw ulong to long
+n = jdldf r
+if lt n 0
+ret n
+end
+nb = ulong n
+if ne and nb 7 0
+ret -3
+end
+nw = shr nb 3
+if gt nw maxw
+ret -2
+end
+for i ulong nw
+put JDM add base i jdgfw shl i 3
+end
+ret long nw
+end
+
+fn jdw2wb b ulong k ulong to void
+for i ulong k
+v = get JDM add b i
+jdpww shl i 3 v
+end
+end
+
+note JDM[base..base+nw) to file r (flags as jdwrf)
+fn jdstw r ulong base ulong nw ulong flags int to long
+x = jdopen r flags
+if lt x 0
+ret x
+end
+fd = int x
+done = ulong 0
+while lt done nw bound 999999
+k = sub nw done
+if gt k 8192
+k = 8192
+end
+jdw2wb add base done k
+w = write fd JDWB 0 shl k 3
+if ne w long shl k 3
+c = fclose fd
+ret -1
+end
+done = add done k
+end
+c = fsync fd
+c = fclose fd
+ret 0
+end
+
+note small file (at most 65535 bytes) of register r into JDWB; bytes or negative
+fn jdldsm r ulong to long
+x = jdopen r 0
+if lt x 0
+ret x
+end
+fd = int x
+k = read fd JDWB 0 65535
+c = fclose fd
+ret k
+end
+
+note file size of register r, -1 if missing
+fn jdfsize r ulong to long
+x = stat JDS mul r 4096 get JDSL r JDST 0 128
+if ne x 0
+ret -1
+end
+v = ulong 0
+i = ulong 8
+while gt i 0 bound 8
+i = sub i 1
+v = or shl v 8 ulong get JDST add 48 i
+end
+ret long v
+end
+
+note mode bits of register r (st_mode), 0 if missing
+fn jdfmode r ulong to ulong
+x = stat JDS mul r 4096 get JDSL r JDST 0 128
+if ne x 0
+ret 0
+end
+v = or ulong get JDST 16 shl ulong get JDST 17 8
+v = or v shl ulong get JDST 18 16
+ret v
+end
+
+note copy file register s to register d (new file, same permission bits)
+fn jdcpf s ulong d ulong to int
+m = jdfmode s
+if ne and m 61440 32768
+ret 1
+end
+n = jdldf s
+if lt n 0
+ret 2
+end
+x = jdopen d 705
+if lt x 0
+ret 3
+end
+fd = int x
+c = fchmod fd int and m 4095
+off = ulong 0
+nb = ulong n
+while lt off nb bound 999999
+k = write fd JDF off sub nb off
+if le k 0
+c = fclose fd
+ret 4
+end
+off = add off ulong k
+end
+c = fsync fd
+c = fclose fd
+ret 0
+end
+
+fn jdu16 off ulong to ulong
+ret or ulong get JDWB off shl ulong get JDWB add off 1 8
+end
+
+note the name of the getdents64 record at pos appended to register r
+fn jddname pos ulong r ulong to void
+k = add pos 19
+while ne get JDWB k 0 bound 256
+jdsc r get JDWB k
+k = add k 1
+end
+end
+
+note one directory record: copy (mode 1, s -> d) or size (mode 0); names in registers 0 and 1
+fn jddent pos ulong s ulong d ulong mode ulong to ulong
+jdscp 0 s
+jdsc 0 47
+jddname pos 0
+m = jdfmode 0
+if ne and m 61440 32768
+ret 0
+end
+if eq mode 0
+z = jdfsize 0
+if gt z 0
+ret ulong z
+end
+ret 0
+end
+jdscp 1 d
+jdsc 1 47
+jddname pos 1
+c = jdcpf 0 1
+if ne c 0
+ret add 10 ulong c
+end
+ret 0
+end
+
+note walk directory register s: mode 1 copies regular files into d (error code back), mode 0 sums sizes
+fn jdwalk s ulong d ulong mode ulong to ulong
+x = jdopen s 0
+if lt x 0
+ret JDNONE
+end
+fd = int x
+acc = ulong 0
+while true bound 100000
+n = getdnts fd JDWB 0 65536
+if le n 0
+break
+end
+pos = ulong 0
+while lt pos ulong n bound 100000
+v = jddent pos s d mode
+if eq mode 0
+acc = add acc v
+else
+if ne v 0
+acc = v
+end
+end
+pos = add pos jdu16 add pos 16
+end
+end
+c = fclose fd
+ret acc
+end
+
+note copy every regular file of directory register s into a new directory register d (mode 0700)
+fn jdcpdir s ulong d ulong to int
+r = jdmkdir d 448
+if ne r 0
+ret 1
+end
+e = jdwalk s d 1
+if ne e 0
+ret 2
+end
+ret 0
+end
+
+note sum of st_size of the regular files of directory register s
+fn jddirb s ulong to ulong
+v = jdwalk s s 0
+if eq v JDNONE
+ret 0
+end
+ret v
+end
+
+note make register r absolute against the current directory (register 31 is scratch)
+fn jdabs r ulong to void
+if eq jdsb r 0 47
+ret
+end
+n = cwd JDWB 0 4096
+if le n 1
+ret
+end
+jdsclr 31
+for i ulong sub ulong n 1
+jdsc 31 get JDWB i
+end
+jdsc 31 47
+jdsr 31 r
+jdscp r 31
+end
+
+note ---- SHA-256 (sha256 unit, omsha) ----
+
+fn jdhput w view ulong 64 to void
+for i ulong 4
+put JDH i jdbswap get w i
+end
+end
+
+note SHA-256 of the file of register r into JDH (big-endian words); size or -1
+fn jdhfile r ulong to long
+c = new uchar 104 0
+b = new uchar 4096 0
+w = new ulong 64 0
+b8 = new ulong 512 0
+omsha c b 0 0 w b8
+x = jdopen r 0
+if lt x 0
+ret -1
+end
+fd = int x
+tot = ulong 0
+while true bound 999999
+k = read fd b 0 4096
+if lt k 0
+y = fclose fd
+ret -1
+end
+if eq k 0
+break
+end
+omsha c b ulong k 1 w b8
+tot = add tot ulong k
+end
+y = fclose fd
+omsha c b 0 2 w b8
+jdhput w
+ret long tot
+end
+
+fn jdhcpf b edit uchar 4096 off ulong k ulong to void
+for j ulong k
+put b j get JDF add off j
+end
+end
+
+note SHA-256 of JDF[off..off+n) into JDH
+fn jdhjdf off ulong n ulong to void
+c = new uchar 104 0
+b = new uchar 4096 0
+w = new ulong 64 0
+b8 = new ulong 512 0
+omsha c b 0 0 w b8
+d = ulong 0
+while lt d n bound 999999
+k = sub n d
+if gt k 4096
+k = 4096
+end
+jdhcpf b add off d k
+omsha c b k 1 w b8
+d = add d k
+end
+omsha c b 0 2 w b8
+jdhput w
+end
+
+note the 64 hex digits of JDH appended to register r
+fn jdshash r ulong to void
+for i ulong 4
+jdshex r get JDH i
+end
+end
+
+note ---- splitmix64 ----
+
+fn jdsmix to ulong
+s = add get JDSM 0 11400714819323198485
+put JDSM 0 s
+z = mul xor s shr s 30 13787848793156543929
+z = mul xor z shr z 27 10723151780598845931
+ret xor z shr z 31
+end
+
+note ---- argument packets for execprog ----
+
+fn jdpk0 to void
+put JDPKN 0 2
+put JDPKN 1 0
+end
+
+fn jdpkb c uchar to void
+n = get JDPKN 0
+if ge n 4096
+trap 3
+end
+put JDPK n c
+put JDPKN 0 add n 1
+end
+
+fn jdpkr r ulong to void
+n = get JDSL r
+jdpkb uchar and n 255
+jdpkb uchar shr n 8
+b = mul r 4096
+for i ulong n
+jdpkb get JDS add b i
+end
+put JDPKN 1 add get JDPKN 1 1
+end
+
+note extra-argument list JDXA / JDXL (0 count, 1 + 2i offset, 2 + 2i length)
+fn jdx0 to void
+put JDXL 0 0
+end
+
+fn jdxadd r ulong to void
+k = get JDXL 0
+if ge k 64
+trap 3
+end
+off = ulong 0
+if gt k 0
+off = add get JDXL sub mul k 2 1 get JDXL mul k 2
+end
+n = get JDSL r
+if gt add off n 16384
+trap 3
+end
+b = mul r 4096
+for i ulong n
+put JDXA add off i get JDS add b i
+end
+put JDXL add mul k 2 1 off
+put JDXL add mul k 2 2 n
+put JDXL 0 add k 1
+end
+
+note list item i into register r
+fn jdxget r ulong i ulong to void
+jdsclr r
+off = get JDXL add mul i 2 1
+n = get JDXL add mul i 2 2
+for j ulong n
+jdsc r get JDXA add off j
+end
+end
+
+fn jdpkfin to void
+c = get JDPKN 1
+put JDPK 0 uchar and c 255
+put JDPK 1 uchar shr c 8
+end
+
+note ---- /proc readings ----
+
+note /proc/PID/stat (or /proc/self/stat for pid 0) fields into JDT: 0 utime 1 stime 2 cutime
+note 3 cstime 4 processor; 0 ok
+fn jdprocst pid ulong to int
+jdsclr 0
+if eq pid 0
+jdsw 0 JWSELF 15
+else
+jdsw 0 JWPROC 6
+jdsnum 0 pid 1
+jdsw 0 JWSTAT 5
+end
+n = jdldsm 0
+if le n 0
+ret 1
+end
+nb = ulong n
+p = ulong 0
+for i ulong nb
+if eq get JDWB i 41
+p = i
+end
+end
+tok = ulong 0
+v = ulong 0
+i = add p 2
+while lt i nb bound 65536
+c = ulong get JDWB i
+if or eq c 32 eq c 10
+jdstok tok v
+tok = add tok 1
+v = 0
+else
+if and ge c 48 le c 57
+v = add mul v 10 sub c 48
+end
+end
+i = add i 1
+end
+ret 0
+end
+
+fn jdstok tok ulong v ulong to void
+if and ge tok 11 le tok 14
+put JDT sub tok 11 v
+end
+if eq tok 36
+put JDT 4 v
+end
+end
+
+note index of JDW[off..off+wn) in JDWB[0..n), or n
+fn jdfindw n ulong off ulong wn ulong to ulong
+if lt n wn
+ret n
+end
+for i ulong add sub n wn 1
+k = ulong 0
+while lt k wn bound 64
+if ne get JDWB add i k get JDW add off k
+break
+end
+k = add k 1
+end
+if eq k wn
+ret i
+end
+end
+ret n
+end
+
+note first decimal number in JDWB at or after p (stops at a newline after digits)
+fn jdnumat p ulong n ulong to ulong
+v = ulong 0
+seen = false
+i = p
+while lt i n bound 65536
+c = ulong get JDWB i
+if and ge c 48 le c 57
+v = add mul v 10 sub c 48
+seen = true
+else
+if seen
+break
+end
+end
+i = add i 1
+end
+ret v
+end
+
+note VmHWM and VmRSS kB of pid into JDT 5, 6
+fn jdprocmem pid ulong to void
+put JDT 5 0
+put JDT 6 0
+jdsclr 0
+jdsw 0 JWPROC 6
+jdsnum 0 pid 1
+jdsw 0 JWSTATUS 7
+n = jdldsm 0
+if le n 0
+ret
+end
+nb = ulong n
+p = jdfindw nb JWHWM 6
+if lt p nb
+put JDT 5 jdnumat p nb
+end
+p = jdfindw nb JWRSS 6
+if lt p nb
+put JDT 6 jdnumat p nb
+end
+end
+
+note first /proc/loadavg value x 100
+fn jdloadav to ulong
+jdsclr 0
+jdsw 0 JWLOADAV 13
+n = jdldsm 0
+if le n 0
+ret 0
+end
+v = ulong 0
+fr = ulong 0
+dig = ulong 0
+dot = false
+for i ulong ulong n
+c = ulong get JDWB i
+if eq c 32
+break
+end
+if eq c 46
+dot = true
+continue
+end
+if and ge c 48 le c 57
+if dot
+if lt dig 2
+fr = add mul fr 10 sub c 48
+dig = add dig 1
+end
+else
+v = add mul v 10 sub c 48
+end
+end
+end
+while lt dig 2 bound 2
+fr = mul fr 10
+dig = add dig 1
+end
+ret add mul v 100 fr
+end
+
+note ---- arm processes ----
+note JDC: 0 pid, 1 write fd, 2 read fd, 3 kept stdin read end, 4 t0, 5 start-to-ready, 6 sum rt,
+note 7 requests sent, 8 alive, 9 violation code, 10 arm id, 11 group, 12 repetition, 13 loadavg,
+note 14 log bytes in JDLB, 15 requests done by this process, 16 revoke-at request, 17 kill-at
+note request, 18 exit status, 19 log enabled, 20 utime, 21 stime, 22 cutime, 23 cstime, 24 cpu,
+note 25 hwm, 26 rss, 27 proc read done.
+note JDA counters: 0 QUERYs, 1 wrong (correctness 0), 2..7 QUERY routes 0..5, 8 other routes,
+note 10 QUERYs after revoke, 11 route 3/4 after, 12 route 5 after, 13 route 3/4 before, 14 wrong
+note QUERYs, 15 violations.
+
+fn jdfdw off ulong to int
+x = ulong 0
+for i ulong 4
+v = ulong get JDPF add off i
+x = or x shl v mul i 8
+end
+ret int x
+end
+
+fn jdspawn to long
+r = pipefds JDPF 0 8 524288
+if ne r 0
+ret -1
+end
+r = pipefds JDPF 8 8 524288
+if ne r 0
+ret -1
+end
+a0 = jdfdw 0
+a1 = jdfdw 4
+b0 = jdfdw 8
+b1 = jdfdw 12
+pid = fork
+if lt pid 0
+ret -1
+end
+if eq pid 0
+d = dupfd a0 0 0
+d = dupfd b1 1 0
+e = execprog JDPK 0 get JDPKN 0
+exit 127
+end
+c = fclose b1
+put JDC 0 ulong pid
+put JDC 1 ulong a1
+put JDC 2 ulong b0
+put JDC 3 ulong a0
+ret pid
+end
+
+fn jdarmname r ulong a ulong to void
+jdsclr r
+if eq a 0
+jdsw r JWECHO 4
+end
+if eq a 1
+jdsw r JWFULL 4
+end
+if eq a 2
+jdsw r JWCACHE 5
+end
+if eq a 3
+jdsw r JWMETH 6
+end
+if and ge a 4 le a 6
+jdsw r JWDELTA 5
+end
+if eq a 7
+jdsw r JWSEL 6
+end
+if eq a 8
+jdsw r JWTAP 3
+end
+end
+
+note packet: [taskset -c CPU] BASE ARM LIBDIR MANSHA ALLOW TAPFILE SPLIT
+fn jdarmpk to void
+jdpk0
+if not jdsdash 7
+jdsclr 0
+jdsw 0 JWTASK 16
+jdpkr 0
+jdsclr 0
+jdsw 0 JWDC 2
+jdpkr 0
+jdpkr 7
+end
+jdpkr 5
+jdpkr 8
+jdpkr 9
+jdpkr 10
+jdpkr 11
+jdpkr 12
+jdpkr 13
+jdpkfin
+end
+
+fn jdpstart to int
+jdarmpk
+put JDC 13 jdloadav
+t0 = monons
+pid = jdspawn
+if lt pid 0
+ret 1
+end
+put JDC 4 ulong t0
+put JDC 5 0
+put JDC 6 0
+put JDC 7 0
+put JDC 8 1
+put JDC 9 0
+put JDC 15 0
+put JDC 18 0
+put JDC 27 0
+put JDC 28 0
+for i ulong 5
+put JDT i 0
+end
+put JDT 5 0
+put JDT 6 0
+ret 0
+end
+
+note write a frame JDM[off..off+nw) to the arm before deadline dl; 0 ok, 3 timeout, 4 write failure
+fn jdsend off ulong nw ulong dl long to int
+fd = int get JDC 1
+nb = shl nw 3
+if gt nb 65536
+ret 4
+end
+for i ulong nw
+jdpiw shl i 3 get JDM add off i
+end
+done = ulong 0
+while lt done nb bound 999999
+left = sub dl monons
+if le left 0
+ret 3
+end
+e = waitio fd 4 left
+if eq e 0
+ret 3
+end
+if or lt e 0 eq and e 4 0
+ret 4
+end
+k = sub nb done
+if gt k 4096
+k = 4096
+end
+w = write fd JDIO done k
+if le w 0
+ret 4
+end
+done = add done ulong w
+end
+ret 0
+end
+
+note read exactly n bytes into JDIO[off..) before deadline dl; 0 ok, 1 end of file, 3 timeout
+fn jdrdn fd int off ulong n ulong dl long to int
+got = ulong 0
+while lt got n bound 999999
+left = sub dl monons
+if le left 0
+ret 3
+end
+e = waitio fd 1 left
+if lt e 0
+ret 1
+end
+if eq e 0
+ret 3
+end
+k = read fd JDIO add off got sub n got
+if le k 0
+ret 1
+end
+got = add got ulong k
+end
+ret 0
+end
+
+note response into JDRS (0 status, 1 q, 2.. words); 0 ok, 1 short, 2 bad q, 3 timeout
+fn jdrecv dl long to int
+fd = int get JDC 2
+e = jdrdn fd 0 16 dl
+if ne e 0
+ret e
+end
+put JDRS 0 jdgiw 0
+q = jdgiw 8
+put JDRS 1 q
+if gt q 32
+ret 2
+end
+e = jdrdn fd 16 shl q 3 dl
+if ne e 0
+ret e
+end
+for i ulong q
+put JDRS add 2 i jdgiw add 16 shl i 3
+end
+ret 0
+end
+
+note read /proc of the live arm once (before END or a kill)
+fn jdpread to void
+if ne get JDC 27 0
+ret
+end
+pid = get JDC 0
+r = jdprocst pid
+put JDC 20 get JDT 0
+put JDC 21 get JDT 1
+put JDC 22 get JDT 2
+put JDC 23 get JDT 3
+put JDC 24 get JDT 4
+jdprocmem pid
+put JDC 25 get JDT 5
+put JDC 26 get JDT 6
+put JDC 27 1
+end
+
+fn jdclosefd to void
+c = fclose int get JDC 1
+c = fclose int get JDC 2
+c = fclose int get JDC 3
+end
+
+note wait status in JDWS to the proc.log exit word
+fn jdwstat to ulong
+sig = and ulong get JDWS 0 127
+if ne sig 0
+ret add 256 sig
+end
+ret ulong get JDWS 1
+end
+
+note reap the arm within 10 s, killing it after that
+fn jdreap to void
+pid = int get JDC 0
+dl = add monons 10000000000
+while true bound 999999
+r = waitpid pid JDWS 0 4 1
+if eq r long pid
+put JDC 18 jdwstat
+ret
+end
+if lt r 0
+put JDC 18 1023
+ret
+end
+if gt monons dl
+k = killpid pid 9
+r = waitpid pid JDWS 0 4 0
+put JDC 18 jdwstat
+ret
+end
+s = sleepns 1000000
+end
+end
+
+note kill the arm (protocol violation or a C11 kill); code 0 = deliberate kill
+fn jdpkill code ulong to void
+if eq get JDC 8 0
+ret
+end
+jdpread
+pid = int get JDC 0
+k = killpid pid 9
+r = waitpid pid JDWS 0 4 0
+if eq code 0
+put JDC 18 jdwstat
+else
+put JDC 18 add 512 code
+end
+put JDC 8 0
+jdclosefd
+end
+
+note send END, require status 0 and q 0, reap; K17: END round trip into JDC 28, and 1024 added to
+note the exit word when END itself failed (bad status or q, end of file, timeout, write failure;
+note the low bits then hold the exit status, or 512 + 4 + code when the judge had to kill the arm)
+fn jdpfin to void
+if eq get JDC 8 0
+ret
+end
+if eq get JDC 19 1
+jdpstats
+end
+jdpread
+put JDM JMEND 10
+put JDM add JMEND 1 0
+t1 = monons
+dl = add t1 10000000000
+e = jdsend JMEND 2 dl
+if eq e 0
+e = jdrecv dl
+end
+put JDC 28 ulong sub monons t1
+if ne e 0
+jdpkill add 4 ulong e
+put JDC 18 add get JDC 18 1024
+ret
+end
+bad = or ne get JDRS 0 0 ne get JDRS 1 0
+jdreap
+if bad
+put JDC 18 add get JDC 18 1024
+end
+put JDC 8 0
+jdclosefd
+end
+
+note K14: diagnostic STATS, excluded from every latency sum, padded to 32 counter words.
+fn jdpstats to void
+for i ulong 34
+put JDM add 9437000 i 0
+end
+put JDM JMEND 9
+put JDM add JMEND 1 0
+dl = add monons 10000000000
+e = jdsend JMEND 2 dl
+if eq e 0
+e = jdrecv dl
+end
+if eq e 0
+put JDM 9437000 get JDRS 0
+put JDM 9437001 get JDRS 1
+for i ulong get JDRS 1
+put JDM add 9437002 i get JDRS add i 2
+end
+else
+put JDM 9437000 JDNONE
+end
+jdscp 0 4
+jdsc 0 47
+jdsc 0 115
+jdsc 0 116
+jdsc 0 97
+jdsc 0 116
+jdsc 0 115
+jdsc 0 45
+jdsnum 0 get JDC 10 1
+jdsc 0 45
+jdsnum 0 get JDC 12 1
+jdsw 0 JWG 2
+jdsnum 0 get JDC 11 2
+jdsc 0 46
+jdsc 0 99
+jdsc 0 116
+jdsc 0 114
+x = jdstw 0 9437000 34 705
+end
+
+note status, r0, r1, route of the response as logged, into JDQ 0..3
+fn jdlogval op ulong code ulong to void
+put JDQ 0 get JDRS 0
+put JDQ 1 0
+put JDQ 2 0
+put JDQ 3 0
+if and eq op 2 ge get JDRS 1 3
+put JDQ 1 get JDRS 2
+put JDQ 2 get JDRS 3
+put JDQ 3 get JDRS 4
+end
+if ne code 0
+put JDQ 1 0
+put JDQ 2 0
+put JDQ 3 0
+end
+if eq code 1
+put JDQ 0 JDNONE
+end
+if eq code 2
+put JDQ 0 sub JDNONE 1
+end
+end
+
+note one 16-word raw record for request j into JDLB, counters into JDA
+fn jdlogrec j ulong code ulong rt ulong to void
+off = get JDM add JMOF j
+op = get JDM add JMRQ off
+ex = add JMEX shl j 3
+jdlogval op code
+co = jdcorr op code get JDQ 0 get JDQ 1 get JDQ 2 ex
+jdcount j op code co get JDQ 3
+if eq get JDC 19 0
+ret
+end
+jdlogw j op ex rt co
+end
+
+fn jdlogw j ulong op ulong ex ulong rt ulong co ulong to void
+b = get JDC 14
+if gt add b 128 8388608
+trap 3
+end
+jdplw b get JDC 11
+jdplw add b 8 get JDC 12
+jdplw add b 16 get JDC 10
+jdplw add b 24 j
+jdplw add b 32 op
+jdplw add b 40 get JDQ 0
+jdplw add b 48 get JDQ 1
+jdplw add b 56 get JDQ 2
+jdplw add b 64 get JDQ 3
+jdplw add b 72 get JDM ex
+jdplw add b 80 get JDM add ex 2
+jdplw add b 88 get JDM add ex 3
+jdplw add b 96 rt
+jdplw add b 104 get JDM add ex 6
+jdplw add b 112 get JDM add ex 5
+jdplw add b 120 co
+put JDC 14 add b 128
+end
+
+note correctness word: code 0 answered, 1 violation, 2 not sent
+fn jdcorr op ulong code ulong st ulong r0 ulong r1 ulong ex ulong to ulong
+if ne code 0
+ret 0
+end
+if eq get JDC 10 0
+ret 2
+end
+if ne st get JDM ex
+ret 0
+end
+if ne op 2
+ret 2
+end
+if ne st 0
+ret 1
+end
+e0 = get JDM add ex 2
+if ne r0 e0
+ret 0
+end
+e1 = get JDM add ex 3
+if ne r1 e1
+ret 0
+end
+ret 1
+end
+
+fn jdcount j ulong op ulong code ulong co ulong ro ulong to void
+rt = add JMRT shl j 2
+put JDM rt ro
+put JDM add rt 1 code
+put JDM add rt 2 co
+if eq co 0
+put JDA 1 add get JDA 1 1
+end
+if eq code 1
+put JDA 15 add get JDA 15 1
+end
+if ne op 2
+ret
+end
+put JDM add rt 3 1
+put JDA 0 add get JDA 0 1
+if eq co 0
+put JDA 14 add get JDA 14 1
+end
+if ne code 0
+ret
+end
+if le ro 5
+put JDA add 2 ro add get JDA add 2 ro 1
+else
+put JDA 8 add get JDA 8 1
+end
+m = or eq ro 3 eq ro 4
+rv = get JDC 16
+if and ne rv JDNONE ge j rv
+put JDA 10 add get JDA 10 1
+if m
+put JDA 11 add get JDA 11 1
+end
+if eq ro 5
+put JDA 12 add get JDA 12 1
+end
+else
+if m
+put JDA 13 add get JDA 13 1
+end
+end
+end
+
+fn jdcnt0 to void
+for i ulong 64
+put JDA i 0
+end
+end
+
+note send request j and read its response; logs it
+fn jdpreq j ulong to void
+if eq get JDC 8 0
+jdlogrec j 2 0
+ret
+end
+if eq j get JDC 16
+jdrevoke
+end
+off = get JDM add JMOF j
+nw = add get JDM add add JMRQ off 1 2
+t1 = monons
+dl = add t1 10000000000
+e = jdsend add JMRQ off nw dl
+if eq e 0
+e = jdrecv dl
+end
+t2 = monons
+if eq e 0
+eq1 = get JDM add add JMEX shl j 3 1
+if ne get JDRS 1 eq1
+e = 2
+end
+end
+rt = ulong sub t2 t1
+if eq get JDC 15 0
+put JDC 5 ulong sub t2 long get JDC 4
+end
+put JDC 15 add get JDC 15 1
+put JDC 6 add get JDC 6 rt
+put JDC 7 add get JDC 7 1
+if ne e 0
+put JDC 9 ulong e
+jdlogrec j 1 rt
+jdpkill ulong e
+ret
+end
+jdlogrec j 0 rt
+end
+
+note C7 mid-session revocation: append the line of register 29 to the ALLOW copy of register 28
+fn jdrevoke to void
+if eq get JDSL 28 0
+ret
+end
+x = jdopen 28 1089
+if lt x 0
+ret
+end
+fd = int x
+w = write fd JDS 118784 get JDSL 29
+c = fsync fd
+c = fclose fd
+end
+
+note the proc.log record (16 words at JMPRC) appended to <dir 4>/proc.log
+fn jdproclog to int
+p = JMPRC
+put JDM p get JDC 10
+put JDM add p 1 get JDC 11
+put JDM add p 2 get JDC 12
+put JDM add p 3 get JDC 5
+put JDM add p 4 get JDC 20
+put JDM add p 5 get JDC 21
+put JDM add p 6 get JDC 22
+put JDM add p 7 get JDC 23
+put JDM add p 8 get JDC 25
+put JDM add p 9 get JDC 26
+put JDM add p 10 get JDC 18
+put JDM add p 11 get JDC 7
+put JDM add p 12 get JDC 6
+put JDM add p 13 get JDC 24
+put JDM add p 14 get JDC 13
+put JDM add p 15 get JDC 28
+jdspath 0 4 JWPLOG 8
+x = jdstw 0 p 16 1089
+if lt x 0
+ret 1
+end
+ret 0
+end
+
+note <dir 4>/arm-A-rep-R-gNN.log from JDLB (a new file; never overwritten)
+fn jdrawlog to int
+jdscp 0 4
+jdsc 0 47
+jdsw 0 JWARM 4
+jdsnum 0 get JDC 10 1
+jdsw 0 JWREP 5
+jdsnum 0 get JDC 12 1
+jdsw 0 JWG 2
+jdsnum 0 get JDC 11 2
+jdsw 0 JWLOG 4
+x = jdopen 0 705
+if lt x 0
+ret 1
+end
+fd = int x
+n = get JDC 14
+off = ulong 0
+while lt off n bound 999999
+k = write fd JDLB off sub n off
+if le k 0
+c = fclose fd
+ret 2
+end
+off = add off ulong k
+end
+c = fsync fd
+c = fclose fd
+ret 0
+end
+
+note one arm process over requests j0..j1 of the loaded group; arm config in registers 5, 7..13,
+note JDC 10..12; writes the raw log and proc.log when JDC 19 = 1. 0 ok, nonzero judge failure.
+fn jdpgroup j0 ulong j1 ulong to int
+put JDC 14 0
+r = jdpstart
+if ne r 0
+ret 1
+end
+j = j0
+while lt j j1 bound 999999
+if eq j get JDC 17
+jdpkill 0
+end
+jdpreq j
+j = add j 1
+end
+jdpfin
+if eq get JDC 19 0
+ret 0
+end
+r = jdrawlog
+if ne r 0
+ret 2
+end
+r = jdproclog
+if ne r 0
+ret 3
+end
+ret 0
+end
+
+note ---- split directories ----
+
+note index and sessions of the split in register 3; group count or negative
+fn jdsload to long
+jdspath 0 3 JWINDEX 5
+n = jdldw 0 JMIX 4096
+if lt n 16
+ret -1
+end
+if ne get JDM JMIX 3544386032354079058
+ret -2
+end
+if ne get JDM add JMIX 1 1
+ret -2
+end
+g = get JDM add JMIX 3
+if or gt g 100 ne ulong n add 16 g
+ret -3
+end
+jdspath 0 3 JWSESS 8
+s = jdldw 0 JMSE 1044480
+if lt s 0
+ret -4
+end
+if ne ulong s mul 16 get JDM add JMIX 4
+ret -5
+end
+ret long g
+end
+
+fn jdgpath r ulong d ulong g ulong ext ulong to void
+jdscp r d
+jdsc r 47
+jdsc r 103
+jdsnum r g 2
+jdsw r ext 4
+end
+
+note group g of the split in register 3 into JMRQ / JMOF / JMEX; request count or negative
+fn jdgload g ulong to long
+jdgpath 0 3 g JWREQ
+nw = jdldw 0 JMRQ 6291456
+if lt nw 0
+ret -1
+end
+off = ulong 0
+j = ulong 0
+while lt off ulong nw bound 999999
+if ge j 1048576
+ret -2
+end
+put JDM add JMOF j off
+off = add off add get JDM add add JMRQ off 1 2
+j = add j 1
+end
+if ne off ulong nw
+ret -3
+end
+if ne j get JDM add add JMIX 16 g
+ret -4
+end
+jdgpath 0 3 g JWEXP
+ne8 = jdldw 0 JMEX 1048576
+if ne ulong ne8 shl j 3
+ret -5
+end
+for i ulong j
+if not jdopok i
+ret -6
+end
+end
+ret long j
+end
+
+fn jdopok i ulong to bool
+o = get JDM add JMOF i
+op = get JDM add JMRQ o
+eo = get JDM add add JMEX shl i 3 4
+ret eq op eo
+end
+
+fn jdusage to int
+jdsclr 0
+jdsw 0 JWUSAGE 77
+jdsc 0 10
+n = write 2 JDS 0 get JDSL 0
+ret 2
+end
+
+fn jderr code ulong to int
+jdsclr 0
+jdsw 0 JWERR 12
+jdsnum 0 code 1
+jdsc 0 10
+n = write 2 JDS 0 get JDSL 0
+ret 3
+end
+
+note ---- run ----
+
+note arm-order seed: a 64-hex FINAL seed gives bytes 16..23 little endian; else a decimal value
+fn jdseed r ulong to ulong
+if eq get JDSL r 64
+v = ulong 0
+for k ulong 8
+b = jdshexb r add 16 k
+if gt b 255
+ret JDNONE
+end
+v = or v shl b mul k 8
+end
+ret v
+end
+ret jdsval r
+end
+
+note arm digits of register r into JDM JMSC..; count, 0 when invalid
+fn jdarms r ulong to ulong
+n = get JDSL r
+if or eq n 0 gt n 8
+ret 0
+end
+for i ulong n
+c = jdsb r i
+if or lt c 48 gt c 55
+ret 0
+end
+a = sub c 48
+for k ulong i
+if eq get JDM add JMSC k a
+ret 0
+end
+end
+put JDM add JMSC i a
+end
+ret n
+end
+
+note fresh copy of the base arm list at JMSC + 16, Fisher-Yates with splitmix64 (i = n-1 .. 1)
+fn jdperm n ulong to void
+b = add JMSC 16
+for i ulong n
+put JDM add b i get JDM add JMSC i
+end
+i = sub n 1
+while gt i 0 bound 8
+j = rem jdsmix add i 1
+t = get JDM add b i
+put JDM add b i get JDM add b j
+put JDM add b j t
+i = sub i 1
+end
+end
+
+fn jdlibdir r ulong rep ulong lib ulong to void
+jdscp r 4
+jdsc r 47
+jdsw r JWLIB 4
+jdsnum r rep 1
+jdsc r 45
+jdsnum r lib 1
+end
+
+note process registers 8..13 and JDC 10, 12 for arm a in repetition rep of a run
+fn jdarmcfg a ulong rep ulong to void
+jdarmname 8 a
+jdsdsh 9
+jdsdsh 10
+jdsdsh 11
+jdsdsh 12
+jdsdsh 13
+if or eq a 3 or eq a 4 eq a 7
+jdlibdir 9 rep 1
+jdscp 10 15
+jdscp 11 6
+end
+if eq a 5
+jdscp 11 6
+end
+if eq a 6
+jdlibdir 9 rep 2
+jdscp 10 17
+jdscp 11 6
+end
+put JDC 10 a
+put JDC 12 rep
+end
+
+fn jdaddm i ulong d ulong to void
+put JDM i add get JDM i d
+end
+
+fn jdneed n ulong lib ulong to bool
+for i ulong n
+a = get JDM add JMSC i
+if and eq lib 1 or eq a 3 or eq a 4 eq a 7
+ret true
+end
+if and eq lib 2 eq a 6
+ret true
+end
+end
+ret false
+end
+
+fn jdsummary n ulong to void
+for i ulong n
+a = get JDM add JMSC i
+jdsclr 0
+jdsw 0 JWAEQ 4
+jdsnum 0 a 1
+jdsw 0 JWWRONG 7
+jdsnum 0 get JDM add add JMSC 32 a 1
+jdsw 0 JWVIOL 12
+jdsnum 0 get JDM add add JMSC 48 a 1
+jdsout 0
+end
+end
+
+note all arms of the base list over one loaded group g, repetition rep
+fn jdrungrp na ulong g ulong rep ulong nreq ulong to int
+jdperm na
+for k ulong na
+a = get JDM add add JMSC 16 k
+jdarmcfg a rep
+put JDC 11 g
+w0 = get JDA 1
+v0 = get JDA 15
+e = jdpgroup 0 nreq
+if ne e 0
+ret add 40 e
+end
+dw = sub get JDA 1 w0
+jdaddm add add JMSC 32 a dw
+dv = sub get JDA 15 v0
+jdaddm add add JMSC 48 a dv
+end
+ret 0
+end
+
+note judge run SPLIT OUT REPS SEED ARMS BASE ALLOW LIB MAN LIBP MANP CPU
+fn jdrun to int
+if ne argcnt 14
+ret jdusage
+end
+b = jdsarg 3 2
+b = jdsarg 4 3
+b = jdsarg 0 4
+b = jdsarg 1 5
+b = jdsarg 2 6
+b = jdsarg 5 7
+b = jdsarg 6 8
+b = jdsarg 14 9
+b = jdsarg 15 10
+b = jdsarg 16 11
+b = jdsarg 17 12
+b = jdsarg 7 13
+reps = jdsval 0
+seed = jdseed 1
+na = jdarms 2
+if or or eq reps JDNONE or eq reps 0 gt reps 99 or eq seed JDNONE eq na 0
+ret jdusage
+end
+n1 = jdneed na 1
+n2 = jdneed na 2
+if and n1 or jdsdash 14 jdsdash 15
+ret jdusage
+end
+if and n2 or jdsdash 16 jdsdash 17
+ret jdusage
+end
+g = jdsload
+if lt g 0
+ret jderr 10
+end
+r = jdmkdir 4 493
+jdspath 0 4 JWPLOG 8
+if jdexists 0
+ret jderr 11
+end
+for i ulong 32
+put JDM add add JMSC 32 i 0
+end
+put JDSM 0 seed
+e = jdrunloop reps na n1 n2 ulong g
+if ne e 0
+ret jderr e
+end
+jdsummary na
+ret 0
+end
+
+
+fn jdrunloop reps ulong na ulong n1 bool n2 bool g ulong to ulong
+put JDC 16 JDNONE
+put JDC 17 JDNONE
+put JDC 19 1
+jdcnt0
+for rep ulong reps
+if n1
+jdlibdir 26 rep 1
+c = jdcpdir 14 26
+if ne c 0
+ret 12
+end
+end
+if n2
+jdlibdir 26 rep 2
+c = jdcpdir 16 26
+if ne c 0
+ret 13
+end
+end
+for gi ulong g
+nreq = jdgload gi
+if lt nreq 0
+ret 20
+end
+e = jdrungrp na gi rep ulong nreq
+if ne e 0
+ret ulong e
+end
+end
+end
+ret 0
+end
+
+note ---- tap ----
+
+note judge tap SPLIT BASE TAPFILE SPLITARG CPU: one B process over every group in order
+fn jdtap to int
+if ne argcnt 7
+ret jdusage
+end
+b = jdsarg 3 2
+b = jdsarg 5 3
+b = jdsarg 12 4
+b = jdsarg 13 5
+b = jdsarg 7 6
+g = jdsload
+if lt g 0
+ret jderr 10
+end
+if jdexists 12
+ret jderr 14
+end
+jdarmname 8 8
+jdsdsh 9
+jdsdsh 10
+jdsdsh 11
+put JDC 10 1
+put JDC 11 0
+put JDC 12 0
+put JDC 16 JDNONE
+put JDC 17 JDNONE
+put JDC 19 0
+jdcnt0
+r = jdpstart
+if ne r 0
+ret jderr 15
+end
+for gi ulong ulong g
+nreq = jdgload gi
+if lt nreq 0
+jdpkill 0
+ret jderr 16
+end
+for j ulong ulong nreq
+jdpreq j
+end
+end
+jdpfin
+z = jdhfile 12
+jdsclr 0
+jdsw 0 JWTSHA 11
+jdshash 0
+jdsw 0 JWTBYT 11
+if gt z 0
+jdsnum 0 ulong z 1
+else
+jdsc 0 48
+end
+jdsw 0 JWQRY 9
+jdsnum 0 get JDA 0 1
+jdsw 0 JWWRONG 7
+jdsnum 0 get JDA 1 1
+jdsw 0 JWVIOL 12
+jdsnum 0 get JDA 15 1
+jdsout 0
+if or ne get JDA 1 0 ne get JDC 18 0
+ret 4
+end
+if le z 0
+ret 4
+end
+ret 0
+end
+
+note ---- calib ----
+note pairs (key, ns) at JMSC, sort area at JMSC + 2097152, logs at JMSC + 3145728; change class
+note of QUERY j at JMRT + j, per-session change counts at JMRT + 524288 + ordinal.
+
+const JDPAIR ulong 10485760
+const JDSORT ulong 12582912
+const JDLOGW ulong 13631488
+
+fn jdccls c ulong to ulong
+if eq c 0
+ret 0
+end
+if eq c 1
+ret 1
+end
+if le c 64
+ret 2
+end
+ret 3
+end
+
+fn jdcchg nreq ulong to void
+cb = add JMRT 524288
+for j ulong nreq
+o = get JDM add JMOF j
+op = get JDM add JMRQ o
+ex = add JMEX shl j 3
+s = get JDM add ex 5
+ok = eq get JDM ex 0
+si = add cb s
+put JDM add JMRT j 9
+if and eq op 1 ok
+put JDM si 0
+end
+if and ok and ge op 3 le op 6
+jdaddm si 1
+end
+if and ok eq op 8
+jdaddm si 1
+end
+if and ok eq op 7
+m = get JDM add add JMRQ o 2
+jdaddm si m
+end
+if eq op 2
+put JDM add JMRT j jdccls get JDM si
+put JDM si 0
+end
+end
+end
+
+fn jdpair k ulong v ulong np ulong to ulong
+if ge np 1048576
+ret np
+end
+put JDM add JDPAIR shl np 1 k
+put JDM add add JDPAIR shl np 1 1 v
+ret add np 1
+end
+
+note pairs of one arm log (already at JDLOGW) for a loaded group of nreq requests
+fn jdcpairs a ulong nreq ulong np ulong to ulong
+n = np
+path = ulong 2
+if eq a 1
+path = 0
+end
+if eq a 3
+path = 1
+end
+for j ulong nreq
+n = jdcpone a path j n
+end
+ret n
+end
+
+fn jdsfld s ulong w ulong to ulong
+ret get JDM add add JMSE shl s 4 w
+end
+
+fn jdcpone a ulong path ulong j ulong np ulong to ulong
+rec = add JDLOGW shl j 4
+fam = jdsfld get JDM add rec 14 2
+ncl = jdsfld get JDM add rec 14 5
+if or or lt fam 1 gt fam 2 gt ncl 2
+ret np
+end
+k = add mul sub fam 1 3 ncl
+n = jdcpq path j k np
+if jdcbind get JDM add rec 4 rec j a
+kb = add k 100
+if eq a 1
+kb = add k 200
+end
+n = jdpair kb get JDM add rec 12 n
+end
+ret n
+end
+
+note QUERY pair of record j; k = (family - 1) * 3 + nclass
+fn jdcpq path ulong j ulong k ulong np ulong to ulong
+rec = add JDLOGW shl j 4
+if or ne get JDM add rec 4 2 ne get JDM add rec 15 1
+ret np
+end
+f0 = div k 3
+ncl = rem k 3
+c = jdcell f0 path ncl get JDM add JMRT j
+ret jdpair c get JDM add rec 12 np
+end
+
+fn jdcell f0 ulong path ulong ncl ulong cc ulong to ulong
+x = mul add mul f0 4 path 12
+ret add add x mul ncl 4 cc
+end
+
+fn jdcbind op ulong rec ulong j ulong a ulong to bool
+if or ne op 1 eq j 0
+ret false
+end
+if eq a 4
+ret false
+end
+ret and eq get JDM add rec 5 0 eq get JDM add rec 9 0
+end
+
+note values of key k gathered into JDSORT and sorted; count
+fn jdgather k ulong np ulong to ulong
+n = ulong 0
+for i ulong np
+if eq get JDM add JDPAIR shl i 1 k
+put JDM add JDSORT n get JDM add add JDPAIR shl i 1 1
+n = add n 1
+end
+end
+jdhsort JDSORT n
+ret n
+end
+
+fn jdsift b ulong st ulong n ulong to void
+root = st
+while true bound 64
+ch = add mul root 2 1
+if ge ch n
+break
+end
+sw = root
+if gt get JDM add b ch get JDM add b sw
+sw = ch
+end
+c2 = add ch 1
+if lt c2 n
+if gt get JDM add b c2 get JDM add b sw
+sw = c2
+end
+end
+if eq sw root
+break
+end
+t = get JDM add b root
+put JDM add b root get JDM add b sw
+put JDM add b sw t
+root = sw
+end
+end
+
+fn jdhsort b ulong n ulong to void
+if lt n 2
+ret
+end
+st = add div sub n 2 2 1
+while gt st 0 bound 999999
+st = sub st 1
+jdsift b st n
+end
+e = sub n 1
+while gt e 0 bound 999999
+t = get JDM b
+put JDM b get JDM add b e
+put JDM add b e t
+jdsift b 0 e
+e = sub e 1
+end
+end
+
+note nearest-rank percentile p of the n sorted values at JDSORT: index ceil(p n / 100) - 1
+fn jdpct n ulong p ulong to ulong
+i = div add mul p n 99 100
+if eq i 0
+i = 1
+end
+ret get JDM add JDSORT sub i 1
+end
+
+fn jdfloor1 a ulong b ulong to ulong
+if le a b
+ret 1
+end
+d = sub a b
+if lt d 1
+ret 1
+end
+ret d
+end
+
+note the calibration words into JMEX[0..200)
+fn jdcalout np ulong eqv ulong to void
+for i ulong 200
+put JDM add JMEX i 0
+end
+put JDM JMEX 3544386010811150674
+put JDM add JMEX 1 1
+put JDM add JMEX 2 eqv
+for c ulong 96
+if eq rem div c 12 4 3
+continue
+end
+n = jdgather c np
+if gt n 0
+put JDM add add JMEX 8 shl c 1 jdpct n 50
+put JDM add add JMEX 9 shl c 1 jdpct n 90
+end
+end
+for f0 ulong 2
+for ncl ulong 3
+jdcalbind f0 ncl np
+end
+end
+end
+
+fn jdcalbind f0 ulong ncl ulong np ulong to void
+k = add mul f0 3 ncl
+nf = jdgather add k 200 np
+if eq nf 0
+ret
+end
+fp = jdpct nf 50
+nm = jdgather add k 100 np
+if eq nm 0
+ret
+end
+c = add mul add mul f0 4 3 12 mul ncl 4
+put JDM add add JMEX 8 shl c 1 jdfloor1 jdpct nm 50 fp
+put JDM add add JMEX 9 shl c 1 jdfloor1 jdpct nm 90 fp
+end
+
+note judge calib CALIBDIR RUNDIR REPS OUTFILE
+fn jdcalib to int
+if ne argcnt 6
+ret jdusage
+end
+b = jdsarg 3 2
+b = jdsarg 4 3
+b = jdsarg 0 4
+b = jdsarg 21 5
+reps = jdsval 0
+if or eq reps JDNONE eq reps 0
+ret jdusage
+end
+g = jdsload
+if lt g 0
+ret jderr 10
+end
+ns = get JDM add JMIX 4
+if eq ns 0
+ret jderr 17
+end
+eqv = div mul get JDM add JMIX 6 1000 ns
+np = jdcalloop reps ulong g
+if eq np JDNONE
+ret jderr 18
+end
+jdcalout np eqv
+x = jdstw 21 JMEX 200 705
+if lt x 0
+ret jderr 19
+end
+z = jdhfile 21
+jdsclr 0
+jdsw 0 JWCSHA 11
+jdshash 0
+jdsout 0
+ret 0
+end
+
+fn jdcalloop reps ulong g ulong to ulong
+np = ulong 0
+for rep ulong reps
+for gi ulong g
+x = jdgload gi
+if lt x 0
+ret JDNONE
+end
+nreq = ulong x
+jdcchg nreq
+np = jdcal3 rep gi nreq np
+if eq np JDNONE
+ret JDNONE
+end
+end
+end
+ret np
+end
+
+fn jdcal3 rep ulong gi ulong nreq ulong np ulong to ulong
+n = np
+for t ulong 3
+a = add t 2
+if eq t 0
+a = 1
+end
+if eq t 2
+a = 4
+end
+x = jdcload a rep gi
+if ne x mul nreq 16
+ret JDNONE
+end
+n = jdcpairs a nreq n
+end
+ret n
+end
+
+note raw log arm a, repetition rep, group g of the run dir in register 4 into JDLOGW; words
+fn jdcload a ulong rep ulong g ulong to ulong
+jdscp 0 4
+jdsc 0 47
+jdsw 0 JWARM 4
+jdsnum 0 a 1
+jdsw 0 JWREP 5
+jdsnum 0 rep 1
+jdsw 0 JWG 2
+jdsnum 0 g 2
+jdsw 0 JWLOG 4
+x = jdldw 0 JDLOGW 3145728
+if lt x 0
+ret JDNONE
+end
+ret ulong x
+end
+
+note ---- build ----
+
+note index of JDW[off..off+wn) in JDF[0..n), or n
+fn jdfindf n ulong off ulong wn ulong to ulong
+if lt n wn
+ret n
+end
+for i ulong add sub n wn 1
+k = ulong 0
+while lt k wn bound 64
+if ne get JDF add i k get JDW add off k
+break
+end
+k = add k 1
+end
+if eq k wn
+ret i
+end
+end
+ret n
+end
+
+note register r written to the file of register p (flags), with a final newline
+fn jdwreg r ulong p ulong flags int to long
+x = jdopen p flags
+if lt x 0
+ret x
+end
+fd = int x
+jdsc r 10
+w = write fd JDS mul r 4096 get JDSL r
+put JDSL r sub get JDSL r 1
+c = fsync fd
+c = fclose fd
+ret 0
+end
+
+note drive child: chdir into register 19, stdout onto the pipe, exec the packet
+fn jddchild wr int to void
+c = chdir JDS 77824 get JDSL 19
+if ne c 0
+exit 126
+end
+d = dupfd wr 1 0
+e = execprog JDPK 0 get JDPKN 0
+exit 127
+end
+
+note read the child's stdout into JDF until end of file; bytes
+fn jddread rd int dl long to ulong
+n = ulong 0
+while true bound 999999
+left = sub dl monons
+if le left 0
+break
+end
+e = waitio rd 1 left
+if le e 0
+break
+end
+if ge n 16777216
+break
+end
+k = read rd JDF n sub 16777216 n
+if le k 0
+break
+end
+n = add n ulong k
+end
+ret n
+end
+
+note run drive build: registers 18 drive, 19 checkout (cwd of drive), 20 omc, 11 ALLOW, 21 CALIB,
+note 9 OUTLIB, 30 acquisition dir, JDXA extra arguments. acq.log record, acq-L-R.mansha; the
+note manifest hex is left in register 10 (empty if none). Returns the drive exit word.
+fn jdbuild lib ulong rep ulong to ulong
+jdbpk
+r = jdprocst 0
+put JDC 40 get JDT 2
+put JDC 41 get JDT 3
+ex = jdbrun
+r = jdprocst 0
+el = get JDC 42
+n = get JDC 43
+cu = sub get JDT 2 get JDC 40
+cs = sub get JDT 3 get JDC 41
+jdacqrec lib rep el cu cs ex
+jdmansha lib rep n
+w = write 1 JDF 0 n
+jdsclr 0
+jdsw 0 JWDEX 11
+jdsnum 0 ex 1
+jdsw 0 JWELNS 12
+jdsnum 0 el 1
+jdsout 0
+ret ex
+end
+
+fn jdbpk to void
+jdpk0
+jdpkr 18
+jdsclr 0
+jdsw 0 JWBUILD 5
+jdpkr 0
+jdpkr 20
+jdpkr 11
+jdpkr 21
+jdpkr 9
+for i ulong get JDXL 0
+jdxget 0 i
+jdpkr 0
+end
+jdpkfin
+end
+
+note fork and exec the drive packet; exit word; JDC 42 elapsed ns, JDC 43 output bytes in JDF
+fn jdbrun to ulong
+put JDC 42 0
+put JDC 43 0
+pr = pipefds JDPF 0 8 524288
+if ne pr 0
+ret 1001
+end
+rd = jdfdw 0
+wr = jdfdw 4
+t0 = monons
+pid = fork
+if lt pid 0
+ret 1002
+end
+if eq pid 0
+jddchild wr
+end
+c = fclose wr
+dl = add t0 3600000000000
+n = jddread rd dl
+if gt monons dl
+k = killpid int pid 9
+end
+w = waitpid int pid JDWS 0 4 0
+t1 = monons
+c = fclose rd
+put JDC 42 ulong sub t1 t0
+put JDC 43 n
+ret jdwstat
+end
+
+fn jdacqrec lib ulong rep ulong el ulong cu ulong cs ulong ex ulong to void
+p = JMPRC
+put JDM p lib
+put JDM add p 1 rep
+put JDM add p 2 el
+put JDM add p 3 cu
+put JDM add p 4 cs
+put JDM add p 5 ex
+put JDM add p 6 jddirb 9
+put JDM add p 7 0
+jdspath 0 30 JWACQ 7
+x = jdstw 0 p 8 1089
+end
+
+note manifest_sha256=<64 hex> of the drive output into register 10 and acq-L-R.mansha
+fn jdmansha lib ulong rep ulong n ulong to void
+jdsclr 10
+p = jdfindf n JWMSHA 16
+if ge add p 80 add n 1
+ret
+end
+b = add p 16
+for i ulong 64
+jdsc 10 get JDF add b i
+end
+jdscp 0 30
+jdsc 0 47
+jdsw 0 JWACQ2 4
+jdsnum 0 lib 1
+jdsc 0 45
+jdsnum 0 rep 1
+jdsw 0 JWMANS 7
+x = jdwreg 10 0 577
+end
+
+fn jdxpre r ulong to bool
+if jdspre r JWUNIT 5
+ret true
+end
+if jdspre r JWMUT 7
+ret true
+end
+ret jdspre r JWCRASH 11
+end
+
+note judge build DRIVE OMEGADIR OMC ALLOW CALIB OUTLIB ACQDIR LIBID REP [DRIVE ARGS...]
+fn jdbuildc to int
+if lt argcnt 11
+ret jdusage
+end
+b = jdsarg 18 2
+b = jdsarg 19 3
+b = jdsarg 20 4
+b = jdsarg 11 5
+b = jdsarg 21 6
+b = jdsarg 9 7
+b = jdsarg 30 8
+b = jdsarg 0 9
+lib = jdsval 0
+b = jdsarg 0 10
+rep = jdsval 0
+if or eq lib JDNONE eq rep JDNONE
+ret jdusage
+end
+jdabs 18
+jdabs 20
+if not jdsdash 11
+jdabs 11
+end
+if not jdsdash 21
+jdabs 21
+end
+jdabs 9
+jdx0
+i = ulong 11
+while lt i ulong argcnt bound 64
+b = jdsarg 0 i
+if not jdxpre 0
+jdabs 0
+end
+jdxadd 0
+i = add i 1
+end
+ex = jdbuild lib rep
+if gt ex 255
+ret 255
+end
+ret int ex
+end
+
+note ---- recheck (contract 7.4) ----
+
+note judge recheck MANSHAFILE PINHEX: 0 REBUILD MATCH, 3 BLOCKED
+fn jdrecheck to int
+if ne argcnt 4
+ret jdusage
+end
+b = jdsarg 1 2
+b = jdsarg 2 3
+n = jdldsm 1
+jdsclr 0
+if gt n 0
+for i ulong ulong n
+c = get JDWB i
+if eq c 10
+break
+end
+jdsc 0 c
+end
+end
+if and eq get JDSL 2 64 jdseq 0 2
+jdsclr 1
+jdsw 1 JWMATCH 14
+jdsr 1 0
+jdsout 1
+ret 0
+end
+jdsclr 1
+jdsw 1 JWBLK 16
+jdsr 1 0
+jdsw 1 JWPIN 8
+jdsr 1 2
+jdsout 1
+ret 3
+end
+
+note ---- entry ----
+
+fn jdmain to int
+if lt argcnt 2
+ret jdusage
+end
+b = jdsarg 0 1
+k = jdspack 0
+if eq k 7239026
+ret jdrun
+end
+if eq k 7364980
+ret jdtap
+end
+if eq k 422675505507
+ret jdcalib
+end
+if eq k 431315580258
+ret jdbuildc
+end
+if eq k 30227109702231410
+ret jdrecheck
+end
+if eq k 8317145149216812899
+ret jdcontrols
+end
+ret jdusage
+end
+
+note ---- controls (contract 9; K7 outcome words, K10 mutants) ----
+
+note JDK: 0 synthetic request count, 1 request word cursor, 2 synthetic session ordinal,
+note 3 cold flag, 4 outcome undetected count, 5 not-run count, 6 experience byte size,
+note 7 last drive exit, 8 synthetic wl, 9 synthetic shape mode, 10 stored generation.
+global JDK ulong 64
+global JDCP ulong 64
+
+note Control paths: <control dir>/cID-SUFFIX, no collisions/overwrites.
+fn jdctpath r ulong id ulong suffix ulong to void
+jdscp r 22
+jdsc r 47
+jdsc r 99
+jdsnum r id 1
+jdsc r 45
+jdsnum r suffix 1
+end
+
+note controls.log: id, subcase, detected (1), undetected (0), reported (2) or not-run (3),
+note served-tampered flag, four reserved zero words. Each observation also printed to stdout.
+fn jdctl id ulong subc ulong outcome ulong served ulong to void
+for i ulong 8
+put JDM add JMPRC i 0
+end
+put JDM JMPRC id
+put JDM add JMPRC 1 subc
+put JDM add JMPRC 2 outcome
+put JDM add JMPRC 3 served
+jdspath 0 22 JWCLOG 12
+x = jdstw 0 JMPRC 8 1089
+if or eq outcome 0 ne served 0
+jdaddk 4 1
+end
+if eq outcome 3
+jdaddk 5 1
+end
+jdsclr 0
+jdsc 0 67
+jdsnum 0 id 1
+jdsc 0 47
+jdsnum 0 subc 1
+jdsc 0 61
+jdsnum 0 outcome 1
+jdsw 0 JWWRONG 7
+jdsnum 0 get JDA 1 1
+jdsw 0 JWVIOL 12
+jdsnum 0 get JDA 15 1
+jdsc 0 32
+jdsc 0 53
+jdsc 0 61
+jdsnum 0 get JDA 7 1
+jdsc 0 32
+jdsc 0 77
+jdsc 0 61
+jdsnum 0 add get JDA 5 get JDA 6 1
+jdsout 0
+end
+
+fn jdaddk i ulong v ulong to void
+put JDK i add get JDK i v
+end
+
+fn jdctlbool id ulong subc ulong yes bool served ulong to void
+o = ulong 0
+if yes
+o = 1
+end
+jdctl id subc o served
+end
+
+note load the first valid AGG BEGIN of DEV as the ancestor of the control programs.
+fn jdctancestor to bool
+jdscp 3 25
+g = jdsload
+if lt g 0
+ret false
+end
+for gi ulong ulong g
+nr = jdgload gi
+if lt nr 0
+ret false
+end
+if jdctfind ulong nr
+ret true
+end
+end
+ret false
+end
+
+fn jdctfind nr ulong to bool
+for j ulong nr
+o = add JMRQ get JDM add JMOF j
+if ne get JDM o 1
+continue
+end
+if ne get JDM add o 3 1
+continue
+end
+for k ulong 64
+put JDCP k get JDM add add o 2 k
+end
+ret true
+end
+ret false
+end
+
+note emit RFRQ as the next synthetic request, compare with the independent reference.
+fn jdctemit to void
+j = get JDK 0
+o = get JDK 1
+nw = add get RFRQ 1 2
+put JDM add JMOF j o
+for k ulong nw
+put JDM add JMRQ add o k get RFRQ k
+end
+st = rfreq
+ex = add JMEX shl j 3
+for k ulong 8
+put JDM add ex k 0
+end
+put JDM ex get RFRS 0
+put JDM add ex 1 get RFRS 1
+put JDM add ex 2 get RFRS 2
+put JDM add ex 3 get RFRS 3
+put JDM add ex 4 get RFRQ 0
+put JDM add ex 5 get JDK 2
+if eq get RFRQ 0 2
+put JDM add ex 6 get JDK 3
+put JDK 3 0
+end
+if or eq get RFRQ 0 1 eq get RFRQ 0 8
+put JDK 3 1
+end
+put JDK 0 add j 1
+put JDK 1 add o nw
+end
+
+note derive a valid AGG program from DEV, with the same family/fold and its first constant,
+note keeping just ADD at the selected width. These deliberate shapes isolate the mutants.
+fn jdctprog wl ulong c ulong to void
+for k ulong 64
+put RFRQ add 2 k 0
+end
+put RFRQ 2 3544411312749556050
+put RFRQ 3 1
+put RFRQ 4 wl
+put RFRQ 5 1
+put RFRQ 6 1
+put RFRQ 7 1
+put RFRQ 8 c
+end
+
+note build a synthetic workload: mode 0, train (8 QUERYs); 1, drift + boundary refusals;
+note 2, MUL/SHL boundary KATs. It is independently scored by rfreq, not candidate responses.
+fn jdctsyn wl ulong mode ulong to void
+rfreset
+put JDK 0 0
+put JDK 1 0
+put JDK 2 0
+put JDK 3 1
+put JDK 8 wl
+put JDK 9 mode
+jdctprog wl and get JDCP 6 7
+put RFRQ 0 1
+put RFRQ 1 69
+put RFRQ 66 4
+put RFRQ 67 0
+put RFRQ 68 1
+put RFRQ 69 sub shl ulong 1 wl 1
+put RFRQ 70 2
+if eq wl 16
+put RFRQ 68 256
+end
+jdctemit
+for i ulong 8
+put RFRQ 0 2
+put RFRQ 1 0
+jdctemit
+end
+if eq mode 1
+jdctprog wl 9
+put RFRQ 0 8
+put RFRQ 1 64
+jdctemit
+put RFRQ 0 2
+put RFRQ 1 0
+jdctemit
+put RFRQ 0 3
+put RFRQ 1 2
+put RFRQ 2 0
+put RFRQ 3 shl ulong 1 wl
+jdctemit
+put RFRQ 0 2
+put RFRQ 1 0
+jdctemit
+end
+if eq mode 2
+jdctbound wl 3
+jdctbound wl 7
+end
+end
+
+fn jdctbound wl ulong op ulong to void
+jdctprog wl 1
+put RFRQ 7 op
+put RFRQ 8 sub wl 1
+if eq op 3
+put RFRQ 8 sub shl ulong 1 wl 1
+end
+put RFRQ 0 8
+put RFRQ 1 64
+jdctemit
+put RFRQ 0 2
+put RFRQ 1 0
+jdctemit
+put RFRQ 0 3
+put RFRQ 1 2
+put RFRQ 2 0
+put RFRQ 3 shl ulong 1 wl
+jdctemit
+put RFRQ 0 2
+put RFRQ 1 0
+jdctemit
+end
+
+note authorize the current digest JDH in ALLOW register 11 (copies of ALLOW are always private).
+fn jdctauth to bool
+jdsclr 0
+jdshash 0
+jdsw 0 JWAUTH 12
+jdsw 0 JWCTRL 4
+x = jdwreg 0 11 1089
+ret eq x 0
+end
+
+note tap the current synthetic workload to fresh experience register ep, then authorize it.
+fn jdcttap ep ulong to bool
+jdarmname 8 8
+jdsdsh 9
+jdsdsh 10
+jdsdsh 11
+jdscp 12 ep
+jdsclr 13
+jdsc 13 49
+put JDC 10 1
+put JDC 11 0
+put JDC 12 0
+put JDC 16 JDNONE
+put JDC 17 JDNONE
+put JDC 19 0
+jdcnt0
+e = jdpgroup 0 get JDK 0
+if or ne e 0 ne get JDA 1 0
+ret false
+end
+if ne get JDC 18 0
+ret false
+end
+z = jdhfile ep
+if le z 0
+ret false
+end
+jdscp 11 6
+ret jdctauth
+end
+
+note build a library from experience ep, optional mutant kind (0 none, 1 c1, 2 c1b, 3 c1c),
+note optional unit mutant kind (0 none, 1 nog3, 2 c4). Destination register 9.
+fn jdctbuild ep ulong mut ulong unit ulong rep ulong to ulong
+jdx0
+if ne mut 0
+jdsclr 0
+if eq mut 1
+jdsw 0 JWMC1 9
+end
+if eq mut 2
+jdsw 0 JWMC1B 10
+end
+if eq mut 3
+jdsw 0 JWMC1C 10
+end
+jdxadd 0
+end
+if ne unit 0
+jdsclr 0
+if eq unit 1
+jdsw 0 JWUCHK 11
+jdsr 0 23
+end
+if eq unit 2
+jdsw 0 JWUDEL 11
+jdsr 0 24
+end
+jdxadd 0
+end
+jdxadd ep
+jdscp 11 6
+jdsdsh 21
+ex = jdbuild 9 rep
+put JDK 7 ex
+ret ex
+end
+
+note run a synthetic workload against the current library (9/10), arm a; no raw measurement log.
+fn jdctserve a ulong to bool
+jdarmname 8 a
+jdscp 11 6
+jdsdsh 12
+jdsdsh 13
+put JDC 10 a
+put JDC 11 0
+put JDC 12 0
+put JDC 16 JDNONE
+put JDC 17 JDNONE
+put JDC 19 0
+jdcnt0
+e = jdpgroup 0 get JDK 0
+ret and eq e 0 eq get JDA 15 0
+end
+
+note G3 refusal means every successful QUERY was route 5 with correct values, no protocol failure.
+fn jdctrefused to bool
+if eq get JDA 0 0
+ret false
+end
+if ne get JDA 1 0
+ret false
+end
+if ne get JDA 15 0
+ret false
+end
+ret eq get JDA 7 get JDA 0
+end
+
+note mutant library build + independently scored synthetic workload (id 1/2/3/6).
+fn jdctmut id ulong subc ulong mut ulong unit ulong ep ulong to void
+jdctpath 9 id subc
+ex = jdctbuild ep mut unit add mul id 100 subc
+if or ne ex 0 ne get JDSL 10 64
+jdctl id subc 3 0
+ret
+end
+wl = ulong 16
+jdctsyn wl 1
+ok = jdctserve 4
+if not ok
+jdctl id subc 0 0
+ret
+end
+if or eq unit 1 eq unit 2
+jdctlbool id subc gt get JDA 14 0 0
+else
+yes = jdctrefused
+if eq id 1
+yes = or yes gt get JDA 14 0
+end
+jdctlbool id subc yes 0
+end
+end
+
+note C2/C3 tampered experience helpers. ep -> private copy at register 2; re-authorize its new hash.
+fn jdctexcopy ep ulong id ulong subc ulong to bool
+jdctpath 2 id add 100 subc
+c = jdcpf ep 2
+if ne c 0
+ret false
+end
+ret true
+end
+
+note tamper variant 0 magic byte, 1 program digest, 2 sample output, 3 permute diagnostic costs.
+note Valid admitted records are 1024 bytes, sample slots at words 16..47, costs at word 7.
+fn jdctexmut ep ulong id ulong subc ulong kind ulong to void
+if not jdctexcopy ep id subc
+jdctl id subc 3 0
+ret
+end
+n = jdldf 2
+if lt n 1024
+jdctl id subc 3 0
+ret
+end
+if eq kind 0
+put JDF 0 xor get JDF 0 1
+end
+if eq kind 1
+put JDF 416 xor get JDF 416 1
+end
+if eq kind 2
+x = jdgfw 136
+y = jdgfw 152
+jdpfw 136 y
+jdpfw 152 x
+end
+if eq kind 3
+jdctcost ulong n
+end
+x = jdwrf 2 ulong n 577
+z = jdhfile 2
+jdscp 11 6
+if not jdctauth
+jdctl id subc 3 0
+ret
+end
+jdctpath 9 id subc
+ex = jdctbuild 2 0 0 add mul id 100 subc
+if eq kind 3
+if ne ex 0
+jdctl id subc 0 0
+ret
+end
+jdctsame id subc
+else
+jdctlbool id subc eq ex 10 0
+end
+end
+
+fn jdctcost n ulong to void
+nr = div n 1024
+if lt nr 2
+ret
+end
+first = jdgfw 56
+for i ulong sub nr 1
+next = jdgfw add mul add i 1 1024 56
+jdpfw add mul i 1024 56 next
+end
+jdpfw add mul sub nr 1 1024 56 first
+end
+
+note K13 C3 equality: code/ELF byte-identical, manifest count/entries identical; lineage differs.
+fn jdctsame id ulong subc ulong to void
+ok = jdctcmpdir 14 9
+jdctlbool id subc ok 0
+end
+
+fn jdctcmpfile to bool
+x = jdhfile 0
+for i ulong 4
+put JDT i get JDH i
+end
+y = jdhfile 1
+if or ne x y lt x 0
+ret false
+end
+for i ulong 4
+if ne get JDT i get JDH i
+ret false
+end
+end
+ret true
+end
+
+fn jdctcmpdir a ulong b ulong to bool
+jdspath 0 a JWCUR 7
+x = jdldf 0
+if ne x 40
+ret false
+end
+ga = jdgfw 0
+jdspath 0 b JWCUR 7
+x = jdldf 0
+if ne x 40
+ret false
+end
+gb = jdgfw 0
+for e ulong 2
+ext = JWOM
+if eq e 1
+ext = JWELF
+end
+jdgenpath 0 a ga ext
+jdgenpath 1 b gb ext
+if not jdctcmpfile
+ret false
+end
+end
+jdgenpath 0 a ga JWMAN
+x = jdldw 0 add JMSC 1024 256
+if ne x 256
+ret false
+end
+jdgenpath 0 b gb JWMAN
+x = jdldf 0
+if ne x 2048
+ret false
+end
+if ne get JDM add JMSC 1028 jdgfw 32
+ret false
+end
+for i ulong 128
+pos = add i 56
+if ne get JDM add add JMSC 1024 pos jdgfw mul pos 8
+ret false
+end
+end
+ret true
+end
+
+fn jdgenpath r ulong d ulong g ulong ext ulong to void
+jdspath r d JWGEN 4
+jdsnum r g 1
+n = ulong 4
+if eq ext JWOM
+n = 3
+end
+jdsw r ext n
+end
+
+note mutate CURRENT's named file in library 9; 0 ELF byte, 1 manifest byte, 2 coherent ELF,
+note 3 compiler digest, 4 profile version, 5 truncated manifest, 6 truncated CURRENT.
+fn jdctart kind ulong to bool
+jdspath 0 9 JWCUR 7
+n = jdldf 0
+if ne n 40
+ret false
+end
+g = jdgfw 0
+put JDK 10 g
+if eq kind 6
+x = truncate JDS 0 get JDSL 0 17
+ret eq x 0
+end
+if or eq kind 0 eq kind 2
+jdgenpath 0 9 g JWELF
+n = jdldf 0
+if le n 256
+ret false
+end
+p = sub ulong n 1
+put JDF p xor get JDF p 1
+x = jdwrf 0 ulong n 577
+if eq kind 0
+ret eq x 0
+end
+z = jdhfile 0
+for i ulong 4
+put JDK add 16 i get JDH i
+end
+end
+jdgenpath 0 9 g JWMAN
+n = jdldf 0
+if ne n 2048
+ret false
+end
+if eq kind 5
+x = truncate JDS 0 get JDSL 0 777
+ret eq x 0
+end
+if eq kind 1
+put JDF 101 xor get JDF 101 1
+end
+if eq kind 2
+for i ulong 4
+jdpfw mul add 10 i 8 get JDK add 16 i
+end
+end
+if eq kind 3
+put JDF 112 xor get JDF 112 1
+end
+if eq kind 4
+jdpfw 144 2
+end
+if ne kind 1
+jdctfnv
+end
+x = jdwrf 0 2048 577
+z = jdhfile 0
+jdspath 0 9 JWCUR 7
+jdpfw 0 g
+for i ulong 4
+jdpfw mul add i 1 8 jdbswap get JDH i
+end
+x = jdwrf 0 40 577
+note K7 C9 must pass the mutated manifest as MANSHA so the compiler/profile check itself is tested.
+if or eq kind 3 eq kind 4
+jdsclr 10
+jdshash 10
+end
+ret eq x 0
+end
+
+fn jdctfnv to void
+h = ulong 14695981039346656037
+for i ulong 2040
+h = mul xor h ulong get JDF i 1099511628211
+end
+jdpfw 2040 h
+end
+
+note artifact load-refusal controls use the private honest library 14/15.
+fn jdctartifact id ulong subc ulong kind ulong to void
+jdctpath 9 id subc
+x = jdcpdir 14 9
+if ne x 0
+jdctl id subc 3 0
+ret
+end
+jdscp 10 15
+if not jdctart kind
+jdctl id subc 3 0
+ret
+end
+jdctsyn 16 1
+ok = jdctserve 4
+served = ulong 0
+if gt add get JDA 5 get JDA 6 0
+served = 1
+end
+jdctlbool id subc and ok jdctrefused served
+end
+
+note create a private ALLOW and append a REVOKED line for the control experience register 27.
+fn jdctrevprep subc ulong to bool
+jdctpath 28 9 add 100 subc
+x = jdcpf 6 28
+if ne x 0
+ret false
+end
+z = jdhfile 27
+if lt z 0
+ret false
+end
+jdsclr 29
+jdshash 29
+jdsw 29 JWREVK 9
+jdsw 29 JWCTRL 4
+jdsc 29 10
+ret true
+end
+
+fn jdctrevoke subc ulong to void
+if not jdctrevprep subc
+jdctl 9 subc 3 0
+ret
+end
+jdctsyn 16 1
+jdarmname 8 4
+jdscp 9 14
+jdscp 10 15
+jdscp 11 28
+jdsdsh 12
+jdsdsh 13
+put JDC 10 4
+put JDC 11 0
+put JDC 12 0
+put JDC 16 JDNONE
+if eq subc 0
+jdrevoke
+else
+put JDC 16 2
+end
+put JDC 17 JDNONE
+put JDC 19 0
+jdcnt0
+e = jdpgroup 0 get JDK 0
+served = ulong 0
+ok = false
+if eq subc 0
+if gt add get JDA 5 get JDA 6 0
+served = 1
+end
+ok = jdctrefused
+else
+if gt get JDA 11 0
+served = 1
+end
+ok = jdctrevmid
+end
+ok = and ok eq e 0
+ok = and ok eq get JDA 1 0
+jdctlbool 9 subc ok served
+put JDC 16 JDNONE
+jdsclr 28
+jdsclr 29
+end
+
+fn jdctrevmid to bool
+if eq get JDA 13 0
+ret false
+end
+if eq get JDA 10 0
+ret false
+end
+ret eq get JDA 10 get JDA 12
+end
+
+note C8 steps: seed the directory with an honest complete generation, then invoke crashafter:K;
+note read CURRENT and check its manifest/ELF SHA-256, pin it, serve and score with the reference.
+fn jdctcrash step ulong to void
+jdctpath 9 10 step
+x = jdcpdir 14 9
+if ne x 0
+jdctl 10 step 3 0
+ret
+end
+jdx0
+jdsclr 0
+jdsw 0 JWCRASH 11
+jdsnum 0 step 1
+jdxadd 0
+jdxadd 27
+jdscp 11 6
+jdsdsh 21
+ex = jdbuild 9 add 1000 step
+if ne ex 97
+jdctl 10 step 0 0
+ret
+end
+if not jdctcurrent
+jdctl 10 step 0 0
+ret
+end
+jdctsyn 16 1
+ok = jdctserve 4
+ok = and ok eq get JDA 1 0
+m = add get JDA 5 get JDA 6
+ok = and ok gt m 0
+jdctlbool 10 step ok 0
+end
+
+note validate complete CURRENT files independently; use its manifest digest as MANSHA (register 10).
+fn jdctcurrent to bool
+jdspath 0 9 JWCUR 7
+n = jdldf 0
+if ne n 40
+ret false
+end
+g = jdgfw 0
+for i ulong 4
+put JDK add 16 i jdbswap jdgfw mul add i 1 8
+end
+jdgenpath 0 9 g JWMAN
+n = jdhfile 0
+if ne n 2048
+ret false
+end
+for i ulong 4
+if ne get JDH i get JDK add 16 i
+ret false
+end
+end
+jdsclr 10
+jdshash 10
+n = jdldf 0
+if ne n 2048
+ret false
+end
+for i ulong 4
+put JDK add 16 i jdgfw mul add 10 i 8
+end
+jdgenpath 0 9 g JWELF
+n = jdhfile 0
+if le n 0
+ret false
+end
+for i ulong 4
+if ne get JDH i get JDK add 16 i
+ret false
+end
+end
+jdgenpath 0 9 g JWOM
+ret gt jdfsize 0 0
+end
+
+note C11: identity before/after a real SIGKILL mid-session, fresh process byte-identical responses.
+fn jdctrestart to void
+jdctsyn 16 1
+jdscp 9 14
+jdscp 10 15
+ok = jdctserve 4
+if or not ok ne get JDA 1 0
+jdctl 13 0 0 0
+ret
+end
+for i ulong 4
+put JDK add 24 i get JDM add add JMRT 4 i
+end
+if not jdctcurrent
+jdctl 13 0 0 0
+ret
+end
+jdctsyn 16 1
+jdarmname 8 4
+jdscp 11 6
+jdsdsh 12
+jdsdsh 13
+put JDC 17 3
+put JDC 16 JDNONE
+put JDC 19 0
+jdcnt0
+e = jdpgroup 0 get JDK 0
+killed = eq get JDC 18 265
+put JDC 17 JDNONE
+jdscp 9 14
+if not jdctcurrent
+jdctl 13 0 0 0
+ret
+end
+jdctsyn 16 1
+ok = jdctserve 4
+same = jdseq 10 15
+jdctlbool 13 0 and killed and same and ok eq get JDA 1 0 0
+end
+
+note C5 is scored both at widths 8 and 16, full and delta (with/without a library).
+fn jdctkat wl ulong a ulong subc ulong to void
+jdctsyn wl 2
+if eq a 1
+jdsdsh 9
+jdsdsh 10
+else
+jdscp 9 14
+jdscp 10 15
+end
+ok = jdctserve a
+jdctlbool 7 subc and ok eq get JDA 1 0 0
+end
+
+note controls DEV BASE DRIVE OMEGADIR OMC ALLOW NOG3 C4 OUT CPU
+note Builds its own honest control experiences and libraries; no FINAL data or vault access.
+fn jdcontrols to int
+if ne argcnt 12
+ret jdusage
+end
+b = jdsarg 25 2
+b = jdsarg 5 3
+b = jdsarg 18 4
+b = jdsarg 19 5
+b = jdsarg 20 6
+b = jdsarg 1 7
+b = jdsarg 23 8
+b = jdsarg 24 9
+b = jdsarg 22 10
+b = jdsarg 7 11
+jdabs 18
+jdabs 20
+jdabs 23
+jdabs 24
+r = jdmkdir 22 448
+jdabs 22
+jdscp 30 22
+jdctpath 6 0 0
+c = jdcpf 1 6
+if ne c 0
+ret jderr 70
+end
+jdctpath 26 0 8
+jdctpath 27 0 16
+if not jdctancestor
+ret jderr 71
+end
+put JDK 4 0
+put JDK 5 0
+jdctsyn 8 0
+if not jdcttap 26
+ret jderr 72
+end
+jdctsyn 16 0
+if not jdcttap 27
+ret jderr 73
+end
+note Honest rebuild for C3 costs and all artifact/lifecycle controls.
+jdctpath 9 0 1
+ex = jdctbuild 27 0 0 1
+if ne ex 0
+ret jderr 74
+end
+jdscp 14 9
+jdscp 15 10
+jdctmut 1 0 1 0 26
+jdctmut 1 1 1 1 26
+jdctmut 2 0 2 0 27
+jdctmut 2 1 2 1 27
+jdctmut 3 0 3 0 27
+jdctexmut 27 4 0 0
+jdctexmut 27 4 1 1
+jdctexmut 27 5 0 2
+jdctexmut 27 5 1 3
+jdctmut 6 0 0 2 27
+for w ulong 2
+wl = add mul w 8 8
+jdctkat wl 1 mul w 3
+jdctkat wl 4 add mul w 3 1
+jdctsyn wl 2
+jdsdsh 9
+jdsdsh 10
+ok = jdctserve 4
+jdctlbool 7 add mul w 3 2 and ok eq get JDA 1 0 0
+end
+for k ulong 3
+jdctartifact 8 k k
+end
+jdctrevoke 0
+jdctrevoke 1
+for k ulong 9
+jdctcrash add k 1
+end
+jdctartifact 11 0 3
+jdctartifact 11 1 4
+jdctartifact 12 0 5
+jdctartifact 12 1 6
+jdctrestart
+note C12 is an ablation report, not a guard detection; run independently via judge run with arms 56.
+jdctl 14 0 2 0
+if gt get JDK 4 0
+ret 4
+end
+if gt get JDK 5 0
+ret 3
+end
+ret 0
+end

@@ -1,0 +1,264 @@
+note units: sha256 ref
+note ref-kat: ref.om against the integrator's known-answer vectors (Wolfram Language, outside Omega),
+note tests/reuse-eval/ref-kat.txt = byte copy of omega-mv 0c72ad55 tests/reuse/kat.txt, sha256 pinned.
+note Records (one per line, decimal tokens): 1 wl op c x e (lane step) | 2 f a b r (fold) |
+note 3 wl f k op1 c1 .. opk ck n x0 .. x(n-1) r0 (AGG program) |
+note 4 S A s0 R lam0 .. lam(S-1) (R quads s lo hi t) n w1 .. wn r0 r1 (FSM).
+note AGG and FSM records run through rfreq: BEGIN (status 0) then QUERY. cwd = repo root.
+note Exit: 0 pass; 1 open; 2 read; 3 digest pin; 4 parse; 10 lane; 11 fold; 12 AGG begin status;
+note 13 AGG r0; 14 AGG r1; 15 FSM begin; 16 FSM r0; 17 FSM r1; 18 record counts.
+text ktpath "tests/reuse-eval/ref-kat.txt"
+global KTB uchar 1048576
+global KTL ulong 1
+global KTI ulong 1
+global KTE ulong 1
+
+note next decimal token; sets KTE 1 on a malformed token; a token never crosses a newline check
+fn ktnum to ulong
+i = get KTI 0
+l = get KTL 0
+while and lt i l eq get KTB i 32 bound 999999
+i = add i 1
+end
+if or ge i l lt get KTB i 48
+put KTE 0 1
+put KTI 0 i
+ret 0
+end
+v = ulong 0
+d = ulong 0
+while and lt i l and ge get KTB i 48 le get KTB i 57 bound 21
+v = add mul v 10 ulong sub get KTB i 48
+i = add i 1
+d = add d 1
+end
+if eq d 0
+put KTE 0 1
+end
+put KTI 0 i
+ret v
+end
+
+note the record must end here: a newline (or the end of the file)
+fn kteol to void
+i = get KTI 0
+if lt i get KTL 0
+if ne get KTB i 10
+put KTE 0 1
+ret
+end
+put KTI 0 add i 1
+end
+end
+
+fn ktbegin to int
+put RFRQ 0 1
+put RFRQ 2 3544411312749556050
+for i ulong 63
+put RFRQ add i 3 0
+end
+ret 0
+end
+
+fn ktagg to int
+x = ktbegin
+put RFRQ 3 1
+put RFRQ 4 ktnum
+put RFRQ 5 ktnum
+k = ktnum
+put RFRQ 6 k
+for j ulong k
+put RFRQ add 7 mul j 2 ktnum
+put RFRQ add 8 mul j 2 ktnum
+end
+n = ktnum
+if gt n 4096
+ret 4
+end
+put RFRQ 66 n
+for t ulong n
+put RFRQ add 67 t ktnum
+end
+put RFRQ 1 add n 65
+r0 = ktnum
+kteol
+if ne get KTE 0 0
+ret 4
+end
+if ne rfreq 0
+ret 12
+end
+put RFRQ 0 2
+put RFRQ 1 0
+if ne rfreq 0
+ret 12
+end
+if ne get RFRS 2 r0
+ret 13
+end
+if ne get RFRS 3 n
+ret 14
+end
+ret 0
+end
+
+fn ktfsm to int
+x = ktbegin
+put RFRQ 3 2
+s = ktnum
+put RFRQ 4 s
+put RFRQ 5 ktnum
+put RFRQ 6 ktnum
+r = ktnum
+put RFRQ 7 r
+if or gt s 16 gt r 24
+ret 4
+end
+for i ulong s
+put RFRQ add 8 i ktnum
+end
+for j ulong r
+q = ktnum
+q = add q mul 256 ktnum
+q = add q mul 65536 ktnum
+q = add q mul 16777216 ktnum
+put RFRQ add 24 j q
+end
+n = ktnum
+if gt n 4096
+ret 4
+end
+put RFRQ 66 n
+for t ulong n
+put RFRQ add 67 t ktnum
+end
+put RFRQ 1 add n 65
+r0 = ktnum
+r1 = ktnum
+kteol
+if ne get KTE 0 0
+ret 4
+end
+if ne rfreq 0
+ret 15
+end
+put RFRQ 0 2
+put RFRQ 1 0
+if ne rfreq 0
+ret 15
+end
+if ne get RFRS 2 r0
+ret 16
+end
+if ne get RFRS 3 r1
+ret 17
+end
+ret 0
+end
+
+fn ktdigest to int
+rfhini 0
+l = get KTL 0
+off = ulong 0
+while lt off l bound 32
+k = sub l off
+if gt k 65536
+k = 65536
+end
+for i ulong k
+put RFHB i get KTB add off i
+end
+rfhabs 0 k
+off = add off k
+end
+rfhfin 0
+if ne get RFHD 0 3585239006480054916
+ret 3
+end
+if ne get RFHD 1 3222387400420703059
+ret 3
+end
+if ne get RFHD 2 3587373920770209618
+ret 3
+end
+if ne get RFHD 3 12396970866340444107
+ret 3
+end
+ret 0
+end
+
+fn main to int
+fd = fopen ktpath 0 len ktpath 0 0
+if lt fd 0
+ret 1
+end
+n = read int fd KTB 0 len KTB
+x = fclose int fd
+if or le n 0 ge n 1048576
+ret 2
+end
+put KTL 0 ulong n
+d = ktdigest
+if ne d 0
+ret d
+end
+c1 = ulong 0
+c2 = ulong 0
+c3 = ulong 0
+c4 = ulong 0
+while lt get KTI 0 get KTL 0 bound 100000
+kind = ktnum
+if eq kind 1
+wl = ktnum
+op = ktnum
+c = ktnum
+v = ktnum
+e = ktnum
+kteol
+if ne rfop wl op c v e
+ret 10
+end
+c1 = add c1 1
+else
+if eq kind 2
+f = ktnum
+a = ktnum
+b = ktnum
+r = ktnum
+kteol
+if ne rffold f a b r
+ret 11
+end
+c2 = add c2 1
+else
+if eq kind 3
+s3 = ktagg
+if ne s3 0
+ret s3
+end
+c3 = add c3 1
+else
+if eq kind 4
+s4 = ktfsm
+if ne s4 0
+ret s4
+end
+c4 = add c4 1
+else
+ret 4
+end
+end
+end
+end
+if ne get KTE 0 0
+ret 4
+end
+end
+if or ne c1 336 ne c2 150
+ret 18
+end
+if or ne c3 80 ne c4 60
+ret 18
+end
+ret 0
+end

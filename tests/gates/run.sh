@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
 # tests/gates/run.sh: the one entry point for the local verification gates of spark-rsi.
-# Every step runs the SAME command as the hosted job it mirrors (.github/workflows/ci.yml,
-# job "Test & Invariant Verification"). Manifests under tests/gates/ name this script plus
+# The host test gate builds its fixture executable and runs the host suite; GitHub-hosted
+# checks build only the pinned verifier. Manifests under tests/gates/ name this script plus
 # one step word, so no manifest needs shell expansion (ADR 0028 P6). Observations print as
 # "AIEN-OBS <name> <json>".
 #
-# Sibling checkout: Cargo.toml depends on ../aien-protocols/crates/* by path. The hosted job
-# checks out aien-spark/aien-protocols (main) and copies it to ../aien-protocols; the local
-# worker must provide the same sibling.
+# Sibling checkout: Cargo.toml depends on ../aien-protocols/crates/* by path.
+# Provide an isolated aien-dev/aien-protocols-mv checkout under that sibling name.
 #
-# Hosted runner configuration NOT mirrored here (needs root on the runner): apt-get install
-# bubblewrap, sysctl kernel.apparmor_restrict_unprivileged_userns=0, chmod u+s /usr/bin/bwrap.
-# The test step records the local state of those knobs as observations so a FAIL caused by
-# the sandbox environment is visible as such.
+# Isolation prerequisites are observed, never provisioned here. The gate does not change
+# AppArmor, setuid bits, user-manager configuration or cgroup delegation.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
@@ -36,21 +33,19 @@ case "$step" in
     ;;
   check)
     need_protocols
-    cargo check --locked --all-targets
+    cargo check --offline --locked -j2 --all-targets
     ;;
   test)
     need_protocols
     obs bwrap_present "$(command -v bwrap >/dev/null && echo true || echo false)"
     obs apparmor_restrict_userns "\"$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || echo unknown)\""
     obs bwrap_setuid "$( [ -u /usr/bin/bwrap ] && echo true || echo false)"
-    # Hosted step "Pre-populate Build Jail Target Cache", then "Run Tests".
-    CARGO_TARGET_DIR=/tmp/spark-rsi-target cargo build --locked --release
+    # Build a local fixture executable, never a shared candidate artifact cache.
+    env -u CARGO_TARGET_DIR cargo build --offline --locked --release -j2
     obs prepopulate_rc 0
-    # The judge unit tests locate the built binary at target/debug/spark-rsi relative to
-    # the repo root (hosted layout, no CARGO_TARGET_DIR). A relocated target dir makes
-    # them panic with "Test executable not found", so the test step always uses the
-    # in-tree target/ (gitignored) exactly like the hosted runner.
-    env -u CARGO_TARGET_DIR cargo test --locked --verbose -- --test-threads=1
+    # Keep the in-tree binary location expected by the judge unit tests.
+    # prepopulate_rc is the existing gate observation for this fixture build.
+    env -u CARGO_TARGET_DIR CARGO_BUILD_JOBS=2 cargo test --offline --locked -j2 --verbose -- --test-threads=1
     ;;
   zero-disk-secrets)
     # Not a hosted step in this repository; the same invariant the sibling repos enforce.

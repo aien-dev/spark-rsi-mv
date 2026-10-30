@@ -1,0 +1,685 @@
+note SPDX-License-Identifier: Apache-2.0
+note Compile standalone. From repo root: run OMC [PREFIX]. See docs/reuse-eval/README.md.
+global RVB uchar 65536
+global RVH uchar 4096
+global RVS uchar 65536
+global RVL ulong 16
+global RVN uchar 65536
+global RVNL ulong 256
+global RVP uchar 4096
+global RVPN ulong 2
+global RVW uchar 4
+global RVC ulong 8
+text RVU "om/reuse-eval/"
+text RVTEST "tests/reuse-eval/"
+text RVOM ".om"
+text RVUNITS "note units: "
+text RVNEEDS "note needs: "
+text RVFIX "note fixture:"
+text RVTMP "/tmp/reuse-test-run-"
+text RVERR ".err"
+text RVEXE ".elf"
+text RVGEN "sha256 ref gen"
+text RVEVAL "sha256 ref stats turing receipt judge main"
+text RVARM "sha256 ref judge"
+text RVAF "judge-arm.om"
+text RVDF "judge-drive.om"
+text RVPASS "PASS "
+text RVFAIL "FAIL "
+text RVRC " rc="
+text RVTOTAL "TOTAL pass="
+text RVF " fail="
+
+fn rvclear r ulong to void
+put RVL r 0
+end
+fn rvch r ulong c uchar to void
+n = get RVL r
+if ge n 4095
+trap 3
+end
+put RVS add mul r 4096 n c
+put RVL r add n 1
+end
+fn rvnum r ulong v ulong to void
+a = new uchar 24 0
+n = ulong 0
+x = v
+while true bound 24
+put a n uchar add rem x 10 48
+n = add n 1
+x = div x 10
+if eq x 0
+break
+end
+end
+while gt n 0 bound 24
+n = sub n 1
+rvch r get a n
+end
+end
+fn rvcopy r ulong s ulong to void
+rvclear r
+for i ulong get RVL s
+rvch r get RVS add mul s 4096 i
+end
+end
+fn rvarg r ulong i ulong to void
+n = argread i RVS mul r 4096 4095
+if lt n 0
+exit 2
+end
+put RVL r ulong n
+end
+fn rvtext r ulong s view uchar 4096 n ulong to void
+for i ulong n
+rvch r get s i
+end
+end
+fn rvopen r ulong flags int to long
+ret fopen RVS mul r 4096 get RVL r flags 420
+end
+fn rvout r ulong to void
+rvch r 10
+w = write 1 RVS mul r 4096 get RVL r
+put RVL r sub get RVL r 1
+end
+fn rvabs r ulong to void
+if eq get RVS mul r 4096 47
+ret
+end
+n = cwd RVB 0 4096
+rvclear 15
+for i ulong sub ulong n 1
+rvch 15 get RVB i
+end
+rvch 15 47
+for i ulong get RVL r
+rvch 15 get RVS add mul r 4096 i
+end
+rvcopy r 15
+end
+fn rvpk0 to void
+put RVPN 0 2
+put RVPN 1 0
+end
+fn rvpkb c uchar to void
+n = get RVPN 0
+put RVP n c
+put RVPN 0 add n 1
+end
+fn rvpk r ulong to void
+n = get RVL r
+rvpkb uchar and n 255
+rvpkb uchar shr n 8
+for i ulong n
+rvpkb get RVS add mul r 4096 i
+end
+put RVPN 1 add get RVPN 1 1
+end
+fn rvpkend to void
+put RVP 0 uchar and get RVPN 1 255
+put RVP 1 uchar shr get RVPN 1 8
+end
+fn rvwait pid int limit long to ulong
+dl = add monons limit
+while true bound 999999
+r = waitpid pid RVW 0 4 1
+if eq r long pid
+sig = and ulong get RVW 0 127
+if ne sig 0
+ret add 256 sig
+end
+ret ulong get RVW 1
+end
+if lt r 0
+ret 1023
+end
+if gt monons dl
+k = killpid pid 9
+r = waitpid pid RVW 0 4 0
+ret 521
+end
+s = sleepns 1000000
+end
+ret 1023
+end
+fn rvexec limit long to ulong
+rvpkend
+pid = fork
+if lt pid 0
+ret 1023
+end
+if eq pid 0
+x = execprog RVP 0 get RVPN 0
+exit 127
+end
+ret rvwait int pid limit
+end
+fn rvcopyfd fd int path ulong to bool
+x = rvopen path 0
+if lt x 0
+ret false
+end
+rd = int x
+while true bound 999999
+n = read rd RVB 0 65536
+if lt n 0
+c = fclose rd
+ret false
+end
+if eq n 0
+break
+end
+w = write fd RVB 0 ulong n
+if ne w n
+c = fclose rd
+ret false
+end
+end
+c = fclose rd
+ret true
+end
+fn rvappendunit fd int off ulong n ulong to bool
+rvclear 0
+for i ulong len RVU
+rvch 0 get RVU i
+end
+for i ulong n
+rvch 0 get RVH add off i
+end
+for i ulong len RVOM
+rvch 0 get RVOM i
+end
+ret rvcopyfd fd 0
+end
+fn rvwhite p ulong to bool
+c = get RVH p
+ret or eq c 32 eq c 10
+end
+fn rvunits fd int off ulong n ulong to bool
+p = off
+stop = add off n
+while lt p stop bound 100
+if or eq get RVH p 32 eq get RVH p 10
+p = add p 1
+continue
+end
+start = p
+while lt p stop bound 100
+if rvwhite p
+break
+end
+p = add p 1
+end
+if not rvappendunit fd start sub p start
+ret false
+end
+end
+ret true
+end
+
+note compile source register 7 to ELF register 8, using OMC register 1; source temp register 9.
+fn rvcompile to ulong
+rvpk0
+rvpk 1
+rvpkend
+x = rvopen 7 0
+if lt x 0
+ret 1023
+end
+rd = int x
+x = rvopen 8 577
+if lt x 0
+c = fclose rd
+ret 1023
+end
+wr = int x
+pid = fork
+if lt pid 0
+ret 1023
+end
+if eq pid 0
+c = dupfd rd 0 0
+c = dupfd wr 1 0
+x = execprog RVP 0 get RVPN 0
+exit 127
+end
+c = fclose rd
+c = fclose wr
+rc = rvwait int pid 120000000000
+if eq rc 0
+c = chmod RVS 32768 get RVL 8 493
+end
+ret rc
+end
+
+note compose a test source at register 4, first line note units; output source register 7.
+fn rvcompose to bool
+x = rvopen 4 0
+if lt x 0
+ret false
+end
+rd = int x
+n = read rd RVH 0 4096
+c = fclose rd
+if lt n long len RVUNITS
+ret false
+end
+for i ulong len RVUNITS
+if ne get RVH i get RVUNITS i
+ret false
+end
+end
+p = ulong 0
+while and lt p ulong n ne get RVH p 10 bound 4096
+p = add p 1
+end
+put RVC 4 p
+x = rvopen 7 577
+if lt x 0
+ret false
+end
+fd = int x
+ok = rvunits fd len RVUNITS sub p len RVUNITS
+if ok
+ok = rvcopyfd fd 4
+end
+c = fclose fd
+ret ok
+end
+
+note build gen/eval/arm in the run scratch; kind 0 gen, 1 eval, 2 arm, 3 stats, 4 turing, 5 receipt.
+fn rvbin kind ulong to bool
+rvcopy 7 3
+rvch 7 47
+rvch 7 98
+rvnum 7 kind
+for i ulong len RVOM
+rvch 7 get RVOM i
+end
+rvcopy 8 3
+rvch 8 47
+rvch 8 98
+rvnum 8 kind
+for i ulong len RVEXE
+rvch 8 get RVEXE i
+end
+x = faccess RVS 32768 get RVL 8 1
+if eq x 0
+ret true
+end
+rvclear 4
+n = ulong 0
+if eq kind 0
+for i ulong len RVGEN
+put RVH i get RVGEN i
+end
+n = len RVGEN
+else
+n = rvbinwords kind
+end
+x = rvopen 7 577
+if lt x 0
+ret false
+end
+fd = int x
+ok = rvunits fd 0 n
+if ge kind 2
+for i ulong len RVTEST
+rvch 4 get RVTEST i
+end
+rvfixture kind
+ok = and ok rvcopyfd fd 4
+end
+c = fclose fd
+if not ok
+ret false
+end
+ret eq rvcompile 0
+end
+fn rvbinwords kind ulong to ulong
+if eq kind 1
+for i ulong len RVEVAL
+put RVH i get RVEVAL i
+end
+ret len RVEVAL
+end
+for i ulong len RVARM
+put RVH i get RVARM i
+end
+ret len RVARM
+end
+fn rvfixture kind ulong to void
+if eq kind 2
+for i ulong len RVAF
+rvch 4 get RVAF i
+end
+else
+for i ulong len RVDF
+rvch 4 get RVDF i
+end
+end
+end
+
+note load directory names from tests/reuse-eval/; only *.om, sorted lexicographically.
+fn rvlist to ulong
+rvclear 0
+for i ulong len RVTEST
+rvch 0 get RVTEST i
+end
+x = rvopen 0 0
+if lt x 0
+ret 0
+end
+fd = int x
+count = ulong 0
+while true bound 1000
+n = getdnts fd RVB 0 65536
+if le n 0
+break
+end
+p = ulong 0
+while lt p ulong n bound 1000
+rl = rvrec add p 16
+count = rvname add p 19 count
+p = add p rl
+end
+end
+c = fclose fd
+for i ulong count
+for j ulong i
+if rvless i j
+rvswap i j
+end
+end
+end
+ret count
+end
+fn rvrec p ulong to ulong
+ret or ulong get RVB p shl ulong get RVB add p 1 8
+end
+fn rvname p ulong n ulong to ulong
+k = ulong 0
+while ne get RVB add p k 0 bound 256
+k = add k 1
+end
+if or lt k 4 ge n 256
+ret n
+end
+if ne get RVB add p sub k 3 46
+ret n
+end
+if ne get RVB add p sub k 2 111
+ret n
+end
+if ne get RVB add p sub k 1 109
+ret n
+end
+if eq k 6
+if and eq get RVB p 114 eq get RVB add p 1 117
+ret n
+end
+end
+if not rvprefix p k
+ret n
+end
+put RVNL n k
+for i ulong k
+put RVN add mul n 256 i get RVB add p i
+end
+ret add n 1
+end
+fn rvprefix p ulong k ulong to bool
+for i ulong get RVL 2
+if ge i k
+ret false
+end
+if ne get RVB add p i get RVS add 8192 i
+ret false
+end
+end
+ret true
+end
+fn rvless a ulong b ulong to bool
+n = get RVNL a
+if gt n get RVNL b
+n = get RVNL b
+end
+for i ulong n
+x = get RVN add mul a 256 i
+y = get RVN add mul b 256 i
+if lt x y
+ret true
+end
+if gt x y
+ret false
+end
+end
+ret lt get RVNL a get RVNL b
+end
+fn rvswap a ulong b ulong to void
+for i ulong 256
+x = get RVN add mul a 256 i
+put RVN add mul a 256 i get RVN add mul b 256 i
+put RVN add mul b 256 i x
+end
+n = get RVNL a
+put RVNL a get RVNL b
+put RVNL b n
+end
+fn rvtestpath i ulong to void
+rvclear 4
+for j ulong len RVTEST
+rvch 4 get RVTEST j
+end
+for j ulong get RVNL i
+rvch 4 get RVN add mul i 256 j
+end
+end
+fn rvmatch off ulong t view uchar 12 to bool
+for i ulong 12
+if ne get RVH add off i get t i
+ret false
+end
+end
+ret true
+end
+
+note need tokens parsed before binary builds (which reuse RVH); registers 10..14 hold argv values.
+fn rvneeds to ulong
+n = ulong 0
+p = add get RVC 4 1
+if gt add p len RVNEEDS 4096
+ret 0
+end
+for i ulong len RVNEEDS
+if ne get RVH add p i get RVNEEDS i
+ret 0
+end
+end
+p = add p len RVNEEDS
+while ne get RVH p 10 bound 100
+if eq get RVH p 32
+p = add p 1
+continue
+end
+r = add 10 n
+rvclear r
+while and ne get RVH p 10 ne get RVH p 32 bound 100
+rvch r get RVH p
+p = add p 1
+end
+n = add n 1
+if ge n 5
+break
+end
+end
+ret n
+end
+fn rvkind r ulong to ulong
+v = ulong 0
+for i ulong get RVL r
+v = or v shl ulong get RVS add mul r 4096 i mul i 8
+end
+if eq v 7234919
+ret 0
+end
+if eq v 1818326629
+ret 1
+end
+if eq v 7172705
+ret 2
+end
+if eq v 435778318948
+ret 3
+end
+if eq v 6516079
+ret 6
+end
+ret 99
+end
+fn rvneedbins n ulong to bool
+for i ulong n
+r = add i 10
+k = rvkind r
+if eq k 6
+rvcopy r 1
+continue
+end
+if gt k 3
+ret false
+end
+if not rvbin k
+ret false
+end
+rvcopy r 8
+end
+ret true
+end
+
+fn rvtest i ulong to ulong
+rvtestpath i
+rvcopy 7 3
+rvch 7 47
+rvch 7 116
+rvnum 7 i
+for j ulong len RVOM
+rvch 7 get RVOM j
+end
+rvcopy 8 3
+rvch 8 47
+rvch 8 116
+rvnum 8 i
+for j ulong len RVEXE
+rvch 8 get RVEXE j
+end
+if not rvcompose
+ret 1024
+end
+p = add get RVC 4 1
+fix = true
+for j ulong len RVFIX
+if ne get RVH add p j get RVFIX j
+fix = false
+end
+end
+if fix
+ret 1025
+end
+needs = rvneeds
+rc = rvcompile
+if ne rc 0
+ret add 2048 rc
+end
+rvcopy 6 8
+if not rvneedbins needs
+ret 1026
+end
+rvcopy 5 3
+rvch 5 47
+rvch 5 115
+rvnum 5 i
+c = makedir RVS 20480 get RVL 5 448
+rvpk0
+rvpk 6
+rvpk 5
+for j ulong needs
+rvpk add j 10
+end
+ret rvexec 120000000000
+end
+fn rvreport i ulong rc ulong to void
+rvclear 0
+if eq rc 0
+for j ulong len RVPASS
+rvch 0 get RVPASS j
+end
+else
+for j ulong len RVFAIL
+rvch 0 get RVFAIL j
+end
+end
+for j ulong get RVNL i
+rvch 0 get RVN add mul i 256 j
+end
+if ne rc 0
+for j ulong len RVRC
+rvch 0 get RVRC j
+end
+rvnum 0 rc
+end
+rvout 0
+end
+fn main to int
+if or lt argcnt 2 gt argcnt 3
+ret 2
+end
+rvarg 1 1
+rvabs 1
+rvclear 2
+if eq argcnt 3
+rvarg 2 2
+end
+rvclear 3
+for i ulong len RVTMP
+rvch 3 get RVTMP i
+end
+rvnum 3 ulong getpid
+c = makedir RVS 12288 get RVL 3 448
+if ne c 0
+ret 3
+end
+n = rvlist
+pass = ulong 0
+fail = ulong 0
+for i ulong n
+rc = rvtest i
+if eq rc 1025
+continue
+end
+rvreport i rc
+if eq rc 0
+pass = add pass 1
+else
+fail = add fail 1
+end
+end
+rvclear 0
+for i ulong len RVTOTAL
+rvch 0 get RVTOTAL i
+end
+rvnum 0 pass
+for i ulong len RVF
+rvch 0 get RVF i
+end
+rvnum 0 fail
+rvout 0
+if eq n 0
+ret 4
+end
+if gt fail 0
+ret 1
+end
+ret 0
+end
