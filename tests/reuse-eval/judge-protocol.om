@@ -1,0 +1,175 @@
+note units: sha256 ref judge
+note needs: arm
+note SPDX-License-Identifier: Apache-2.0
+text JPMODES "fullwrongechobadqshortstall"
+fn jpset off ulong n ulong rep ulong a ulong to void
+jdsclr 8
+for i ulong n
+jdsc 8 get JPMODES add off i
+end
+put JDC 10 a
+put JDC 11 0
+put JDC 12 rep
+put JDC 16 JDNONE
+put JDC 17 JDNONE
+put JDC 19 1
+jdcnt0
+jdctsyn 16 1
+end
+fn jpviolation off ulong n ulong rep ulong code ulong to int
+jpset off n rep 1
+e = jdpgroup 0 get JDK 0
+if ne e 0
+ret 21
+end
+if ne get JDA 15 1
+ret 22
+end
+if ne get JDC 9 code
+ret 23
+end
+if ne get JDC 18 add 512 code
+ret 24
+end
+if ne get JDA 1 get JDK 0
+ret 25
+end
+x = jdcload 1 rep 0
+if ne x mul get JDK 0 16
+ret 26
+end
+if ne get JDM add JDLOGW 5 JDNONE
+ret 27
+end
+if ne get JDM add JDLOGW 21 sub JDNONE 1
+ret 28
+end
+if ne get JDM add JDLOGW 28 0
+ret 29
+end
+ret 0
+end
+fn main to int
+if ne argcnt 3
+ret 2
+end
+b = jdsarg 4 1
+b = jdsarg 5 2
+jdsdsh 7
+jdsdsh 9
+jdsdsh 10
+jdsdsh 11
+jdsdsh 12
+jdsdsh 13
+jpset 0 4 0 1
+e = jdpgroup 0 get JDK 0
+if ne e 0
+ret 1
+end
+if ne get JDA 1 0
+ret 3
+end
+if ne get JDA 0 10
+ret 4
+end
+x = jdcload 1 0 0
+if ne x mul get JDK 0 16
+ret 5
+end
+if ne get JDM add JDLOGW 15 2
+ret 6
+end
+if ne get JDM add JDLOGW 31 1
+ret 7
+end
+if ne get JDM add JDLOGW 24 1
+ret 8
+end
+if eq get JDM add JDLOGW 28 0
+ret 9
+end
+jdspath 0 4 JWPLOG 8
+y = jdldw 0 JDLOGW 16
+if ne y 16
+ret 10
+end
+if ne get JDM add JDLOGW 10 0
+ret 11
+end
+if ne get JDM add JDLOGW 11 get JDK 0
+ret 12
+end
+if eq get JDM add JDLOGW 8 0
+ret 13
+end
+jdscp 0 4
+jdsc 0 47
+textpath = new uchar 16 0
+put textpath 0 115
+put textpath 1 116
+put textpath 2 97
+put textpath 3 116
+put textpath 4 115
+put textpath 5 45
+put textpath 6 49
+put textpath 7 45
+put textpath 8 48
+put textpath 9 45
+put textpath 10 103
+put textpath 11 48
+put textpath 12 48
+put textpath 13 46
+put textpath 14 99
+put textpath 15 116
+for i ulong 16
+jdsc 0 get textpath i
+end
+jdsc 0 114
+y = jdldw 0 JDLOGW 34
+if ne y 34
+ret 14
+end
+if ne get JDM add JDLOGW 1 2
+ret 15
+end
+if ne get JDM add JDLOGW 2 17
+ret 16
+end
+if ne get JDM add JDLOGW 3 23
+ret 17
+end
+for i ulong 30
+if ne get JDM add add JDLOGW 4 i 0
+ret 18
+end
+end
+jpset 4 5 1 1
+e = jdpgroup 0 get JDK 0
+if ne e 0
+ret 30
+end
+if ne get JDA 14 10
+ret 31
+end
+jpset 9 4 2 0
+e = jdpgroup 0 get JDK 0
+if ne e 0
+ret 32
+end
+if ne get JDA 1 0
+ret 33
+end
+e = jpviolation 13 4 3 2
+if ne e 0
+ret e
+end
+e = jpviolation 17 5 4 1
+if ne e 0
+ret e
+end
+e = jpviolation 22 5 5 3
+if ne e 0
+ret e
+end
+ret 0
+end

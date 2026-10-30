@@ -1,0 +1,103 @@
+note units: sha256 ref judge
+note needs: arm
+note SPDX-License-Identifier: Apache-2.0
+note K17 END validation and the arm-order permutation. The expected permutations for splitmix64 seed 0
+note were computed outside the judge from the published splitmix64 constants (reviewer's vector for the
+note first draw; the second continues the same state).
+text JEMODES "fullendbadendstendeofendexit"
+text JEP1 "25034617"
+text JEP2 "37056214"
+fn jeset off ulong n ulong rep ulong to void
+jdsclr 8
+for i ulong n
+jdsc 8 get JEMODES add off i
+end
+put JDC 10 1
+put JDC 11 0
+put JDC 12 rep
+put JDC 16 JDNONE
+put JDC 17 JDNONE
+put JDC 19 1
+jdcnt0
+jdctsyn 16 1
+end
+note run one fake arm; returns 0 when proc.log record rep has exit word want and a nonzero END time
+fn jerun off ulong n ulong rep ulong want ulong to int
+jeset off n rep
+e = jdpgroup 0 get JDK 0
+if ne e 0
+ret 1
+end
+if ne get JDA 1 0
+ret 2
+end
+jdspath 0 4 JWPLOG 8
+x = jdldw 0 JDLOGW 4096
+if ne ulong x mul add rep 1 16
+ret 3
+end
+b = add JDLOGW mul rep 16
+if ne get JDM add b 10 want
+ret 4
+end
+if eq get JDM add b 15 0
+ret 5
+end
+if ne get JDM add b 11 get JDK 0
+ret 6
+end
+ret 0
+end
+fn jeperm want view uchar 8 to int
+jdperm 8
+for i ulong 8
+if ne get JDM add add JMSC 16 i sub ulong get want i 48
+ret 1
+end
+end
+ret 0
+end
+fn main to int
+if ne argcnt 3
+ret 2
+end
+for i ulong 8
+put JDM add JMSC i i
+end
+put JDSM 0 0
+if ne jeperm JEP1 0
+ret 60
+end
+if ne jeperm JEP2 0
+ret 61
+end
+b = jdsarg 4 1
+b = jdsarg 5 2
+jdsdsh 7
+jdsdsh 9
+jdsdsh 10
+jdsdsh 11
+jdsdsh 12
+jdsdsh 13
+e = jerun 0 4 0 0
+if ne e 0
+ret add 10 e
+end
+e = jerun 4 6 1 1024
+if ne e 0
+ret add 20 e
+end
+e = jerun 10 5 2 1024
+if ne e 0
+ret add 30 e
+end
+e = jerun 15 6 3 1541
+if ne e 0
+ret add 40 e
+end
+e = jerun 21 7 4 7
+if ne e 0
+ret add 50 e
+end
+ret 0
+end

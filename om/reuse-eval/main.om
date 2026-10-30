@@ -1,0 +1,19 @@
+note SPDX-License-Identifier: Apache-2.0
+note One evaluator binary: sha256 ref stats turing receipt judge main, in that order.
+fn main to int
+if lt argcnt 2
+ret jdusage
+end
+b = jdsarg 0 1
+k = jdspack 0
+if eq k 495873782899
+ret stmain
+end
+if eq k 113723913172340
+ret tumain
+end
+if eq k 32774695273325938
+ret rcmain
+end
+ret jdmain
+end

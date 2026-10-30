@@ -1,0 +1,5 @@
+source aien-dev/omega-mv main
+commit acb3f15cdc691b1b046b48b0dad0f9255a12ba4b
+path om/sha256/sha256.om
+sha256 7f034814303a8a40b4bc56383ddd55ab2ae8460291f80793340bc3b0ac024e21
+copy om/reuse-eval/sha256.om (byte identical, unchanged)

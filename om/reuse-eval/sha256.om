@@ -1,0 +1,1527 @@
+note SPDX-License-Identifier: Apache-2.0
+note sha256.om: FIPS 180-4 SHA-256 as one function-mode unit, bound through the omega-bridge native
+note call ABI (docs/NATIVE-ABI.md) and exported as omega_omsha. It replaces the algorithm of
+note src/sha256.c: the C file keeps only the sha256_* entry points that cut caller data into
+note pieces of at most 4096 bytes.
+note
+note The whole hash state lives in the caller's sha256_ctx (104 bytes, src/sha256.h):
+note   bytes 0..31   state[8], uint32 little endian
+note   bytes 32..39  count, uint64 little endian (bytes absorbed so far)
+note   bytes 40..103 buffer, the pending partial block
+note omsha c b n op w b8:
+note   op 0  init: count 0, FIPS initial hash value
+note   op 1  absorb b[0..n), n <= 4096, with src/sha256.c's buffering rules
+note   op 2  final: pad, absorb the bit length, the 32-byte digest packed into w[0..4)
+note   op 3  one shot: the digest of the n < 4096 bytes of b8 packed into w[0..4); c is not used
+note w is the caller's scratch for the message schedule (64 words, contents ignored and overwritten):
+note Omega writes every word before reading it, so the caller need not clear it.
+note n > 4096 traps 3; any other op traps 9.
+
+note little-endian word of nb bytes at byte offset p of the context
+fn getle c edit uchar 104 p ulong nb ulong to ulong
+v = ulong 0
+i = nb
+while gt i 0 bound 8
+i = sub i 1
+v = or shl v 8 ulong get c add p i
+end
+ret v
+end
+
+fn putle c edit uchar 104 p ulong nb ulong v ulong to void
+x = v
+for i ulong nb
+put c add p i uchar and x 255
+x = shr x 8
+end
+end
+
+note the hash words of the context into h, and back
+fn loadh c edit uchar 104 h edit uint 8 to void
+for i ulong 8
+put h i uint getle c mul i 4 4
+end
+end
+
+fn storeh c edit uchar 104 h edit uint 8 to void
+for i ulong 8
+putle c mul i 4 4 ulong get h i
+end
+end
+
+note big-endian words of the block at byte o of b into w[0..16), then the schedule
+fn schedb b view uchar 4096 o ulong w edit ulong 64 to void
+for i ulong 16
+q = add o mul i 4
+v = ulong get b q
+v = or shl v 8 ulong get b add q 1
+v = or shl v 8 ulong get b add q 2
+v = or shl v 8 ulong get b add q 3
+put w i or v shl v 32
+end
+expand w
+end
+
+note big-endian words of the block at byte 40 of b into w[0..16), then the schedule
+fn schedc b edit uchar 104 w edit ulong 64 to void
+for i ulong 16
+q = add 40 mul i 4
+v = ulong get b q
+v = or shl v 8 ulong get b add q 1
+v = or shl v 8 ulong get b add q 2
+v = or shl v 8 ulong get b add q 3
+put w i or v shl v 32
+end
+expand w
+end
+
+note the 64 rounds, unrolled with the working words in locals (names rotate instead of moving).
+note Same lazy low-32-bit cells and rotate trick as expand; K is an immediate; the eight words are
+note reduced to 32 bits only when they are added back into h.
+fn rounds h edit uint 8 w view ulong 64 to void
+a = ulong get h 0
+b = ulong get h 1
+c = ulong get h 2
+d = ulong get h 3
+e = ulong get h 4
+f = ulong get h 5
+g = ulong get h 6
+x = ulong get h 7
+t = ulong 0
+u = ulong 0
+t = add x add get w 0 1116352408
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor g and e xor f g
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor b and xor a b xor b c
+d = add d t
+x = add t u
+t = add g add get w 1 1899447441
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor f and d xor e f
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor a and xor x a xor a b
+c = add c t
+g = add t u
+t = add f add get w 2 3049323471
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor e and c xor d e
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor x and xor g x xor x a
+b = add b t
+f = add t u
+t = add e add get w 3 3921009573
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor d and b xor c d
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor g and xor f g xor g x
+a = add a t
+e = add t u
+t = add d add get w 4 961987163
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor c and a xor b c
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor f and xor e f xor f g
+x = add x t
+d = add t u
+t = add c add get w 5 1508970993
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor b and x xor a b
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor e and xor d e xor e f
+g = add g t
+c = add t u
+t = add b add get w 6 2453635748
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor a and g xor x a
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor d and xor c d xor d e
+f = add f t
+b = add t u
+t = add a add get w 7 2870763221
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor x and f xor g x
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor c and xor b c xor c d
+e = add e t
+a = add t u
+t = add x add get w 8 3624381080
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor g and e xor f g
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor b and xor a b xor b c
+d = add d t
+x = add t u
+t = add g add get w 9 310598401
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor f and d xor e f
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor a and xor x a xor a b
+c = add c t
+g = add t u
+t = add f add get w 10 607225278
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor e and c xor d e
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor x and xor g x xor x a
+b = add b t
+f = add t u
+t = add e add get w 11 1426881987
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor d and b xor c d
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor g and xor f g xor g x
+a = add a t
+e = add t u
+t = add d add get w 12 1925078388
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor c and a xor b c
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor f and xor e f xor f g
+x = add x t
+d = add t u
+t = add c add get w 13 2162078206
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor b and x xor a b
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor e and xor d e xor e f
+g = add g t
+c = add t u
+t = add b add get w 14 2614888103
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor a and g xor x a
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor d and xor c d xor d e
+f = add f t
+b = add t u
+t = add a add get w 15 3248222580
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor x and f xor g x
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor c and xor b c xor c d
+e = add e t
+a = add t u
+t = add x add get w 16 3835390401
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor g and e xor f g
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor b and xor a b xor b c
+d = add d t
+x = add t u
+t = add g add get w 17 4022224774
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor f and d xor e f
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor a and xor x a xor a b
+c = add c t
+g = add t u
+t = add f add get w 18 264347078
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor e and c xor d e
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor x and xor g x xor x a
+b = add b t
+f = add t u
+t = add e add get w 19 604807628
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor d and b xor c d
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor g and xor f g xor g x
+a = add a t
+e = add t u
+t = add d add get w 20 770255983
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor c and a xor b c
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor f and xor e f xor f g
+x = add x t
+d = add t u
+t = add c add get w 21 1249150122
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor b and x xor a b
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor e and xor d e xor e f
+g = add g t
+c = add t u
+t = add b add get w 22 1555081692
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor a and g xor x a
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor d and xor c d xor d e
+f = add f t
+b = add t u
+t = add a add get w 23 1996064986
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor x and f xor g x
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor c and xor b c xor c d
+e = add e t
+a = add t u
+t = add x add get w 24 2554220882
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor g and e xor f g
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor b and xor a b xor b c
+d = add d t
+x = add t u
+t = add g add get w 25 2821834349
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor f and d xor e f
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor a and xor x a xor a b
+c = add c t
+g = add t u
+t = add f add get w 26 2952996808
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor e and c xor d e
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor x and xor g x xor x a
+b = add b t
+f = add t u
+t = add e add get w 27 3210313671
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor d and b xor c d
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor g and xor f g xor g x
+a = add a t
+e = add t u
+t = add d add get w 28 3336571891
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor c and a xor b c
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor f and xor e f xor f g
+x = add x t
+d = add t u
+t = add c add get w 29 3584528711
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor b and x xor a b
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor e and xor d e xor e f
+g = add g t
+c = add t u
+t = add b add get w 30 113926993
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor a and g xor x a
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor d and xor c d xor d e
+f = add f t
+b = add t u
+t = add a add get w 31 338241895
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor x and f xor g x
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor c and xor b c xor c d
+e = add e t
+a = add t u
+t = add x add get w 32 666307205
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor g and e xor f g
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor b and xor a b xor b c
+d = add d t
+x = add t u
+t = add g add get w 33 773529912
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor f and d xor e f
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor a and xor x a xor a b
+c = add c t
+g = add t u
+t = add f add get w 34 1294757372
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor e and c xor d e
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor x and xor g x xor x a
+b = add b t
+f = add t u
+t = add e add get w 35 1396182291
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor d and b xor c d
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor g and xor f g xor g x
+a = add a t
+e = add t u
+t = add d add get w 36 1695183700
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor c and a xor b c
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor f and xor e f xor f g
+x = add x t
+d = add t u
+t = add c add get w 37 1986661051
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor b and x xor a b
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor e and xor d e xor e f
+g = add g t
+c = add t u
+t = add b add get w 38 2177026350
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor a and g xor x a
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor d and xor c d xor d e
+f = add f t
+b = add t u
+t = add a add get w 39 2456956037
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor x and f xor g x
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor c and xor b c xor c d
+e = add e t
+a = add t u
+t = add x add get w 40 2730485921
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor g and e xor f g
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor b and xor a b xor b c
+d = add d t
+x = add t u
+t = add g add get w 41 2820302411
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor f and d xor e f
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor a and xor x a xor a b
+c = add c t
+g = add t u
+t = add f add get w 42 3259730800
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor e and c xor d e
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor x and xor g x xor x a
+b = add b t
+f = add t u
+t = add e add get w 43 3345764771
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor d and b xor c d
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor g and xor f g xor g x
+a = add a t
+e = add t u
+t = add d add get w 44 3516065817
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor c and a xor b c
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor f and xor e f xor f g
+x = add x t
+d = add t u
+t = add c add get w 45 3600352804
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor b and x xor a b
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor e and xor d e xor e f
+g = add g t
+c = add t u
+t = add b add get w 46 4094571909
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor a and g xor x a
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor d and xor c d xor d e
+f = add f t
+b = add t u
+t = add a add get w 47 275423344
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor x and f xor g x
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor c and xor b c xor c d
+e = add e t
+a = add t u
+t = add x add get w 48 430227734
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor g and e xor f g
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor b and xor a b xor b c
+d = add d t
+x = add t u
+t = add g add get w 49 506948616
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor f and d xor e f
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor a and xor x a xor a b
+c = add c t
+g = add t u
+t = add f add get w 50 659060556
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor e and c xor d e
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor x and xor g x xor x a
+b = add b t
+f = add t u
+t = add e add get w 51 883997877
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor d and b xor c d
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor g and xor f g xor g x
+a = add a t
+e = add t u
+t = add d add get w 52 958139571
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor c and a xor b c
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor f and xor e f xor f g
+x = add x t
+d = add t u
+t = add c add get w 53 1322822218
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor b and x xor a b
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor e and xor d e xor e f
+g = add g t
+c = add t u
+t = add b add get w 54 1537002063
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor a and g xor x a
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor d and xor c d xor d e
+f = add f t
+b = add t u
+t = add a add get w 55 1747873779
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor x and f xor g x
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor c and xor b c xor c d
+e = add e t
+a = add t u
+t = add x add get w 56 1955562222
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor g and e xor f g
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor b and xor a b xor b c
+d = add d t
+x = add t u
+t = add g add get w 57 2024104815
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor f and d xor e f
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor a and xor x a xor a b
+c = add c t
+g = add t u
+t = add f add get w 58 2227730452
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor e and c xor d e
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor x and xor g x xor x a
+b = add b t
+f = add t u
+t = add e add get w 59 2361852424
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor d and b xor c d
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor g and xor f g xor g x
+a = add a t
+e = add t u
+t = add d add get w 60 2428436474
+u = shl a 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor c and a xor b c
+u = shl e 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor f and xor e f xor f g
+x = add x t
+d = add t u
+t = add c add get w 61 2756734187
+u = shl x 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor b and x xor a b
+u = shl d 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor e and xor d e xor e f
+g = add g t
+c = add t u
+t = add b add get w 62 3204031479
+u = shl g 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor a and g xor x a
+u = shl c 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor d and xor c d xor d e
+f = add f t
+b = add t u
+t = add a add get w 63 3329325298
+u = shl f 32
+u = or u shr u 32
+u = xor xor shr u 6 shr u 11 shr u 25
+t = add t u
+t = add t xor x and f xor g x
+u = shl b 32
+u = or u shr u 32
+u = xor xor shr u 2 shr u 13 shr u 22
+u = add u xor c and xor b c xor c d
+e = add e t
+a = add t u
+t = add ulong get h 0 a
+put h 0 uint and t 4294967295
+t = add ulong get h 1 b
+put h 1 uint and t 4294967295
+t = add ulong get h 2 c
+put h 2 uint and t 4294967295
+t = add ulong get h 3 d
+put h 3 uint and t 4294967295
+t = add ulong get h 4 e
+put h 4 uint and t 4294967295
+t = add ulong get h 5 f
+put h 5 uint and t 4294967295
+t = add ulong get h 6 g
+put h 6 uint and t 4294967295
+t = add ulong get h 7 x
+put h 7 uint and t 4294967295
+end
+
+fn tobuf c edit uchar 104 bi ulong b view uchar 4096 bo ulong n ulong to void
+for i ulong n
+put c add 40 add bi i get b add bo i
+end
+end
+
+note absorb b[0..n), n <= 4096, exactly as src/sha256.c sha256_update does for that piece
+fn absorb c edit uchar 104 b view uchar 4096 n ulong w edit ulong 64 to void
+if gt n 4096
+trap 3
+end
+h = new uint 8 0
+cnt = getle c 32 8
+bi = and cnt 63
+putle c 32 8 add cnt n
+off = ulong 0
+if gt bi 0
+lf = sub 64 bi
+if lt n lf
+tobuf c bi b 0 n
+ret
+end
+tobuf c bi b 0 lf
+loadh c h
+schedc c w
+rounds h w
+storeh c h
+off = lf
+end
+if le add off 64 n
+loadh c h
+while le add off 64 n bound 65
+schedb b off w
+rounds h w
+off = add off 64
+end
+storeh c h
+end
+tobuf c 0 b off sub n off
+end
+
+fn init c edit uchar 104 to void
+putle c 32 8 0
+putle c 0 4 1779033703
+putle c 4 4 3144134277
+putle c 8 4 1013904242
+putle c 12 4 2773480762
+putle c 16 4 1359893119
+putle c 20 4 2600822924
+putle c 24 4 528734635
+putle c 28 4 1541459225
+end
+
+note compress the context's own block buffer (bytes 40..103) into its hash words
+fn compbuf c edit uchar 104 w edit ulong 64 to void
+h = new uint 8 0
+loadh c h
+schedc c w
+rounds h w
+storeh c h
+end
+
+note zero buffer bytes s..e-1 (indices into the 64-byte block)
+fn zbuf c edit uchar 104 s ulong e ulong to void
+i = s
+while lt i e bound 64
+put c add 40 i 0
+i = add i 1
+end
+end
+
+note sha256_final of src/sha256.c, padding in place: 0x80, zeros to 56 mod 64 (one more block
+note when the pending part is 56 bytes or more), the 64-bit big-endian bit count, then the digest.
+note The count field is left as it was (src/sha256.c adds the padding to it; nothing reads it after).
+fn final c edit uchar 104 w edit ulong 64 to void
+cnt = getle c 32 8
+bi = and cnt 63
+put c add 40 bi 128
+zbuf c add bi 1 64
+if ge bi 56
+compbuf c w
+zbuf c 0 56
+end
+bits = mul cnt 8
+for i ulong 8
+sh = mul sub 7 i 8
+put c add 96 i uchar and shr bits sh 255
+end
+compbuf c w
+h = new uint 8 0
+loadh c h
+digest8 h w
+end
+
+note IV into h
+fn initiv h edit uint 8 to void
+put h 0 uint 1779033703
+put h 1 uint 3144134277
+put h 2 uint 1013904242
+put h 3 uint 2773480762
+put h 4 uint 1359893119
+put h 5 uint 2600822924
+put h 6 uint 528734635
+put h 7 uint 1541459225
+end
+
+note expand w[0..16) into the full 64-word schedule, unrolled (constant indices need no bounds checks).
+note Every schedule word is stored duplicated, the 32-bit value in both halves (d = (x << 32) | x), so
+note a rotate right by r is the low half of d >> r and a plain shift right by n is d >> (32 + n); sums
+note are formed in the low 32 bits (add, and, xor, or need no masks) and duplicated once on store.
+fn expand w edit ulong 64 to void
+u = ulong 0
+v = ulong 0
+x = ulong 0
+x = get w 14
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 1
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 9
+u = add u get w 0
+u = shl u 32
+put w 16 or u shr u 32
+x = get w 15
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 2
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 10
+u = add u get w 1
+u = shl u 32
+put w 17 or u shr u 32
+x = get w 16
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 3
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 11
+u = add u get w 2
+u = shl u 32
+put w 18 or u shr u 32
+x = get w 17
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 4
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 12
+u = add u get w 3
+u = shl u 32
+put w 19 or u shr u 32
+x = get w 18
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 5
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 13
+u = add u get w 4
+u = shl u 32
+put w 20 or u shr u 32
+x = get w 19
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 6
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 14
+u = add u get w 5
+u = shl u 32
+put w 21 or u shr u 32
+x = get w 20
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 7
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 15
+u = add u get w 6
+u = shl u 32
+put w 22 or u shr u 32
+x = get w 21
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 8
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 16
+u = add u get w 7
+u = shl u 32
+put w 23 or u shr u 32
+x = get w 22
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 9
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 17
+u = add u get w 8
+u = shl u 32
+put w 24 or u shr u 32
+x = get w 23
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 10
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 18
+u = add u get w 9
+u = shl u 32
+put w 25 or u shr u 32
+x = get w 24
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 11
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 19
+u = add u get w 10
+u = shl u 32
+put w 26 or u shr u 32
+x = get w 25
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 12
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 20
+u = add u get w 11
+u = shl u 32
+put w 27 or u shr u 32
+x = get w 26
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 13
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 21
+u = add u get w 12
+u = shl u 32
+put w 28 or u shr u 32
+x = get w 27
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 14
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 22
+u = add u get w 13
+u = shl u 32
+put w 29 or u shr u 32
+x = get w 28
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 15
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 23
+u = add u get w 14
+u = shl u 32
+put w 30 or u shr u 32
+x = get w 29
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 16
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 24
+u = add u get w 15
+u = shl u 32
+put w 31 or u shr u 32
+x = get w 30
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 17
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 25
+u = add u get w 16
+u = shl u 32
+put w 32 or u shr u 32
+x = get w 31
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 18
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 26
+u = add u get w 17
+u = shl u 32
+put w 33 or u shr u 32
+x = get w 32
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 19
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 27
+u = add u get w 18
+u = shl u 32
+put w 34 or u shr u 32
+x = get w 33
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 20
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 28
+u = add u get w 19
+u = shl u 32
+put w 35 or u shr u 32
+x = get w 34
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 21
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 29
+u = add u get w 20
+u = shl u 32
+put w 36 or u shr u 32
+x = get w 35
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 22
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 30
+u = add u get w 21
+u = shl u 32
+put w 37 or u shr u 32
+x = get w 36
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 23
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 31
+u = add u get w 22
+u = shl u 32
+put w 38 or u shr u 32
+x = get w 37
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 24
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 32
+u = add u get w 23
+u = shl u 32
+put w 39 or u shr u 32
+x = get w 38
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 25
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 33
+u = add u get w 24
+u = shl u 32
+put w 40 or u shr u 32
+x = get w 39
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 26
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 34
+u = add u get w 25
+u = shl u 32
+put w 41 or u shr u 32
+x = get w 40
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 27
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 35
+u = add u get w 26
+u = shl u 32
+put w 42 or u shr u 32
+x = get w 41
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 28
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 36
+u = add u get w 27
+u = shl u 32
+put w 43 or u shr u 32
+x = get w 42
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 29
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 37
+u = add u get w 28
+u = shl u 32
+put w 44 or u shr u 32
+x = get w 43
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 30
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 38
+u = add u get w 29
+u = shl u 32
+put w 45 or u shr u 32
+x = get w 44
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 31
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 39
+u = add u get w 30
+u = shl u 32
+put w 46 or u shr u 32
+x = get w 45
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 32
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 40
+u = add u get w 31
+u = shl u 32
+put w 47 or u shr u 32
+x = get w 46
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 33
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 41
+u = add u get w 32
+u = shl u 32
+put w 48 or u shr u 32
+x = get w 47
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 34
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 42
+u = add u get w 33
+u = shl u 32
+put w 49 or u shr u 32
+x = get w 48
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 35
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 43
+u = add u get w 34
+u = shl u 32
+put w 50 or u shr u 32
+x = get w 49
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 36
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 44
+u = add u get w 35
+u = shl u 32
+put w 51 or u shr u 32
+x = get w 50
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 37
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 45
+u = add u get w 36
+u = shl u 32
+put w 52 or u shr u 32
+x = get w 51
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 38
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 46
+u = add u get w 37
+u = shl u 32
+put w 53 or u shr u 32
+x = get w 52
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 39
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 47
+u = add u get w 38
+u = shl u 32
+put w 54 or u shr u 32
+x = get w 53
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 40
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 48
+u = add u get w 39
+u = shl u 32
+put w 55 or u shr u 32
+x = get w 54
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 41
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 49
+u = add u get w 40
+u = shl u 32
+put w 56 or u shr u 32
+x = get w 55
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 42
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 50
+u = add u get w 41
+u = shl u 32
+put w 57 or u shr u 32
+x = get w 56
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 43
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 51
+u = add u get w 42
+u = shl u 32
+put w 58 or u shr u 32
+x = get w 57
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 44
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 52
+u = add u get w 43
+u = shl u 32
+put w 59 or u shr u 32
+x = get w 58
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 45
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 53
+u = add u get w 44
+u = shl u 32
+put w 60 or u shr u 32
+x = get w 59
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 46
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 54
+u = add u get w 45
+u = shl u 32
+put w 61 or u shr u 32
+x = get w 60
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 47
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 55
+u = add u get w 46
+u = shl u 32
+put w 62 or u shr u 32
+x = get w 61
+u = xor xor shr x 17 shr x 19 shr x 42
+x = get w 48
+v = xor xor shr x 7 shr x 18 shr x 35
+u = add u v
+u = add u get w 56
+u = add u get w 47
+u = shl u 32
+put w 63 or u shr u 32
+end
+
+note Word access for the aligned paths. b8 is the caller's 8-byte-aligned copy of the input lent a
+note second time as ulong cells (b views the same bytes), so one load brings 8 bytes. Swapping the
+note bytes inside each 32-bit half (two mask-and-shift steps; the constants stay in registers) turns
+note little-endian bytes b0..b7 into the big-endian words b0..b3 (low half) and b4..b7 (high half).
+note Each word is stored duplicated, as expand requires.
+fn blk8 b8 view ulong 512 q ulong w edit ulong 64 to void
+for i ulong 8
+x = get b8 add q i
+y = or shl and x 71777214294589695 8 and shr x 8 71777214294589695
+y = or shl and y 281470681808895 16 and shr y 16 281470681808895
+j = mul i 2
+t = shl y 32
+put w j or t shr t 32
+put w add j 1 or and y 18446744069414584320 shr y 32
+end
+end
+
+note the padded tail b[off..n) (less than 64 bytes), read as words through b8 (the bytes past n
+note are inside the caller's 4096-byte copy and are masked off here): the word holding byte n keeps
+note its k valid bytes and gets 0x80 after them, later words are zero, the 64-bit bit count goes in
+note words 14 and 15; a second block when the tail is 56 bytes or more
+fn tail8 h edit uint 8 b8 view ulong 512 off ulong n ulong w edit ulong 64 to void
+blk8 b8 shr off 3 w
+r = sub n off
+fw = shr r 2
+k = and r 3
+sh = mul k 8
+v = get w fw
+v = and v shl 4294967295 sub 32 sh
+v = and v 4294967295
+v = or v shl 128 sub 24 sh
+put w fw or v shl v 32
+i = add fw 1
+while lt i 16 bound 16
+put w i 0
+i = add i 1
+end
+if ge r 56
+expand w
+rounds h w
+for j ulong 14
+put w j 0
+end
+end
+bits = mul n 8
+v = shr bits 32
+put w 14 or v shl v 32
+v = and bits 4294967295
+put w 15 or v shl v 32
+expand w
+rounds h w
+end
+
+note the digest of h as 32 bytes packed little endian into w[0..4): word i holds the big-endian
+note bytes of h[2i] then h[2i+1], so the caller copies the digest out of w with memcpy
+fn digest8 h edit uint 8 w edit ulong 64 to void
+for i ulong 4
+j = mul i 2
+x = or ulong get h j shl ulong get h add j 1 32
+y = or shl and x 71777214294589695 8 and shr x 8 71777214294589695
+y = or shl and y 281470681808895 16 and shr y 16 281470681808895
+put w i y
+end
+end
+
+note SHA-256 of the n < 4096 bytes in b8, state in locals only (sha256_hash's short path)
+fn oneshot b8 view ulong 512 n ulong w edit ulong 64 to void
+if ge n 4096
+trap 3
+end
+h = new uint 8 0
+initiv h
+off = ulong 0
+while le add off 64 n bound 64
+blk8 b8 shr off 3 w
+expand w
+rounds h w
+off = add off 64
+end
+tail8 h b8 off n w
+digest8 h w
+end
+
+fn omsha c edit uchar 104 b view uchar 4096 n ulong op ulong w edit ulong 64 b8 view ulong 512 to void
+if eq op 0
+init c
+ret
+end
+if eq op 1
+absorb c b n w
+ret
+end
+if eq op 2
+final c w
+ret
+end
+if eq op 3
+oneshot b8 n w
+ret
+end
+trap 9
+end
