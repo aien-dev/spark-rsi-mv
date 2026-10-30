@@ -41,6 +41,14 @@ Autonomous agents require coordination mechanisms that scale without central bot
 - Sniff Before Write Protocol: Before modifying any file, an agent must inspect local breadcrumbs to detect peer agent presence, prevent collision, and maintain coherent shared state.
 - Whispers: Asynchronous intent signals left in directory breadcrumbs to guide succeeding agents without synchronous RPC blocking.
 
+Development uses [Human-Directed Agentic Engineering (HDAE)](../README.md#human-directed-agentic-engineering).
+Humans set goals, architecture, constraints, acceptance criteria, and stopping points;
+agents implement, execute checks, diagnose failures, and revise within those boundaries.
+Human review retains responsibility for claims, acceptance, and release decisions.
+The README cites Gregory M. Kurtzer's 2026 Ginux report for the documented method and
+systems-software case study. This framing does not retrospectively reclassify past experiments
+or change the runtime RSI loop described below.
+
 ## 6. Recursive Self-Improvement (RSI) Engine
 Software does not remain static; it either evolutive adapts or degrades into technical debt. We mandate continuous recursive self-improvement through an explicit five-stage deterministic loop:
 
