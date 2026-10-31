@@ -59,8 +59,9 @@ secret refusal, `cargo check`, `cargo test`), balance (`src/balance.rs`), ratify
 ## Build from source at a pin
 
 Needs Rust/Cargo, bubblewrap, and `aien-protocols-mv` cloned next to this repository as
-`aien-protocols`. README: until aien-protocols-mv#59 merges, check that sibling out at
-`28bc49ec57a89398fcb463cf71c0add7fcd2ef6c`. `Cargo.lock` committed (265 packages).
+`aien-protocols`. README asks for the sibling at `28bc49ec57a89398fcb463cf71c0add7fcd2ef6c`
+until aien-protocols-mv#59 merges; #59 merged as `f3785177fcaaab7c0f2ce1126616e9fecb4e47b4`, so
+the default branch of aien-protocols-mv carries it. `Cargo.lock` committed (265 packages).
 
 ```sh
 git clone https://github.com/aien-dev/spark-rsi-mv spark-rsi
@@ -107,8 +108,9 @@ The tree has 21 top-level test files under `tests/` and 340 `#[test]` or `#[toki
 - The tracked workflow `.github/workflows/aien-verification.yml` builds only pinned verifier
   tools: the crumb tool from `aien-spark/aien-architecture` at
   `12ad0141b41ec67ef5aa51cb4e1815894c1083bb` and `aien-test` from `aien-spark/aien-sovereign-core`
-  at `a51042b61b87355c0850ef82ba409a46e153a1ff`. Actions are referenced by tag (`@v4`,
-  `@stable`), not by commit sha.
+  at `a51042b61b87355c0850ef82ba409a46e153a1ff`. On `main` the actions are referenced by tag
+  (`@v4`, `@stable`); the separate workflow commit of this change pins each one by commit sha and
+  adds `.github/workflows/sbom.yml`.
 - AGENTS.md asks for `cargo audit`; no audit output is committed.
 
 ## Evidence
