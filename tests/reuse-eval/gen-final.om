@@ -1,0 +1,937 @@
+note units: sha256 ref
+note needs: gen
+note gen-final: DEV and FINAL (a fixed test seed) are exactly the composition of contract 7.2 and
+note clarification K8. Generates TRAIN, TRAINP, DEV, FINAL into argv[1]; replays every request
+note through ref.om and checks: index (magic, version, split id, 24 groups, 192 sessions, request and
+note QUERY counts, group counts, holdout digest = SHA-256 of the .req files in group order); every
+note .exp record (status 0, q, r0, r1, op, ordinal, cold flag); the sessions file (ordinal, group,
+note family, n class, n, shape id, program digest, counts, first request index); 4 sessions per
+note family x type x n with n in {64, 512, 4096}; the request pattern of every type; novelty classes
+note (recall = a TRAIN program, transfer = a TRAIN shape with a program not in TRAIN, novel = a shape
+note in neither TRAIN nor TRAINP, FSM recall / new) with their frozen counts; type A: AGG f MIN or
+note MAX and each DEL removes the first index holding the current extreme, FSM every symbol a
+note permutation and every SET at index 0 changes q_t for every t >= 1 (no reconvergence);
+note type P: each PROGRAM keeps the shape (FSM S and A) and changes the program.
+note Exit 0 pass; 1 args; 2 a gen run failed; 3 file; codes 20..69 name the failed check.
+text tgnull "/dev/null"
+text tgs1 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+global TGB uchar 16777216
+global TGC uchar 16777216
+global TGP uchar 4096
+global TGK uchar 4096
+global TGA uchar 4096
+global TGS uchar 4096
+global TGT ulong 16
+global TGST uchar 4
+global TGIX ulong 128
+global TGSS ulong 3840
+global TGTR ulong 15360
+global TGTS ulong 240
+global TGPS ulong 240
+global TGCU ulong 32
+global TGOP ulong 256
+global TGOLD ulong 64
+global TGQ ulong 4097
+global TGCN ulong 64
+global TGNV ulong 384
+
+note TGT: 0 scratch length, 1 gen path length, 2 path length, 3 packet position, 4 record count,
+note 5 directory path length, 6 TGB length, 7 TGC length, 8 TRAIN rows, 9 TRAINP rows
+note TGCU: 0 open session (1), 1 session requests, 2 session QUERYs, 3 cold pending, 4 type,
+note 5 family, 6 novelty, 7 ordinal, 8 first failure, 9 requests, 10 QUERYs, 11 slot in group,
+note 12 group, 13 n class
+
+fn tgpput v ulong n ulong to void
+l = get TGT 2
+x = v
+for i ulong n
+put TGP add l i uchar and x 255
+x = shr x 8
+end
+put TGT 2 add l n
+end
+
+fn tgdir c ulong to void
+l = get TGT 0
+for i ulong l
+put TGP i get TGS i
+end
+put TGT 2 l
+tgpput add 47 mul c 256 2
+put TGT 5 get TGT 2
+end
+
+fn tgfile v ulong n ulong to void
+put TGT 2 get TGT 5
+tgpput 47 1
+tgpput v n
+end
+
+fn tggfile g ulong ext ulong to void
+put TGT 2 get TGT 5
+tgpput 26415 2
+tgpput add 48 div g 10 1
+tgpput add 48 rem g 10 1
+if eq ext 0
+tgpput 1902473774 4
+else
+tgpput 1886938414 4
+end
+end
+
+fn tgkhdr n ulong to ulong
+p = get TGT 3
+put TGK p uchar and n 255
+put TGK add p 1 uchar shr n 8
+put TGT 3 add p add n 2
+put TGT 4 add get TGT 4 1
+ret add p 2
+end
+
+fn tgkgen to void
+n = get TGT 1
+p = tgkhdr n
+for i ulong n
+put TGK add p i get TGA i
+end
+end
+
+fn tgkval v ulong n ulong to void
+p = tgkhdr n
+x = v
+for i ulong n
+put TGK add p i uchar and x 255
+x = shr x 8
+end
+end
+
+fn tgkpath to void
+n = get TGT 2
+p = tgkhdr n
+for i ulong n
+put TGK add p i get TGP i
+end
+end
+
+fn tgkseed to void
+p = tgkhdr 64
+for i ulong 64
+put TGK add p i get tgs1 i
+end
+end
+
+fn tgexec to ulong
+put TGK 0 uchar get TGT 4
+put TGK 1 0
+pid = fork
+if lt pid 0
+ret 256
+end
+if eq pid 0
+fd = fopen tgnull 0 len tgnull 1 0
+if ge fd 0
+d = dupfd int fd 1 0
+end
+r = execprog TGK 0 get TGT 3
+exit 97
+end
+w = waitpid int pid TGST 0 4 0
+if or ne w pid ne get TGST 0 0
+ret 256
+end
+ret ulong get TGST 1
+end
+
+fn tggen v ulong n ulong c ulong w ulong to ulong
+put TGT 3 2
+put TGT 4 0
+tgkgen
+tgkval v n
+tgdir c
+tgkpath
+if ne w 0
+tgkseed
+end
+ret tgexec
+end
+
+fn tgreadb to ulong
+fd = fopen TGP 0 get TGT 2 0 0
+if lt fd 0
+ret 0
+end
+n = read int fd TGB 0 len TGB
+x = fclose int fd
+if lt n 0
+ret 0
+end
+ret ulong n
+end
+
+fn tgreadc to ulong
+fd = fopen TGP 0 get TGT 2 0 0
+if lt fd 0
+ret 0
+end
+n = read int fd TGC 0 len TGC
+x = fclose int fd
+if lt n 0
+ret 0
+end
+ret ulong n
+end
+
+fn tgwb i ulong to ulong
+v = ulong 0
+b = mul i 8
+for j ulong 8
+v = or v shl ulong get TGB add b j mul j 8
+end
+ret v
+end
+
+fn tgwc i ulong to ulong
+v = ulong 0
+b = mul i 8
+for j ulong 8
+v = or v shl ulong get TGC add b j mul j 8
+end
+ret v
+end
+
+fn tgerr code ulong to void
+if eq get TGCU 8 0
+put TGCU 8 code
+end
+end
+
+note ---- TRAIN and TRAINP tables ----
+
+note the BEGIN program at word w of TGB as TRAIN row r (which 1) or TRAINP shape r (which 5)
+fn tgtrow w ulong r ulong which ulong to void
+for j ulong 64
+put RFP j tgwb add add w 2 j
+end
+if eq which 1
+for i ulong 64
+put TGTR add mul r 64 i get RFP i
+end
+put TGTS r rfshape
+else
+put TGPS r rfshape
+end
+end
+
+note BEGIN programs of directory c into TGTR / TGTS (which 1) or their shapes into TGPS (which 5)
+fn tgtrain c ulong which ulong to void
+rows = ulong 0
+for g ulong 30
+tgdir c
+tggfile g 0
+nw = div tgreadb 8
+w = ulong 0
+while lt w nw bound 99999
+op = tgwb w
+p = tgwb add w 1
+if eq op 1
+tgtrow w rows which
+rows = add rows 1
+end
+w = add w add p 2
+end
+end
+if eq which 1
+put TGT 8 rows
+else
+put TGT 9 rows
+end
+end
+
+fn tgrowis r ulong to bool
+for j ulong 64
+if ne get RFP j get TGTR add mul r 64 j
+ret false
+end
+end
+ret true
+end
+
+note RFP equals a TRAIN session program
+fn tgintr to bool
+for r ulong get TGT 8
+if tgrowis r
+ret true
+end
+end
+ret false
+end
+
+fn tgshtr sh ulong to bool
+for r ulong get TGT 8
+fam = get TGTR add mul r 64 1
+if and eq fam 1 eq get TGTS r sh
+ret true
+end
+end
+ret false
+end
+
+fn tgshtp sh ulong to bool
+for r ulong get TGT 9
+if eq get TGPS r sh
+ret true
+end
+end
+ret false
+end
+
+note ---- per-session checks ----
+
+fn tgrec i ulong to ulong
+ret get TGSS add mul get TGCU 7 16 i
+end
+
+note the op at position j (1-based after BEGIN) of a session of type t, family f; 0 = past the end
+fn tgpat t ulong f ulong j ulong to ulong
+if eq t 1
+if le j 32
+ret 2
+end
+ret 0
+end
+if eq t 7
+if gt j 20
+ret 0
+end
+if eq rem j 5 4
+ret 8
+end
+ret 2
+end
+if and eq t 6 eq f 1
+if gt j 192
+ret 0
+end
+r = rem j 3
+if eq r 1
+ret 5
+end
+if eq r 2
+ret 4
+end
+ret 2
+end
+lim = ulong 128
+if eq t 3
+lim = 16
+end
+if gt j lim
+ret 0
+end
+if eq rem j 2 0
+ret 2
+end
+if eq t 3
+ret 7
+end
+if eq t 4
+ret 6
+end
+if eq t 5
+if eq rem div sub j 1 2 2 0
+ret 5
+end
+ret 4
+end
+ret 3
+end
+
+fn tgendsess to void
+if eq get TGCU 0 0
+ret
+end
+put TGCU 0 0
+nr = get TGCU 1
+if or ne tgrec 12 nr ne tgrec 13 get TGCU 2
+tgerr 20
+end
+t = get TGCU 4
+f = get TGCU 5
+if ne get TGOP 0 1
+tgerr 21
+end
+for j ulong 255
+want = tgpat t f add j 1
+got = ulong 0
+if lt add j 1 nr
+got = get TGOP add j 1
+end
+if ne want got
+tgerr 21
+end
+end
+end
+
+fn tgnewsess k ulong to void
+tgendsess
+ord = add mul get TGCU 12 8 get TGCU 11
+put TGCU 11 add get TGCU 11 1
+put TGCU 7 ord
+put TGCU 0 1
+put TGCU 1 0
+put TGCU 2 0
+if ge ord 192
+tgerr 22
+put TGCU 7 0
+ret
+end
+if or ne tgrec 0 ord ne tgrec 1 get TGCU 12
+tgerr 22
+end
+if or ne tgrec 14 k ne tgrec 15 0
+tgerr 22
+end
+put TGCU 4 tgrec 3
+put TGCU 5 tgrec 2
+put TGCU 6 tgrec 4
+end
+
+note every symbol's transition of RFP is a permutation of the states
+fn tgperm to bool
+s = get RFP 2
+a = get RFP 3
+for x ulong a
+seen = ulong 0
+for st ulong s
+t = rfdelta st x
+b = shl ulong 1 t
+if ne and seen b 0
+ret false
+end
+seen = or seen b
+end
+end
+ret true
+end
+
+fn tgnovchk nov ulong t ulong sh ulong to void
+if eq nov 1
+if not tgintr
+tgerr 30
+end
+end
+if eq nov 2
+if or not tgshtr sh tgintr
+tgerr 31
+end
+end
+if eq nov 3
+if or tgshtr sh tgshtp sh
+tgerr 32
+end
+end
+if eq nov 4
+if not tgintr
+tgerr 33
+end
+end
+if eq nov 5
+if tgintr
+tgerr 34
+end
+end
+f = get RFP 1
+if eq f 1
+if or lt nov 1 gt nov 3
+tgerr 35
+end
+if and eq t 8 ne nov 3
+tgerr 35
+end
+if eq t 6
+if and ne get RFP 3 3 ne get RFP 3 4
+tgerr 36
+end
+end
+else
+if or lt nov 4 gt nov 5
+tgerr 35
+end
+if and eq t 8 ne nov 5
+tgerr 35
+end
+if eq t 6
+if not tgperm
+tgerr 37
+end
+end
+end
+end
+
+fn tgbegpost to void
+n = get RFN 0
+if or ne tgrec 2 get RFP 1 ne tgrec 6 n
+tgerr 23
+end
+nc = tgrec 5
+if gt nc 2
+tgerr 24
+ret
+end
+want = ulong 64
+if eq nc 1
+want = 512
+end
+if eq nc 2
+want = 4096
+end
+if ne n want
+tgerr 24
+end
+sh = rfshape
+if ne tgrec 7 sh
+tgerr 25
+end
+rfpdig
+for j ulong 4
+if ne tgrec add 8 j get RFPD j
+tgerr 26
+end
+end
+t = get TGCU 4
+if or lt t 1 gt t 8
+tgerr 27
+ret
+end
+f = get RFP 1
+nov = get TGCU 6
+tgnovchk nov t sh
+c = add mul sub f 1 24 add mul sub t 1 3 nc
+put TGCN c add get TGCN c 1
+v = add mul c 6 nov
+put TGNV v add get TGNV v 1
+end
+
+fn tgtraj to void
+q = get RFP 4
+put TGQ 0 q
+n = get RFN 0
+for t ulong n
+q = rfdelta q get RFX t
+put TGQ add t 1 q
+end
+end
+
+fn tgdiverge to bool
+q = get RFP 4
+n = get RFN 0
+for t ulong n
+q = rfdelta q get RFX t
+if eq q get TGQ add t 1
+ret false
+end
+end
+ret true
+end
+
+fn tgextr i ulong to bool
+rffull
+ex = get RFR 0
+if ge i get RFN 0
+ret false
+end
+for j ulong i
+if eq rflane get RFX j ex
+ret false
+end
+end
+ret eq rflane get RFX i ex
+end
+
+fn tgpre op ulong to void
+t = get TGCU 4
+f = get TGCU 5
+if and eq t 6 eq op 5
+if eq f 1
+if not tgextr get RFRQ 2
+tgerr 40
+end
+end
+end
+if and eq t 6 eq op 3
+if eq f 2
+if ne get RFRQ 2 0
+tgerr 41
+end
+tgtraj
+end
+end
+if eq op 7
+if ne get RFRQ 2 1024
+tgerr 42
+end
+m = get RFRQ 2
+for i ulong m
+if ne get RFRQ add 3 mul i 3 3
+tgerr 42
+end
+end
+end
+if eq op 8
+for j ulong 64
+put TGOLD j get RFP j
+end
+end
+end
+
+fn tgpost op ulong to void
+t = get TGCU 4
+if eq op 1
+tgbegpost
+end
+if and eq t 6 eq op 3
+if eq get TGCU 5 2
+if not tgdiverge
+tgerr 43
+end
+end
+end
+if eq op 8
+same = true
+for j ulong 64
+if ne get TGOLD j get RFP j
+same = false
+end
+end
+if same
+tgerr 44
+end
+if eq get RFP 1 1
+if ne get RFP 1 get TGOLD 1
+tgerr 45
+end
+for x ulong 17
+if or lt x 6 eq rem x 2 1
+if ne get RFP x get TGOLD x
+tgerr 45
+end
+end
+end
+else
+if ne get TGOLD 1 2
+tgerr 45
+end
+if ne get RFP 2 get TGOLD 2
+tgerr 45
+end
+if ne get RFP 3 get TGOLD 3
+tgerr 45
+end
+end
+end
+end
+
+note the expected record k against the reference's response
+fn tgexpchk k ulong op ulong st ulong to void
+b = mul k 8
+if ne st 0
+tgerr 50
+end
+if or ne tgwc b 0 ne tgwc add b 1 get RFRS 1
+tgerr 51
+end
+if or ne tgwc add b 2 get RFRS 2 ne tgwc add b 3 get RFRS 3
+tgerr 52
+end
+if or ne tgwc add b 4 op ne tgwc add b 5 get TGCU 7
+tgerr 53
+end
+cold = ulong 0
+if eq op 2
+if eq get TGCU 3 1
+cold = 1
+end
+put TGCU 3 0
+put TGCU 2 add get TGCU 2 1
+put TGCU 10 add get TGCU 10 1
+end
+if or eq op 1 eq op 8
+put TGCU 3 1
+end
+if or ne tgwc add b 6 cold ne tgwc add b 7 0
+tgerr 54
+end
+end
+
+fn tgstep w ulong k ulong to ulong
+op = tgwb w
+p = tgwb add w 1
+if gt p 7234
+tgerr 55
+ret 18446744073709551615
+end
+for j ulong add p 2
+put RFRQ j tgwb add w j
+end
+if eq op 1
+tgnewsess k
+end
+tgpre op
+st = ulong rfreq
+tgpost op
+tgexpchk k op st
+r = get TGCU 1
+if lt r 256
+put TGOP r op
+end
+put TGCU 1 add r 1
+put TGCU 9 add get TGCU 9 1
+ret add w add p 2
+end
+
+fn tgabs nb ulong to void
+off = ulong 0
+while lt off nb bound 999
+k = sub nb off
+if gt k 65536
+k = 65536
+end
+for i ulong k
+put RFHB i get TGB add off i
+end
+rfhabs 0 k
+off = add off k
+end
+end
+
+fn tggroup c ulong g ulong to void
+tgdir c
+tggfile g 0
+nb = tgreadb
+tgdir c
+tggfile g 1
+ne8 = tgreadc
+tgabs nb
+nw = div nb 8
+put TGCU 12 g
+put TGCU 11 0
+rfreset
+w = ulong 0
+k = ulong 0
+while lt w nw bound 99999
+w = tgstep w k
+k = add k 1
+end
+tgendsess
+if ne w nw
+tgerr 56
+end
+if ne mul k 64 ne8
+tgerr 56
+end
+if ne get TGCU 11 8
+tgerr 57
+end
+gc = get TGIX add 16 g
+if ne k gc
+tgerr 57
+end
+end
+
+note index and sessions of directory c into TGIX / TGSS; 0 or a failure code
+fn tgload c ulong sid ulong to ulong
+tgdir c
+tgfile 517097156201 5
+if ne tgreadb 320
+ret 60
+end
+for i ulong 40
+put TGIX i tgwb i
+end
+tgdir c
+tgfile 8317708060499076467 8
+if ne tgreadb 24576
+ret 61
+end
+for j ulong 3072
+put TGSS j tgwb j
+end
+if ne get TGIX 0 3544386032354079058
+ret 62
+end
+if ne get TGIX 1 1
+ret 62
+end
+if ne get TGIX 2 sid
+ret 62
+end
+if ne get TGIX 3 24
+ret 62
+end
+if ne get TGIX 4 192
+ret 63
+end
+if ne get TGIX 5 17952
+ret 63
+end
+if ne get TGIX 6 9024
+ret 63
+end
+for z ulong 5
+if ne get TGIX add 11 z 0
+ret 62
+end
+end
+ret 0
+end
+
+fn tgclear to void
+for u ulong 64
+put TGCN u 0
+end
+for v ulong 384
+put TGNV v 0
+end
+put TGCU 8 0
+put TGCU 9 0
+put TGCU 10 0
+end
+
+fn tgsplit c ulong sid ulong to ulong
+e = tgload c sid
+if ne e 0
+ret e
+end
+tgclear
+rfhini 0
+tot = ulong 0
+for g ulong 24
+tggroup c g
+tot = add tot get TGIX add 16 g
+end
+if ne get TGCU 8 0
+ret get TGCU 8
+end
+rfhfin 0
+for d ulong 4
+if ne get RFHD d get TGIX add 7 d
+ret 64
+end
+end
+if ne tot 17952
+ret 65
+end
+if ne get TGCU 9 17952
+ret 65
+end
+if ne get TGCU 10 9024
+ret 65
+end
+e = tgcounts
+if ne e 0
+ret e
+end
+ret tgmixed
+end
+
+note novelty counts of cell v: classes 1..5 must be a b c d e
+fn tgnvok v ulong a ulong b ulong c ulong d ulong e ulong to bool
+x = mul v 6
+if ne get TGNV add x 1 a
+ret false
+end
+if ne get TGNV add x 2 b
+ret false
+end
+if ne get TGNV add x 3 c
+ret false
+end
+if ne get TGNV add x 4 d
+ret false
+end
+ret eq get TGNV add x 5 e
+end
+
+note the seeded dealing: no group holds 8 sessions of one family and type (the composition order,
+note dealt without a permutation, would)
+fn tgmixed to ulong
+for g ulong 24
+b = mul g 128
+k0 = add mul get TGSS add b 2 16 get TGSS add b 3
+same = true
+for i ulong 8
+r = add b mul i 16
+k = add mul get TGSS add r 2 16 get TGSS add r 3
+if ne k k0
+same = false
+end
+end
+if same
+ret 69
+end
+end
+ret 0
+end
+
+note 4 sessions per family x type x n class, novelty counts of contract 7.2 and K8
+fn tgcounts to ulong
+for f ulong 2
+for t ulong 8
+for nc ulong 3
+c = add mul f 24 add mul t 3 nc
+if ne get TGCN c 4
+ret 66
+end
+ok = false
+if eq f 0
+if eq t 7
+ok = tgnvok c 0 0 4 0 0
+else
+ok = tgnvok c 1 2 1 0 0
+end
+else
+if eq t 7
+ok = tgnvok c 0 0 0 0 4
+else
+ok = tgnvok c 0 0 0 2 2
+end
+end
+if not ok
+ret 67
+end
+end
+end
+end
+ret 0
+end
+
+fn main to int
+if lt argcnt 3
+ret 1
+end
+l = argread 1 TGS 0 3000
+m = argread 2 TGA 0 3000
+if or le l 0 le m 0
+ret 1
+end
+put TGT 0 ulong l
+put TGT 1 ulong m
+r = tggen 336236466772 5 84 0
+r = or r tggen 88297166688852 6 80 0
+r = or r tggen 5653828 3 68 0
+r = or r tggen 327513164102 5 70 1
+if ne r 0
+ret 2
+end
+tgtrain 84 1
+tgtrain 80 5
+if or ne get TGT 8 240 ne get TGT 9 240
+ret 3
+end
+e = tgsplit 68 3
+if ne e 0
+ret int e
+end
+e = tgsplit 70 4
+ret int e
+end

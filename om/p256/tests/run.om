@@ -1,0 +1,436 @@
+note SPDX-License-Identifier: Apache-2.0
+note om/p256/tests/run.om: the p256.om known-answer and parity runner. Compiled after its units:
+note   cat om/p256/sha256.om om/p256/p256.om om/p256/tests/run.om | OMC > run.elf
+note   ./run.elf om/p256/tests/rfc6979-a25.txt om/p256/tests/parity-rust.txt om/p256/tests/edge-rust.txt
+note             om/p256/tests/interplane.txt
+note Self tests first (G on the curve, n G = identity, (n - 1) G = -G), then every vector file named
+note on the command line. A file holds lines (# starts a comment):
+note   K key pub              p2pub(key) must equal the 65-byte uncompressed SEC1 pub
+note   N key msg k            the RFC 6979 nonce p2sign accepts for (key, msg) must equal k
+note   S key msg sig          p2sign(key, msg) must equal sig (r||s), and p2vrfy must accept it under
+note                          p2pub(key)
+note   V pub msg sig 0|1      p2vrfy(pub, msg, sig) must give the recorded verdict
+note all fields lowercase or uppercase hex; msg is 1..1024 bytes. Prints counts and per-call timing
+note (monons around each call): p2sign, p2vrfy of the S lines (every one a full verification of a
+note valid signature) and p2vrfy of the V lines (early refusals included). Exit 0 iff every check
+note passed, 1 on any mismatch or malformed line, 2 when a file cannot be read.
+global FB uchar 4194304
+global FP ulong 4
+global CT ulong 32
+global PATH uchar 4096
+text TSELF "self tests: "
+text TPASS " pass, "
+text TFAIL " fail\n"
+text TFILE "file "
+text TK ": K "
+text TN " N "
+text TS " S "
+text TV " V "
+text TBAD " malformed "
+text TNL "\n"
+text TSL "/"
+text TMIS "MISMATCH line "
+text TKIND " kind "
+text TTS "timing p2sign: calls "
+text TTV "timing p2vrfy (S lines, valid): calls "
+text TTW "timing p2vrfy (V lines, mixed): calls "
+text TMEAN " mean_us "
+text TMIN " min_us "
+text TMAX " max_us "
+text TOK "p256: PASS\n"
+text TNO "p256: FAIL\n"
+text TRD "cannot read "
+
+const CKP ulong 0
+const CNP ulong 2
+const CSP ulong 4
+const CVP ulong 6
+const CBAD ulong 8
+const CTS ulong 10
+const CTV ulong 14
+const CSELF ulong 18
+const CALL ulong 20
+const CTW ulong 22
+
+fn onum v ulong to void
+d = new uchar 24 0
+n = ulong 0
+x = v
+while true bound 24
+put d sub 23 n uchar add rem x 10 48
+n = add n 1
+x = div x 10
+if eq x 0
+break
+end
+end
+r = write 1 d sub 24 n n
+end
+
+fn ochr ch uchar to void
+d = new uchar 1 ch
+r = write 1 d 0 1
+end
+
+note count a pass (ok) or a fail at counter base (pass at base, fail at base + 1)
+fn tally base ulong ok bool to void
+if ok
+put CT base add get CT base 1
+ret
+end
+put CT add base 1 add get CT add base 1 1
+put CT CALL add get CT CALL 1
+end
+
+note one timed call: count, sum, min, max at base..base+3
+fn tadd base ulong ns ulong to void
+n = get CT base
+put CT base add n 1
+put CT add base 1 add get CT add base 1 ns
+if or eq n 0 lt ns get CT add base 2
+put CT add base 2 ns
+end
+if gt ns get CT add base 3
+put CT add base 3 ns
+end
+end
+
+fn hexv ch uchar to ulong
+if and ge ch 48 le ch 57
+ret ulong sub ch 48
+end
+if and ge ch 97 le ch 102
+ret ulong sub ch 87
+end
+if and ge ch 65 le ch 70
+ret ulong sub ch 55
+end
+ret 16
+end
+
+fn skipsp to void
+p = get FP 0
+e = get FP 1
+while lt p e bound 4096
+if ne get FB p 32
+break
+end
+p = add p 1
+end
+put FP 0 p
+end
+
+note the next hex field into b[off..off+cap); returns its byte count, or cap + 1 when the field is
+note empty, odd, not hex or longer than cap
+fn rhex b edit uchar 4096 off ulong cap ulong to ulong
+skipsp
+n = ulong 0
+p = get FP 0
+e = get FP 1
+while lt p e bound 4096
+h = hexv get FB p
+if eq h 16
+break
+end
+if or ge add p 1 e ge n cap
+ret add cap 1
+end
+l = hexv get FB add p 1
+if eq l 16
+ret add cap 1
+end
+put b add off n uchar or shl h 4 l
+n = add n 1
+p = add p 2
+end
+put FP 0 p
+if eq n 0
+ret add cap 1
+end
+ret n
+end
+
+fn nextln to void
+p = get FP 0
+e = get FP 1
+while lt p e bound 999999
+if eq get FB p 10
+put FP 0 add p 1
+put FP 2 add get FP 2 1
+ret
+end
+p = add p 1
+end
+put FP 0 e
+end
+
+fn beq b edit uchar 4096 x ulong y ulong n ulong to bool
+v = uchar 0
+for i ulong n
+v = or v xor get b add x i get b add y i
+end
+ret eq v 0
+end
+
+fn mism kind uchar to void
+r = write 1 TMIS 0 len TMIS
+onum get FP 2
+r = write 1 TKIND 0 len TKIND
+ochr kind
+r = write 1 TNL 0 len TNL
+end
+
+fn bad to void
+put CT CBAD add get CT CBAD 1
+put CT CALL add get CT CALL 1
+mism 63
+end
+
+fn dok w edit ulong 1024 c edit uchar 104 b edit uchar 4096 s edit ulong 64 to void
+n1 = rhex b PBKEY 32
+n2 = rhex b 3600 65
+if or ne n1 32 ne n2 65
+bad
+ret
+end
+st = p2pub w b
+ok = and eq st 0 beq b PBPUB 3600 65
+tally CKP ok
+if not ok
+mism 75
+end
+end
+
+fn don w edit ulong 1024 c edit uchar 104 b edit uchar 4096 s edit ulong 64 to void
+n1 = rhex b PBKEY 32
+ml = rhex b PBMSG 1024
+n3 = rhex b 3700 32
+if or or ne n1 32 gt ml 1024 ne n3 32
+bad
+ret
+end
+st = p2sign w c b s ml
+p2st w PK b 3740
+ok = and eq st 0 beq b 3700 3740 32
+tally CNP ok
+if not ok
+mism 78
+end
+end
+
+fn dos w edit ulong 1024 c edit uchar 104 b edit uchar 4096 s edit ulong 64 to void
+n1 = rhex b PBKEY 32
+ml = rhex b PBMSG 1024
+n3 = rhex b 3500 64
+if or or ne n1 32 gt ml 1024 ne n3 64
+bad
+ret
+end
+t0 = monons
+st = p2sign w c b s ml
+t1 = monons
+tadd CTS ulong sub t1 t0
+ok = and eq st 0 beq b PBSIG 3500 64
+st = p2pub w b
+t0 = monons
+v = p2vrfy w c b s ml
+t1 = monons
+tadd CTV ulong sub t1 t0
+ok = and ok and eq st 0 eq v 1
+tally CSP ok
+if not ok
+mism 83
+end
+end
+
+fn dov w edit ulong 1024 c edit uchar 104 b edit uchar 4096 s edit ulong 64 to void
+n1 = rhex b PBPUB 65
+ml = rhex b PBMSG 1024
+n3 = rhex b PBSIG 64
+skipsp
+p = get FP 0
+if or or ne n1 65 gt ml 1024 ne n3 64
+bad
+ret
+end
+if ge p get FP 1
+bad
+ret
+end
+ex = hexv get FB p
+if gt ex 1
+bad
+ret
+end
+put FP 0 add p 1
+t0 = monons
+v = p2vrfy w c b s ml
+t1 = monons
+tadd CTW ulong sub t1 t0
+ok = eq v ex
+tally CVP ok
+if not ok
+mism 86
+end
+end
+
+note self tests: G on the curve; n G = identity; (n - 1) G = (Gx, p - Gy)
+fn selft w edit ulong 1024 to void
+p2frm w PX PGX PMP
+p2frm w PY add PGX 8 PMP
+tally CSELF p2oncv w
+p2cpy w 900 PMN
+p2smul w PP2 900 PGX
+tally CSELF p2isz w add PP2 16
+put w 900 sub get w 900 1
+p2smul w PP2 900 PGX
+p2aff w PX PY PP2
+p2frm w 910 PGX PMP
+p2frm w 920 add PGX 8 PMP
+p2add w 920 920 PY PMP
+tally CSELF and p2eqv w PX 910 p2isz w 920
+end
+
+fn report base ulong to void
+onum get CT base
+r = write 1 TSL 0 len TSL
+onum add get CT base get CT add base 1
+end
+
+fn treport base ulong to void
+n = get CT base
+onum n
+if gt n 0
+r = write 1 TMEAN 0 len TMEAN
+onum div div get CT add base 1 n 1000
+r = write 1 TMIN 0 len TMIN
+onum div get CT add base 2 1000
+r = write 1 TMAX 0 len TMAX
+onum div get CT add base 3 1000
+end
+r = write 1 TNL 0 len TNL
+end
+
+note read file argv a into FB; 0 ok, 1 unreadable or too large
+fn rdfile a ulong to ulong
+pl = argread a PATH 0 4096
+if le pl 0
+ret 1
+end
+fd = fopen PATH 0 ulong pl 0 0
+if lt fd 0
+ret 1
+end
+got = ulong 0
+while lt got 4194304 bound 100000
+k = read int fd FB got sub 4194304 got
+if le k 0
+break
+end
+got = add got ulong k
+end
+r = fclose int fd
+if or ge got 4194304 ne r 0
+ret 1
+end
+put FP 0 0
+put FP 1 got
+put FP 2 1
+put FP 3 ulong pl
+ret 0
+end
+
+note after a record only spaces may remain on its line
+fn trail to void
+skipsp
+p = get FP 0
+if lt p get FP 1
+if ne get FB p 10
+bad
+end
+end
+end
+
+fn dofile w edit ulong 1024 c edit uchar 104 b edit uchar 4096 s edit ulong 64 to void
+ch = uchar 0
+while lt get FP 0 get FP 1 bound 999999
+ch = get FB get FP 0
+if or eq ch 35 eq ch 10
+nextln
+continue
+end
+put FP 0 add get FP 0 1
+if eq ch 75
+dok w c b s
+else
+if eq ch 78
+don w c b s
+else
+if eq ch 83
+dos w c b s
+else
+if eq ch 86
+dov w c b s
+else
+bad
+end
+end
+end
+end
+trail
+nextln
+end
+end
+
+fn main to int
+w = new ulong 1024 0
+c = new uchar 104 0
+b = new uchar 4096 0
+s = new ulong 64 0
+p2init w
+selft w
+r = write 1 TSELF 0 len TSELF
+onum get CT CSELF
+r = write 1 TPASS 0 len TPASS
+onum get CT add CSELF 1
+r = write 1 TFAIL 0 len TFAIL
+put CT CALL add get CT CALL get CT add CSELF 1
+na = ulong argcnt
+for a ulong sub na 1
+if ne rdfile add a 1 0
+r = write 1 TRD 0 len TRD
+r = write 1 PATH 0 get FP 3
+r = write 1 TNL 0 len TNL
+ret 2
+end
+for z ulong 10
+put CT z 0
+end
+dofile w c b s
+r = write 1 TFILE 0 len TFILE
+r = write 1 PATH 0 get FP 3
+r = write 1 TK 0 len TK
+report CKP
+r = write 1 TN 0 len TN
+report CNP
+r = write 1 TS 0 len TS
+report CSP
+r = write 1 TV 0 len TV
+report CVP
+r = write 1 TBAD 0 len TBAD
+onum get CT CBAD
+r = write 1 TNL 0 len TNL
+end
+r = write 1 TTS 0 len TTS
+treport CTS
+r = write 1 TTV 0 len TTV
+treport CTV
+r = write 1 TTW 0 len TTW
+treport CTW
+if eq get CT CALL 0
+r = write 1 TOK 0 len TOK
+ret 0
+end
+r = write 1 TNO 0 len TNO
+ret 1
+end

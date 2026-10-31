@@ -1,0 +1,26 @@
+report=reuse1-turing version=1 profile=Turing-profile-REUSE-v1.0
+profile_sha256=8558b4070128a86e1df6538f996b522c0db40ca8fc284f165a88c9d6372264c4 dataset_sha256=1ce74aa2f9057af27fb66513d11ad7b5af0326093526198c1b69c10cd6f78f04 n=9024 k=16 tsy1_trailer=fb95ccafea97223b54cb093c309b4dfe736a91648e51b67efc4ddeee3d9313b2
+model name=B model_sha256=ebd1d64d37e8336d67d58085f17dec8bfca2c3295e473d5be960883839610204 tps1_trailer=520c97721a5cf32c84f7e9ddef41e93acb36e3a56f6e7032f608ba5178eee635
+model name=M1 model_sha256=cf703c2f76d8e4e8ebe618d0114a5a196b092b1be9f1594fa8d5d697e70f47b4 tps1_trailer=201fca0d1bf5957d48dddd3f41acbf4de20b27c92c2cb3ab3407b0c3c7a57969 generation=1 k_templates=16 calibration=yes gen_om_bytes=111472 base_om_bytes=103401
+model name=M2 model_sha256=5614aa684c5ca4e8bce9fc20bbec3afc03730a20069e4b9cef4d9a670c81901d tps1_trailer=1d4e56979abe9b5065daba813be1220fe1d8e7037e40961057518237872eb7e2 generation=1 k_templates=16 calibration=no gen_om_bytes=111139 base_om_bytes=103401
+data ideal_ub=2977920 ub_per_symbol=330
+coded model=B coder=rans bytes=60 overhead_ub=477022080 h1=PASS
+coded model=B coder=range bytes=60 overhead_ub=477022080 h1=PASS
+coded model=M1 coder=rans bytes=60 overhead_ub=477022080 h1=PASS
+coded model=M1 coder=range bytes=60 overhead_ub=477022080 h1=PASS
+coded model=M2 coder=rans bytes=60 overhead_ub=477022080 h1=PASS
+coded model=M2 coder=range bytes=60 overhead_ub=477022080 h1=PASS
+h1_all=PASS
+charge arm=method p1_bits=8192 p2_bits=80952
+turing arm=method t_ideal_p1_bits=-8192 t_real_p1_bits_rans=-8192 t_real_p1_bits_range=-8192 t_ideal_p2_bits=-80952 t_real_p2_bits_rans=-80952 t_real_p2_bits_range=-80952
+charge arm=delta p1_bits=8192 p2_bits=80952
+turing arm=delta t_ideal_p1_bits=-8192 t_real_p1_bits_rans=-8192 t_real_p1_bits_range=-8192 t_ideal_p2_bits=-80952 t_real_p2_bits_rans=-80952 t_real_p2_bits_range=-80952
+charge arm=select p1_bits=20544 p2_bits=80952
+turing arm=select t_ideal_p1_bits=-20544 t_real_p1_bits_rans=-20544 t_real_p1_bits_range=-20544 t_ideal_p2_bits=-80952 t_real_p2_bits_rans=-80952 t_real_p2_bits_range=-80952
+charge arm=deltap p1_bits=8192 p2_bits=78288
+turing arm=deltap t_ideal_p1_bits=-8192 t_real_p1_bits_rans=-8192 t_real_p1_bits_range=-8192 t_ideal_p2_bits=-78288 t_real_p2_bits_rans=-78288 t_real_p2_bits_range=-78288
+charge arm=idelta p1_bits=0 p2_bits=0
+turing arm=idelta t_ideal_p1_bits=0 t_real_p1_bits_rans=0 t_real_p1_bits_range=0 t_ideal_p2_bits=0 t_real_p2_bits_rans=0 t_real_p2_bits_range=0
+charge arm=cache p1_bits=0 p2_bits=0
+turing arm=cache t_ideal_p1_bits=0 t_real_p1_bits_rans=0 t_real_p1_bits_range=0 t_ideal_p2_bits=0 t_real_p2_bits_rans=0 t_real_p2_bits_range=0
+delta_t=NOT_APPLICABLE reason=one_library_generation_per_arm verdict=none

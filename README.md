@@ -1,12 +1,12 @@
-# Spark RSI: Recursive Self-Improvement Engine
+# Spark RSI: patch-candidate generator and judge
 
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](LICENSE)
 
-Spark RSI is a native Rust engine that tries to improve a code repository on its own. It observes the target, asks a model for small improvement proposals, tests each one in a sandbox copy, and hands a human a review branch. It never commits to the target's default branch. The model is any OpenAI-style chat completions endpoint (the local model seat), given with `--model-url` and `--model-id`. Some defaults are specific to the DGX Spark: the model endpoint `http://127.0.0.1:18006/v1`, the model name `atlas-lightning-omni` and the Cortex memory service `http://127.0.0.1:18080` (defaults in `src/main.rs`).
+Spark RSI is a native Rust patch-candidate generator and judge. It observes a target repository, asks a model for small change proposals, tests each one in a sandbox copy, judges the result, and hands a human a review branch. It never commits to the target's default branch and promotes nothing on its own. "RSI" (recursive self-improvement) is the project's research goal, not a demonstrated result: the two recorded cycles qualify the canary mechanism only, not self-improvement (see [evidence/rsi-cut-2026-10-12/REPORT.md](evidence/rsi-cut-2026-10-12/REPORT.md)). The model is any OpenAI-style chat completions endpoint (the local model seat), given with `--model-url` and `--model-id`. Some defaults are specific to the DGX Spark: the model endpoint `http://127.0.0.1:18006/v1`, the model name `atlas-lightning-omni` and the Cortex memory service `http://127.0.0.1:18080` (defaults in `src/main.rs`).
 
 ## Where it fits in AIEN
 
-Spark RSI is an attachment of [AienOS](https://github.com/aien-dev/aienix), the core tree of AIEN. It lives in its own repository and plugs into the core at a boundary. Related repositories:
+Spark RSI is a repository in [Sovereign Intelligence (SI)](https://github.com/aien-dev/sovereign-intelligence). SI is the whole system, and that repository is the integration, release and install center. This code stays in its own repository and meets the rest of SI at a boundary. The SI index lists it in the section "The engine: Sovereign Core" ([ADR 0045](https://github.com/aien-dev/aien-architecture-mv/blob/f13c6238e585b284a87e7f5b227f7f8a1bc6bef7/docs/adr/0045-aienix-retired-sovereign-intelligence-center.md)). Related repositories:
 
 - [aien-dev/aien-protocols-mv](https://github.com/aien-dev/aien-protocols-mv): the protocol crates this repository builds against (`aien-protocol-types`, `aien-evaluation-protocol`, `aien-probe`).
 - [aien-dev/aien-architecture-mv](https://github.com/aien-dev/aien-architecture-mv): the AIEN plans and decisions, including the release ruling quoted below.
@@ -125,3 +125,15 @@ The saved engine settings (`mode`, `api_base_url`, `model_id`) are shown by `spa
 Licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). See [LICENSE](LICENSE). Project values live in the nonbinding [COVENANT.md](COVENANT.md), which grants and restricts no legal rights.
 
 All downstream distributions, derivative works and commercial deployments are governed only by the terms of [LICENSE](LICENSE). [CONSTITUTION.md](CONSTITUTION.md) is the internal architecture charter and development doctrine for upstream engineering.
+
+## Human-Directed Agentic Engineering
+
+Development follows Human-Directed Agentic Engineering (HDAE): humans define goals,
+architecture, constraints, acceptance criteria, and stopping points; agents implement,
+execute checks, diagnose failures, and revise within those boundaries. Human review
+retains responsibility for claims, acceptance, and release decisions. This describes
+how the project is developed, not a change to the engine's runtime proposal loop.
+
+For the documented method and a systems-software case study, see Gregory M. Kurtzer,
+[*Ginux: Building an Independent Kernel That Runs Linux Userspace through
+Human-Directed Agentic Engineering* (2026)](https://doi.org/10.5281/zenodo.23682548).

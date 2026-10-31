@@ -1,0 +1,141 @@
+note units: sha256 ref judge
+note needs: eval arm drive
+note SPDX-License-Identifier: Apache-2.0
+note The fake has no guard/admission/identity checks. Controls MUST report its failures, not PASS it.
+text JOW "controls"
+fn josplit to bool
+r = jdmkdir 25 448
+jdctsyn 16 1
+nr = get JDK 0
+jdgpath 0 25 0 JWREQ
+x = jdstw 0 JMRQ get JDK 1 705
+jdgpath 0 25 0 JWEXP
+x = jdstw 0 JMEX mul nr 8 705
+for i ulong 17
+put JDM add JMIX i 0
+end
+put JDM JMIX 3544386032354079058
+put JDM add JMIX 1 1
+put JDM add JMIX 2 3
+put JDM add JMIX 3 1
+put JDM add JMIX 4 1
+put JDM add JMIX 5 nr
+put JDM add JMIX 6 10
+put JDM add JMIX 16 nr
+jdspath 0 25 JWINDEX 5
+x = jdstw 0 JMIX 17 705
+for i ulong 16
+put JDM add JMSE i 0
+end
+put JDM add JMSE 2 1
+put JDM add JMSE 3 2
+put JDM add JMSE 6 4
+put JDM add JMSE 12 nr
+put JDM add JMSE 13 10
+jdspath 0 25 JWSESS 8
+x = jdstw 0 JMSE 16 705
+ret eq x 0
+end
+fn main to int
+if ne argcnt 5
+ret 2
+end
+b = jdsarg 19 1
+b = jdsarg 21 2
+b = jdsarg 5 3
+b = jdsarg 18 4
+jdscp 25 19
+jdsc 25 47
+jdsc 25 100
+if not josplit
+ret 1
+end
+jdscp 6 19
+jdsc 6 47
+jdsc 6 97
+x = jdwrf 6 0 705
+jdscp 22 19
+jdsc 22 47
+jdsc 22 99
+jdpk0
+jdpkr 21
+jdsclr 0
+for i ulong len JOW
+jdsc 0 get JOW i
+end
+jdpkr 0
+jdpkr 25
+jdpkr 5
+jdpkr 18
+jdpkr 19
+jdpkr 5
+jdpkr 6
+jdpkr 5
+jdpkr 5
+jdpkr 22
+jdsdsh 0
+jdpkr 0
+jdpkfin
+pid = fork
+if lt pid 0
+ret 3
+end
+if eq pid 0
+e = execprog JDPK 0 get JDPKN 0
+exit 127
+end
+w = waitpid int pid JDWS 0 4 0
+if ne jdwstat 4
+ret 4
+end
+jdspath 0 22 JWCLOG 12
+n = jdldw 0 JDLOGW 4096
+if or le n 0 ne rem n 8 0
+ret 5
+end
+for i ulong 15
+put JDK i 0
+end
+nr = div ulong n 8
+for i ulong nr
+e = jocheck add JDLOGW mul i 8
+if ne e 0
+ret e
+end
+end
+for i ulong 14
+if eq get JDK add i 1 0
+ret 12
+end
+end
+ret 0
+end
+fn jocheck b0 ulong to int
+id = get JDM b0
+if or lt id 1 gt id 14
+ret 6
+end
+put JDK id add get JDK id 1
+outcome = get JDM add b0 2
+if gt outcome 3
+ret 7
+end
+for k ulong 4
+if ne get JDM add add b0 4 k 0
+ret 8
+end
+end
+sub0 = eq get JDM add b0 1 0
+if and eq id 1 sub0
+if ne outcome 0
+ret 9
+end
+end
+if and eq id 7 ne outcome 1
+ret 10
+end
+if and eq id 14 ne outcome 2
+ret 11
+end
+ret 0
+end
